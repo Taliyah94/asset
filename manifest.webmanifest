@@ -1,0 +1,23 @@
+{
+  "name": "个人资产看板",
+  "short_name": "资产看板",
+  "description": "个人基金 / 美股 / 现金资产看板",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#00C805",
+  "theme_color": "#00C805",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
