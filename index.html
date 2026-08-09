@@ -102,7 +102,7 @@ window.dispatchEvent(new Event('chartReady'));
   .cal-total-pill{display:inline-block;background:var(--up,rgba(226,59,59,.9));color:#fff;padding:10px 28px;border-radius:10px;text-align:center;margin:0 auto 16px;min-width:180px;}
   .cal-total-pill.neg{background:var(--down,#16a34a);}
   .cal-total-pill .cal-total-label{font-size:13px;opacity:.9;}
-  .cal-total-pill .cal-total-val{font-size:18px;font-weight:700;margin-top:2px;}
+  .cal-total-pill .cal-total-val{font-size:16px;font-weight:700;margin-top:2px;}
   /* 星期表头 */
   .cal-wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-bottom:3px;font-size:11px;color:var(--muted);text-align:center;padding:0 2px;}
   .cal-wk span{padding:4px 0;font-weight:500;}
@@ -122,13 +122,13 @@ window.dispatchEvent(new Event('chartReady'));
   .cal-month-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-width:560px;margin:0 auto;}
   .cal-mcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 10px;text-align:center;cursor:default;container-type:inline-size;}
   .cal-mcard .cal-mname{font-size:clamp(13px,14cqw,17px);font-weight:600;color:inherit;margin-bottom:4px;opacity:.9;}
-  .cal-mcard .cal-mval{font-size:clamp(14px,16cqw,20px);font-weight:700;white-space:nowrap;}
+  .cal-mcard .cal-mval{font-size:clamp(12px,14cqw,17px);font-weight:700;white-space:nowrap;}
   /* 年卡片网格 */
   .cal-year-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:600px;margin:0 auto;}
   .cal-ycard{background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:18px 10px;text-align:center;cursor:default;container-type:inline-size;}
   .cal-ycard.neg{background:#f0fdf4;border:#bbf7d0;}
   .cal-ycard .cal-yname{font-size:clamp(13px,14cqw,17px);font-weight:600;color:var(--text);margin-bottom:6px;}
-  .cal-ycard .cal-yval{font-size:clamp(15px,17cqw,21px);font-weight:700;}
+  .cal-ycard .cal-yval{font-size:clamp(13px,15cqw,18px);font-weight:700;}
   .cal-years-wrap{display:flex;flex-direction:column;gap:20px;}
   .cal-year-block{}
   .cal-year-h{font-size:13px;font-weight:700;color:var(--brand);margin-bottom:8px;}
@@ -1143,7 +1143,6 @@ if __name__ == "__main__":
   <p class="foot">
     说明：基金净值来自天天基金（东方财富），美股实时报价来自腾讯财经（qt.gtimg.cn），美元/人民币汇率来自 open.er-api.com（免 key、浏览器可直接获取）。
     美股与美元现金均按实时汇率折算为人民币统计；历史曲线段采用同一汇率，属近似值。
-    收益率 = 浮动盈亏 ÷ 成本（基金/美股分别统计）。所有数据仅保存在本机浏览器（localStorage），不会上传。仅供参考，非投资建议。
   </p>
 </div>
 
@@ -1425,7 +1424,7 @@ function fmtAmtK(n){
   if(a>=100000){
     const neg = n<0;
     const s = (a/1000).toFixed(1).replace(/\.0$/, '');
-    return (neg?'-':'+')+s+'k';
+    return (neg?'-':'+')+s+'K';
   }
   return fmtAmtPlain(n);
 }
@@ -1436,6 +1435,15 @@ function fmtCalPct(ratio){
   let s;
   if(a>100) s=Math.round(pct).toString();
   else if(a>=10) s=pct.toFixed(1);
+  else s=pct.toFixed(2);
+  return s+'%';
+}
+/* 日历百分比（月/年视图）：>100% 整数；≤100% 统一两位小数（含 10%~100% 区间），字体缩小后更整齐 */
+function fmtCalPct2(ratio){
+  const pct=(ratio||0)*100;
+  const a=Math.abs(pct);
+  let s;
+  if(a>100) s=Math.round(pct).toString();
   else s=pct.toFixed(2);
   return s+'%';
 }
@@ -3187,9 +3195,12 @@ function getMonthDays(y, m){
   for(let t=first;t<=end;t+=86400000){
     days.push({ts:t,label:ymd(t),total:assetAt(t)});
   }
-  for(let i=1;i<days.length;i++){
-    const prev=days[i-1].total, cur=days[i].total;
-    days[i].prev=prev;
+  /* 每日涨跌 = 当天总资产 - 前一天总资产；1 号以前一天（上月末）为基准 */
+  const prevDayTotal = assetAt(first - 86400000);
+  for(let i=0;i<days.length;i++){
+    const prev = (i===0) ? prevDayTotal : days[i-1].total;
+    const cur = days[i].total;
+    days[i].prev = prev;
     if(prev>0){ days[i].chg=cur-prev; days[i].chgPct=(cur-prev)/prev; }
   }
   return days;
@@ -3319,7 +3330,7 @@ function renderCalMonth(box, useAmt){
     const vEl=document.createElement('div'); vEl.className='cal-mval';
     if(o.chgPct==null){ vEl.textContent='—'; vEl.style.opacity='.6'; }
     else {
-      vEl.textContent = useAmt ? fmtAmtK(o.chg) : fmtCalPct(o.chgPct);
+      vEl.textContent = useAmt ? fmtAmtPlain(o.chg) : fmtCalPct2(o.chgPct);
     }
     card.appendChild(vEl);
     card.title=o.m+'月\n总资产变化：'+((o.chg>=0?'+':'')+fmt0(o.chg))+(o.chgPct!=null?(' ('+(o.chgPct>=0?'+':'')+(o.chgPct*100).toFixed(2)+'%)'):'');
@@ -3356,7 +3367,7 @@ function renderCalYear(box, useAmt){
   const pill=document.createElement('div'); pill.className='cal-total-pill'+(totalPnl<0?' neg':'');
   const pillLabel=document.createElement('div'); pillLabel.className='cal-total-label'; pillLabel.textContent='投资以来';
   const pillVal=document.createElement('div'); pillVal.className='cal-total-val';
-  pillVal.textContent = useAmt ? fmtAmtK(totalPnl) : fmtCalPct(totalRetAll);
+  pillVal.textContent = useAmt ? fmtAmtPlain(totalPnl) : fmtCalPct2(totalRetAll);
   pill.appendChild(pillLabel); pill.appendChild(pillVal);
   box.appendChild(pill);
 
@@ -3381,7 +3392,7 @@ function renderCalYear(box, useAmt){
     name.textContent=(y===curY)?'今年':y+'年'; card.appendChild(name);
     const vEl=document.createElement('div'); vEl.className='cal-yval';
     vEl.style.color = yChg>=0 ? '#dc2626' : '#16a34a';
-    vEl.textContent = useAmt ? fmtAmtK(yChg) : fmtCalPct(yPct);
+    vEl.textContent = useAmt ? fmtAmtPlain(yChg) : fmtCalPct2(yPct);
     card.appendChild(vEl);
     card.title=y+'年\n起始资产：'+fmt0(startAsset)+'\n年末资产：'+fmt0(endAsset)+'\n年度收益：'+(yChg>=0?'+':'')+fmt0(yChg)+(yPct!=null?(' ('+(yPct>=0?'+':'')+(yPct*100).toFixed(2)+'%)'):'');
     grid.appendChild(card);
@@ -3468,7 +3479,9 @@ function drawChart(){
 function renderSeriesDebug(s){
   const tb=$('seriesDebugBody'); if(!tb) return;
   const n=s.labels.length; if(!n){ tb.innerHTML=''; return; }
-  const start=Math.max(0, n-45);
+  // 显示所选区间内的全部明细条目，避免「最近45条」把更早月份的1号截断而看不到；
+  // 仅「全部」视图为防止过长限制为最近1500条（≈6年交易日，足以看到各月1号）
+  const start = (rangeDays>0) ? 0 : Math.max(0, n-1500);
   let html='';
   for(let i=n-1;i>=start;i--){
     const chg = (i>0 && s.total[i-1])? (s.total[i]-s.total[i-1])/s.total[i-1]*100 : null;
@@ -3521,11 +3534,15 @@ async function refresh(){
     if(q&&q.price!=null){
       u.price=q.price; u.prevClose=q.prevClose; u._quoteTime=q.time||''; if(!u.name) u.name=q.name||''; u._ok=true; okU++;
       // 合并优先级：新浪完整历史(基底) < 手动粘贴 histText(可覆盖修正) < 今日实时价
+      // 仅在周一~周五注入实时/昨收价，避免周末产生虚假数据点导致锯齿
       const map=new Map();
       (usHist[u.symbol]||[]).forEach(h=>{ if(h&&h.t!=null&&h.price>0) map.set(h.t,h.price); });
       (u._hist||[]).forEach(h=>{ if(h&&h.t!=null&&h.price>0) map.set(h.t,h.price); });
-      if(q.prevClose>0 && !map.has(_yTs)) map.set(_yTs,q.prevClose);
-      if(q.price>0) map.set(_tTs,q.price);
+      const _yd=new Date(_yTs), _td=new Date(_tTs);
+      const _yIsWeekday=_yd.getDay()!==0&&_yd.getDay()!==6;
+      const _tIsWeekday=_td.getDay()!==0&&_td.getDay()!==6;
+      if(q.prevClose>0 && !map.has(_yTs) && _yIsWeekday) map.set(_yTs,q.prevClose);
+      if(q.price>0 && _tIsWeekday) map.set(_tTs,q.price);
       u._hist=[...map.entries()].map(([t,price])=>({t,price})).sort((a,b)=>a.t-b.t);
     } else { u._ok=false; failU++; }
   });
@@ -4378,10 +4395,10 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 }
 /* 分组之间只保留一条分隔线，风格与别的栏一致（#f3f3f3） */
 #pageSettings #cardBasicData .sc-head{ border-top:1px solid #f3f3f3; }
-/* 折叠组标题前的图标，与区内其他栏（.li-ic）样式统一 */
-#pageSettings .setting-card > .setting-card .sc-head .sc-hd-t{ display:inline-flex; align-items:center; }
+/* 折叠组标题前的图标，与区内其他栏（.li-ic）样式统一；图标-文字间距与标准 .setting-row .label 一致(gap:12px) */
+#pageSettings .setting-card > .setting-card .sc-head .sc-hd-t{ display:inline-flex; align-items:center; gap:12px; }
 #pageSettings .setting-card > .setting-card .sc-head .li-ic{
-  width:22px; height:22px; opacity:.75; display:inline-flex; align-items:center; justify-content:center; font-size:18px; margin-right:3px;
+  width:22px; height:22px; opacity:.75; display:inline-flex; align-items:center; justify-content:center; font-size:18px;
 }
 #pageSettings .setting-card > .setting-card > .setting-row{
   padding-left:0; padding-right:0;
