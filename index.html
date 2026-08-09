@@ -615,6 +615,10 @@ window.dispatchEvent(new Event('chartReady'));
         .alloc-wrap{flex-direction:column;align-items:center;gap:14px;}
         .alloc-chart{max-width:340px;width:100%;margin:0 auto;}
         .alloc-legend{align-self:stretch;width:100%;}
+        /* 每日明细表：固定列宽，手机上 6 列不溢出、不裁切右边 */
+        .debug{table-layout:fixed;font-size:10px;width:100%;}
+        .debug th,.debug td{padding:5px 3px;white-space:nowrap;}
+        .debug th:first-child,.debug td:first-child{width:21%;}
       }
     </style>
     <h2>个人持仓分布</h2>
