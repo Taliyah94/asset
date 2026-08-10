@@ -2,9 +2,16 @@ name: IBKR 每日资产同步
 
 on:
   schedule:
-    # 北京时间 每天 04:30 = UTC 前一天 20:30
-    - cron: "30 20 * * *"
-  workflow_dispatch: {}   # 允许在 Actions 页面手动触发
+    # 北京时间 10:00~13:00（UTC 02:00~05:00）每 30 分钟一个独立 cron：
+    # 02:00 / 02:30 / 03:00 / 03:30 / 04:00 / 04:30 / 05:00 UTC
+    - cron: "0,30 2-4 * * *"
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "强制重新同步（忽略今日已同步标记）"
+        type: boolean
+        default: false
 
 permissions:
   contents: write        # 允许把更新后的 Asset_parsed.json 提交回仓库
@@ -16,7 +23,8 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 单次运行很轻量（失败即退出，无内部长睡）；留足 Flex 瞬时错误重试余量
+    timeout-minutes: 30
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
@@ -35,7 +43,8 @@ jobs:
           IBKR_QUERY_ID_1DAY: ${{ secrets.IBKR_QUERY_ID_1DAY }}
           IBKR_QUERY_ID_ASSET: ${{ secrets.IBKR_QUERY_ID_ASSET }}
           JSON_PATH: ${{ github.workspace }}/Asset_parsed.json
-        run: python parse_ibkr_asset1day.py
+          FORCE_ARG: ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+        run: python parse_ibkr_asset1day.py $FORCE_ARG
 
       - name: 提交并推送更新后的 JSON
         run: |
