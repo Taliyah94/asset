@@ -62,6 +62,7 @@ import urllib.request
 import urllib.error
 import argparse
 import datetime
+import calendar
 
 # ----------------------------- 配置 -----------------------------
 IBKR_SEND_URL = os.environ.get(
@@ -226,6 +227,77 @@ def parse_holdings(root):
     return holdings, latest
 
 
+# ----------------------------- 交易明细 -----------------------------
+def parse_trades(root):
+    """
+    从 Flex 报表解析全部 <Trade>，返回标准化交易明细列表。
+    字段：date(YYYY-MM-DD) / symbol / underlying / cat / buySell /
+          quantity(原始带符号) / price / realized(fifoPnlRealized) / tradeId
+    仅做基础清洗，时间窗口裁剪（近一月）与去重交给 merge_trades。
+    """
+    out = []
+    for t in root.findall(".//Trade"):
+        td = ymd(t.get("tradeDate") or "")
+        if not td:
+            continue
+        sym = (t.get("symbol") or "").strip()
+        underlying = (t.get("underlyingSymbol") or "").strip() or sym
+        cat = (t.get("assetCategory") or "").strip()
+        bs = (t.get("buySell") or "").strip().upper()
+        qty = fnum(t.get("quantity"))
+        price = fnum(t.get("tradePrice"))
+        realized = fnum(t.get("fifoPnlRealized")) or 0.0
+        tid = t.get("tradeID") or None
+        out.append({
+            "date": td,
+            "symbol": sym,
+            "underlying": underlying,
+            "cat": cat,
+            "buySell": bs,
+            "quantity": qty,
+            "price": price,
+            "realized": round(realized, 2),
+            "tradeId": tid,
+        })
+    return out
+
+
+def one_month_ago(ref):
+    """ref: 'YYYY-MM-DD' -> 该日期往前推 1 个月的 'YYYY-MM-DD'（自动处理跨年/月末）。"""
+    y, m, d = map(int, ref.split("-"))
+    m -= 1
+    if m <= 0:
+        m += 12
+        y -= 1
+    last = calendar.monthrange(y, m)[1]
+    d = min(d, last)
+    return f"{y:04d}-{m:02d}-{d:02d}"
+
+
+def merge_trades(existing, new, cutoff):
+    """
+    合并交易明细：按 tradeId 去重（无 tradeId 则用整行指纹），丢弃 cutoff 之前的记录。
+    existing/new: list[dict]。返回按日期倒序的 list。
+    """
+    by_key = {}
+    order = []
+
+    def add(tr):
+        key = tr.get("tradeId") or json.dumps(tr, sort_keys=True, ensure_ascii=False)
+        if key in by_key:
+            return
+        by_key[key] = tr
+        order.append(tr)
+
+    for tr in (existing or []):
+        add(tr)
+    for tr in (new or []):
+        add(tr)
+    kept = [tr for tr in order if (tr.get("date") or "") >= cutoff]
+    kept.sort(key=lambda x: (x.get("date") or ""), reverse=True)
+    return kept
+
+
 # ----------------------------- 合并 -----------------------------
 def merge_daily(existing, new_map):
     """
@@ -298,13 +370,15 @@ def do_parse_and_write(xml_txt, result, json_path):
     result["holdings"] = holdings
     print(f"[holdings] 报表日 {latest}，当前持仓 {len(holdings)} 项")
 
-    # ---- 可选：用 asset(365day) 报表刷新 forexTrades / efts ----
+    # ---- 可选：用 asset(365day) 报表刷新 forexTrades / efts / 交易明细 ----
+    asset_trades = []
     q_asset = os.environ.get("IBKR_QUERY_ID_ASSET")
     if q_asset:
         try:
             print("[flex] 下载 asset(365day) 报表以刷新换汇/转账 ...")
             xml_a = request_flex_xml(os.environ.get("IBKR_TOKEN"), q_asset)
             ra = ET.fromstring(xml_a)
+            asset_trades = parse_trades(ra)     # 365 全量交易（含近一月）
             # 换汇（仅 USD.CNH）
             forex = []
             for t in ra.findall(".//StmtFunds/StatementOfFundsLine"):
@@ -334,18 +408,29 @@ def do_parse_and_write(xml_txt, result, json_path):
         except Exception as e:
             print(f"[warn] asset 报表刷新失败，沿用旧值: {e}")
 
+    # ---- 交易明细：合并「1day 当日」与「365 全量」，去重后裁剪到近一月 ----
+    new_trades = parse_trades(root) + asset_trades
+    today_bj = beijing_now().strftime("%Y-%m-%d")
+    ref = max([t["date"] for t in new_trades] + [today_bj]) if new_trades else today_bj
+    cutoff = one_month_ago(ref)
+    merged_trades = merge_trades(result.get("trades") or [], new_trades, cutoff)
+    result["trades"] = merged_trades
+    print(f"[trades] 近一月交易 {len(merged_trades)} 条（cutoff>={cutoff}）；"
+          f"本次报表提供 {len(new_trades)} 条")
+
     # ---- 写回 ----
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"[done] 已写入 {json_path}")
     print(f"       账户: {result['account'].get('accountId')}  "
           f"总净值天数: {len(total)}  现金天数: {len(cash)}  "
-          f"持仓: {len(holdings)}")
+          f"持仓: {len(holdings)}  交易: {len(result.get('trades') or [])}")
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--xml", help="本地 XML 路径（调试用，跳过联网下载与跳过判断）")
+    ap.add_argument("--backfill", help="仅回填交易明细：从指定 XML 解析近一月交易写入 JSON 的 trades 字段（不动持仓/现金）")
     ap.add_argument("--json", help="输出 JSON 路径（默认脚本同目录 Asset_parsed.json）")
     ap.add_argument("--force", action="store_true",
                     help="忽略「今日已同步」标记，强制重新拉取（手动补跑用）")
@@ -373,6 +458,25 @@ def main():
     if args.xml:
         print(f"[xml] 使用本地文件: {args.xml}")
         do_parse_and_write(open(args.xml, encoding="utf-8").read(), result, json_path)
+        return
+
+    # ---- 仅回填交易明细（不动持仓/现金）----
+    if args.backfill:
+        print(f"[backfill] 从 {args.backfill} 提取近一月交易明细")
+        try:
+            bxml = ET.parse(args.backfill).getroot()
+        except Exception as e:
+            sys.exit(f"ERROR: 解析 {args.backfill} 失败: {e}")
+        new_trades = parse_trades(bxml)
+        ref = max([t["date"] for t in new_trades],
+                  default=beijing_now().strftime("%Y-%m-%d"))
+        cutoff = one_month_ago(ref)
+        merged = merge_trades(result.get("trades") or [], new_trades, cutoff)
+        result["trades"] = merged
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+        print(f"[backfill] 近一月交易 {len(merged)} 条（cutoff>={cutoff}）；"
+              f"已写入 {json_path}")
         return
 
     token = os.environ.get("IBKR_TOKEN")
