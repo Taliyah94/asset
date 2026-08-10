@@ -86,6 +86,18 @@ window.dispatchEvent(new Event('chartReady'));
   .range{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
   .range button{padding:5px 12px;font-size:12px;border-radius:20px;}
   .range button.active{background:var(--brand-soft);border-color:var(--brand);color:var(--brand);}
+  /* 每日明细 / 盈透明细 独立筛选器（按类复用，两个筛选器共用） */
+  .dt-filter{display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap;}
+  .dt-ymd{width:46px;padding:4px 4px;font-size:12px;text-align:center;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--text);}
+  .dt-year{width:66px;}
+  .dt-ymd:focus{outline:none;border-color:var(--brand);}
+  .dt-to{margin:0 4px;color:var(--muted);}
+  .dt-clear{border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;}
+  @media (max-width:560px){
+    .dt-ymd{width:38px;font-size:11px;}
+    .dt-year{width:54px;}
+    #detailRangeBtns,#fxDetailRangeBtns{gap:4px;margin-bottom:8px;}
+  }
   .chart-box{position:relative;height:360px;width:100%;max-width:100%;overflow:hidden;}
   .view-toggle{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
   .view-toggle button{padding:5px 12px;font-size:12px;border-radius:20px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;}
@@ -171,6 +183,16 @@ window.dispatchEvent(new Event('chartReady'));
   .debug th{color:#8a94a6;font-weight:600;}
   .debug .num{font-variant-numeric:tabular-nums;}
   .debug tr.last td{background:rgba(31,39,51,.05);}
+  /* 每日明细分页器 */
+  .detail-pager{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;}
+  .detail-pager .dp-info{font-size:12px;color:var(--muted);}
+  .detail-pager .dp-btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;}
+  .detail-pager .dp-btn:hover:not(:disabled){border-color:var(--brand);color:var(--brand);}
+  .detail-pager .dp-btn:disabled{opacity:.4;cursor:default;}
+  @media (max-width:560px){
+    .detail-pager{gap:8px;}
+    .detail-pager .dp-btn{padding:5px 10px;font-size:12px;}
+  }
   .detail .dtl{display:flex;flex-wrap:wrap;gap:8px 22px;padding:11px 14px;font-size:12px;color:var(--muted);}
   .detail .dtl b{display:inline-block;margin-right:7px;color:var(--text);font-weight:600;}
   .detail .dtl span{white-space:nowrap;}
@@ -366,174 +388,7 @@ window.dispatchEvent(new Event('chartReady'));
 </style>
 
 
-<link rel="stylesheet" href="chrome-extension://apiogbndjcdfccgecgbaljjlhdjpkbho/dist/contentScripts/style.css"><style type="text/css">.qa-sdk-wrapper {
-  position: fixed;
-  width: 400px;
-  right: -600px;
-  max-height: 530px;
-  overflow: hidden;
-  border-radius: 4px;
-  box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.1);
-  transition: all 0.5s ease-in-out;
-  background: #fff;
-}
-
-.qa-sdk-close-btn {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  position: absolute;
-  top: 16px;
-  right: 16px;
-}
-
-.qa-sdk-close-btn:hover {
-  border-radius: 50%;
-  background-color: #d5d9df;
-}
-
-#qa-sdk-iframe {
-  width: 400px;
-}
-
-@media (min-width: 1024px) and (max-width: 1366px) {
-  .qa-sdk-wrapper{
-    width: 356px;
-  }
-  #qa-sdk-iframe {
-    width: 356px;
-  }
-}
-</style><style id="ai-assist-webType-style">
-    .ai-assist-highlight {
-      background: yellow;
-    }
-    @media print {
-      #ai-assist-root-bangs,
-      #ai-assist-root-bilibili,
-      #ai-assist-root-new {
-        display: none !important;
-      }
-    }
-  </style><style type="text/css">.qa-sdk-wrapper {
-  position: fixed;
-  width: 400px;
-  right: -600px;
-  max-height: 530px;
-  overflow: hidden;
-  border-radius: 4px;
-  box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.1);
-  transition: all 0.5s ease-in-out;
-  background: #fff;
-}
-
-.qa-sdk-close-btn {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  position: absolute;
-  top: 16px;
-  right: 16px;
-}
-
-.qa-sdk-close-btn:hover {
-  border-radius: 50%;
-  background-color: #d5d9df;
-}
-
-#qa-sdk-iframe {
-  width: 400px;
-}
-
-@media (min-width: 1024px) and (max-width: 1366px) {
-  .qa-sdk-wrapper{
-    width: 356px;
-  }
-  #qa-sdk-iframe {
-    width: 356px;
-  }
-}
-</style><style type="text/css">.qa-sdk-wrapper {
-  position: fixed;
-  width: 400px;
-  right: -600px;
-  max-height: 530px;
-  overflow: hidden;
-  border-radius: 4px;
-  box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.1);
-  transition: all 0.5s ease-in-out;
-  background: #fff;
-}
-
-.qa-sdk-close-btn {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  position: absolute;
-  top: 16px;
-  right: 16px;
-}
-
-.qa-sdk-close-btn:hover {
-  border-radius: 50%;
-  background-color: #d5d9df;
-}
-
-#qa-sdk-iframe {
-  width: 400px;
-}
-
-@media (min-width: 1024px) and (max-width: 1366px) {
-  .qa-sdk-wrapper{
-    width: 356px;
-  }
-  #qa-sdk-iframe {
-    width: 356px;
-  }
-}
-</style><style type="text/css">.qa-sdk-wrapper {
-  position: fixed;
-  width: 400px;
-  right: -600px;
-  max-height: 530px;
-  overflow: hidden;
-  border-radius: 4px;
-  box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.1);
-  transition: all 0.5s ease-in-out;
-  background: #fff;
-}
-
-.qa-sdk-close-btn {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  position: absolute;
-  top: 16px;
-  right: 16px;
-}
-
-.qa-sdk-close-btn:hover {
-  border-radius: 50%;
-  background-color: #d5d9df;
-}
-
-#qa-sdk-iframe {
-  width: 400px;
-}
-
-@media (min-width: 1024px) and (max-width: 1366px) {
-  .qa-sdk-wrapper{
-    width: 356px;
-  }
-  #qa-sdk-iframe {
-    width: 356px;
-  }
-}
-</style><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786039223333"></script><style type="text/css">.qa-sdk-wrapper {
+<script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786039223333"></script><style type="text/css">.qa-sdk-wrapper {
   position: fixed;
   width: 400px;
   right: -600px;
@@ -593,7 +448,8 @@ window.dispatchEvent(new Event('chartReady'));
     });
   }catch(e){}
 })();
-</script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230478511"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230478871"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230479284"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230479561"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230479762"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230480039"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230480606"></script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230493987"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230494279"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230494722"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230494854"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230495006"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230495192"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230495636"></script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230535908"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230536265"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230536616"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230536888"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230537050"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230537324"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230537679"></script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230553122"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230553367"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230553627"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230553785"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230553982"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230554174"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230554554"></script><script>window.__SEED__={"pa_funds":[{"id":"m8z1huk","code":"000043","name":"嘉实美国成长股票人民币","manualNav":null,"trades":[{"type":"buy","price":5.3566,"shares":33622.02,"date":"2026-04-01"}],"icon":{"n":"嘉实基金","c":"#E60012","i":"嘉实","img":__B[0]}},{"id":"tronvix","code":"270023","name":"广发全球精选股票(QDII)人民币A","manualNav":null,"trades":[{"type":"buy","price":5.3792,"shares":30114.37,"date":"2026-04-01"}],"icon":{"n":"广发基金","c":"#C8102E","i":"广发","img":__B[1]}},{"id":"smtqhq5","code":"021277","name":"广发全球精选股票(QDII)人民币C","manualNav":null,"trades":[{"type":"buy","price":5.7761,"shares":18733.88,"date":"2026-04-01"}],"icon":{"n":"广发基金","c":"#C8102E","i":"广发","img":__B[1]}},{"id":"pqd8mui","code":"016532","name":"嘉实纳斯达克100ETF发起联接(QDII)A人民币","manualNav":null,"trades":[{"type":"buy","price":1.9421,"shares":463.42,"date":"2026-04-01"}],"icon":{"n":"嘉实基金","c":"#E60012","i":"嘉实","img":__B[0]}},{"id":"k9u57jb","code":"016533","name":"嘉实纳斯达克100ETF发起联接(QDII)C人民币","manualNav":null,"trades":[{"type":"buy","price":1.944,"shares":16460.69,"date":"2026-04-01"}],"icon":{"n":"嘉实基金","c":"#E60012","i":"嘉实","img":__B[0]}}],"pa_us":[{"id":"uprwxv8","symbol":"MSFT","name":"微软","price":499.99,"histText":"","trades":[],"icon":{"n":"Microsoft 微软","img":__B[2]}},{"id":"dakmrd6","symbol":"TQQQ","name":"纳斯达克100三倍做多","price":74.47,"histText":"","trades":[{"type":"buy","price":65.063,"shares":155,"date":"2026-04-01"},{"type":"sell","price":68.16,"shares":4,"date":"2026-08-04"}],"icon":{"n":"ProShares","img":__B[3]}},{"id":"23866l4","symbol":"NVDA","name":"英伟达","price":223.96,"histText":"","trades":[{"type":"dividend","amount":5222.84,"date":"2026-07-25"},{"type":"dividend","amount":-4702,"date":"2026-06-27"},{"type":"dividend","amount":4303.54,"date":"2026-05-30"}],"icon":{"n":"NVIDIA 英伟达","img":__B[4]}}],"pa_cash":[{"id":"excd1bg","date":"2026-04-01","currency":"cny","note":"汇丰中国","transactions":[{"date":"2026-04-01","type":"in","amount":18959}],"icon":{"n":"HSBC","img":__B[5]}},{"id":"hxwcscd","date":"2026-04-01","currency":"cny","note":"建设银行","transactions":[{"date":"2026-04-01","type":"in","amount":28000}],"icon":{"n":"建设银行","img":__B[6]}},{"id":"0pvamki","date":"2026-04-01","currency":"cny","note":"公积金","transactions":[{"date":"2026-04-01","type":"in","amount":130777.38}],"icon":{"n":"广发银行","img":__B[7]}},{"id":"39dn280","date":"2026-04-01","currency":"cny","note":"工资","transactions":[{"date":"2026-04-01","type":"in","amount":41000}],"icon":{"n":"农业银行","img":__B[8]}},{"id":"yne1419","date":"2026-04-01","currency":"usd","note":"汇丰美国","transactions":[{"date":"2026-04-01","type":"in","amount":1100}],"icon":{"n":"HSBC","img":__B[5]}},{"id":"w4pmis1","date":"2026-04-01","currency":"usd","note":"盈透证券","transactions":[{"date":"2026-04-01","type":"in","amount":14517.68},{"date":"2026-06-27","type":"out","amount":4702},{"date":"2026-07-15","type":"in","amount":1475.6},{"date":"2026-05-30","type":"in","amount":4303.54},{"date":"2026-06-25","type":"in","amount":5880},{"date":"2026-07-25","type":"in","amount":5222.84},{"date":"2026-04-01","type":"out","amount":6506.3},{"date":"2026-08-04","type":"in","amount":272.64}],"icon":{"n":"Interactive Brokers","c":"#FF6C00","i":"IB","img":__B[9]}}],"usInvest":167600};window.__FORCE_SEED__=true;</script></head><body style="-webkit-text-size-adjust: 100%;"><!-- 图表页面（曲线图 / 日历图 / 市场温度，由浮动栏 IIFE 注入） --><section class="page-section page-chart" id="pageChart">
+</script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230478511"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230478871"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230479284"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230479561"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230479762"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230480039"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230480606"></script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230493987"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230494279"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230494722"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230494854"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230495006"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230495192"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230495636"></script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230535908"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230536265"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230536616"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230536888"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230537050"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230537324"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230537679"></script><script src="https://fund.eastmoney.com/pingzhongdata/000043.js?_=1786230553122"></script><script src="https://fund.eastmoney.com/pingzhongdata/270023.js?_=1786230553367"></script><script src="https://fund.eastmoney.com/pingzhongdata/021277.js?_=1786230553627"></script><script src="https://fund.eastmoney.com/pingzhongdata/016532.js?_=1786230553785"></script><script src="https://fund.eastmoney.com/pingzhongdata/016533.js?_=1786230553982"></script><script src="https://qt.gtimg.cn/q=usMSFT,usTQQQ,usNVDA&amp;_=1786230554174"></script><script src="https://qt.gtimg.cn/q=usAAPL,usNVDA,usGOOGL,usAVGO,usMSFT,usAMZN,usWDC,usLRCX,usLLY,usTSLA,usGOOG,hk02513,usMU,usASML,usKXIAY,usSNDK,usAMD,usAMAT,sz300408,usQQQ&amp;_=1786230554554"></script><script>window.__SEED__={"pa_funds":[{"id":"m8z1huk","code":"000043","name":"嘉实美国成长股票人民币","manualNav":null,"trades":[{"type":"buy","price":5.3566,"shares":33622.02,"date":"2026-04-01"}],"icon":{"n":"嘉实基金","c":"#E60012","i":"嘉实","img":__B[0]}},{"id":"tronvix","code":"270023","name":"广发全球精选股票(QDII)人民币A","manualNav":null,"trades":[{"type":"buy","price":5.3792,"shares":30114.37,"date":"2026-04-01"}],"icon":{"n":"广发基金","c":"#C8102E","i":"广发","img":__B[1]}},{"id":"smtqhq5","code":"021277","name":"广发全球精选股票(QDII)人民币C","manualNav":null,"trades":[{"type":"buy","price":5.7761,"shares":18733.88,"date":"2026-04-01"}],"icon":{"n":"广发基金","c":"#C8102E","i":"广发","img":__B[1]}},{"id":"pqd8mui","code":"016532","name":"嘉实纳斯达克100ETF发起联接(QDII)A人民币","manualNav":null,"trades":[{"type":"buy","price":1.9421,"shares":463.42,"date":"2026-04-01"}],"icon":{"n":"嘉实基金","c":"#E60012","i":"嘉实","img":__B[0]}},{"id":"k9u57jb","code":"016533","name":"嘉实纳斯达克100ETF发起联接(QDII)C人民币","manualNav":null,"trades":[{"type":"buy","price":1.944,"shares":16460.69,"date":"2026-04-01"}],"icon":{"n":"嘉实基金","c":"#E60012","i":"嘉实","img":__B[0]}}],"pa_us":[{"id":"uprwxv8","symbol":"MSFT","name":"微软","price":499.99,"histText":"","trades":[],"icon":{"n":"Microsoft 微软","img":__B[2]}},{"id":"dakmrd6","symbol":"TQQQ","name":"纳斯达克100三倍做多","price":74.47,"histText":"","trades":[{"type":"buy","price":65.063,"shares":155,"date":"2026-04-01"},{"type":"sell","price":68.16,"shares":4,"date":"2026-08-04"}],"icon":{"n":"ProShares","img":__B[3]}},{"id":"23866l4","symbol":"NVDA","name":"英伟达","price":223.96,"histText":"","trades":[{"type":"dividend","amount":5222.84,"date":"2026-07-25"},{"type":"dividend","amount":-4702,"date":"2026-06-27"},{"type":"dividend","amount":4303.54,"date":"2026-05-30"}],"icon":{"n":"NVIDIA 英伟达","img":__B[4]}}],"pa_cash":[{"id":"excd1bg","date":"2026-04-01","currency":"cny","note":"汇丰中国","transactions":[{"date":"2026-04-01","type":"in","amount":18959}],"icon":{"n":"HSBC","img":__B[5]}},{"id":"hxwcscd","date":"2026-04-01","currency":"cny","note":"建设银行","transactions":[{"date":"2026-04-01","type":"in","amount":28000}],"icon":{"n":"建设银行","img":__B[6]}},{"id":"0pvamki","date":"2026-04-01","currency":"cny","note":"公积金","transactions":[{"date":"2026-04-01","type":"in","amount":130777.38}],"icon":{"n":"广发银行","img":__B[7]}},{"id":"39dn280","date":"2026-04-01","currency":"cny","note":"工资","transactions":[{"date":"2026-04-01","type":"in","amount":41000}],"icon":{"n":"农业银行","img":__B[8]}},{"id":"yne1419","date":"2026-04-01","currency":"usd","note":"汇丰美国","transactions":[{"date":"2026-04-01","type":"in","amount":1100}],"icon":{"n":"HSBC","img":__B[5]}},{"id":"w4pmis1","date":"2026-04-01","currency":"usd","note":"盈透证券","transactions":[{"date":"2026-04-01","type":"in","amount":14517.68},{"date":"2026-06-27","type":"out","amount":4702},{"date":"2026-07-15","type":"in","amount":1475.6},{"date":"2026-05-30","type":"in","amount":4303.54},{"date":"2026-06-25","type":"in","amount":5880},{"date":"2026-07-25","type":"in","amount":5222.84},{"date":"2026-04-01","type":"out","amount":6506.3},{"date":"2026-08-04","type":"in","amount":272.64}],"icon":{"n":"Interactive Brokers","c":"#FF6C00","i":"IB","img":__B[9]}}],"usInvest":167600};window.__FORCE_SEED__=true;</script><link rel="manifest" href="manifest.webmanifest">
+</head><body style="-webkit-text-size-adjust: 100%;"><!-- 图表页面（曲线图 / 日历图 / 市场温度，由浮动栏 IIFE 注入） --><section class="page-section page-chart" id="pageChart">
   <div class="page-head">图表</div>
 <section class="panel" id="allocationSection">
     <style>
@@ -627,11 +483,12 @@ window.dispatchEvent(new Event('chartReady'));
       <div id="allocLegend" class="alloc-legend"><div class="alloc-leg-item"><span class="dot" style="background:#3b82f6"></span><span class="leg-ic"><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;&gt;嘉实&lt;/span&gt;';"></span></span><span class="nm">嘉实美国成长股票人民币 <span class="code">000043</span></span><span class="pc">21.4%</span><span class="vl">¥213,164</span></div><div class="alloc-leg-item"><span class="dot" style="background:#2563eb"></span><span class="leg-ic"><span class="item-ic"><img data-b64="1" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#C8102E&quot;&gt;广发&lt;/span&gt;';"></span></span><span class="nm">广发全球精选股票(QDII)人民币A <span class="code">270023</span></span><span class="pc">19.0%</span><span class="vl">¥189,209</span></div><div class="alloc-leg-item"><span class="dot" style="background:#22c55e"></span><span class="leg-ic"><span class="item-ic"><img data-b64="9" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#FF6C00&quot;&gt;IB&lt;/span&gt;';"></span></span><span class="nm">盈透证券</span><span class="pc">13.9%</span><span class="vl">¥138,330</span></div><div class="alloc-leg-item"><span class="dot" style="background:#16a34a"></span><span class="leg-ic"><span class="item-ic"><img data-b64="7" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;广发&lt;/span&gt;';"></span></span><span class="nm">公积金</span><span class="pc">13.1%</span><span class="vl">¥130,777</span></div><div class="alloc-leg-item"><span class="dot" style="background:#1d4ed8"></span><span class="leg-ic"><span class="item-ic"><img data-b64="1" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#C8102E&quot;&gt;广发&lt;/span&gt;';"></span></span><span class="nm">广发全球精选股票(QDII)人民币C <span class="code">021277</span></span><span class="pc">11.7%</span><span class="vl">¥116,101</span></div><div class="alloc-leg-item"><span class="dot" style="background:#ef4444"></span><span class="leg-ic"><span class="item-ic"><img data-b64="3" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;Pr&lt;/span&gt;';"></span></span><span class="nm">纳斯达克100三倍做多 <span class="code">TQQQ</span></span><span class="pc">7.6%</span><span class="vl">¥76,012</span></div><div class="alloc-leg-item"><span class="dot" style="background:#15803d"></span><span class="leg-ic"><span class="item-ic"><img data-b64="8" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;农业&lt;/span&gt;';"></span></span><span class="nm">工资</span><span class="pc">4.1%</span><span class="vl">¥41,000</span></div><div class="alloc-leg-item"><span class="dot" style="background:#60a5fa"></span><span class="leg-ic"><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;&gt;嘉实&lt;/span&gt;';"></span></span><span class="nm">嘉实纳斯达克100ETF发起联接(QDII)C人民币 <span class="code">016533</span></span><span class="pc">3.5%</span><span class="vl">¥35,272</span></div><div class="alloc-leg-item"><span class="dot" style="background:#4ade80"></span><span class="leg-ic"><span class="item-ic"><img data-b64="6" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;建设&lt;/span&gt;';"></span></span><span class="nm">建设银行</span><span class="pc">2.8%</span><span class="vl">¥28,000</span></div><div class="alloc-leg-item"><span class="dot" style="background:#10b981"></span><span class="leg-ic"><span class="item-ic"><img data-b64="5" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;HS&lt;/span&gt;';"></span></span><span class="nm">汇丰中国</span><span class="pc">1.9%</span><span class="vl">¥18,959</span></div><div class="alloc-leg-item"><span class="dot" style="background:#34d399"></span><span class="leg-ic"><span class="item-ic"><img data-b64="5" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;HS&lt;/span&gt;';"></span></span><span class="nm">汇丰美国</span><span class="pc">0.7%</span><span class="vl">¥7,436</span></div><div class="alloc-leg-item"><span class="dot" style="background:#0ea5e9"></span><span class="leg-ic"><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;&gt;嘉实&lt;/span&gt;';"></span></span><span class="nm">嘉实纳斯达克100ETF发起联接(QDII)A人民币 <span class="code">016532</span></span><span class="pc">0.1%</span><span class="vl">¥1,004</span></div></div>
     </div>
   </section><section class="panel" id="chartSection">
-    <h2>个人总资产曲线图 / 日历图 / 每日明细</h2>
+    <h2>个人总资产图表</h2>
     <div class="view-toggle" id="viewToggle">
       <button data-view="curve" class="active">📈 曲线图</button>
       <button data-view="cal" class="">📅 日历图</button>
       <button data-view="detail" class="">📋 每日明细</button>
+      <button data-view="fxdetail" class="">📊 盈透明细</button>
     </div>
     <div class="range" id="rangeBtns">
       <button data-r="30" class="active">近1月</button>
@@ -665,9 +522,52 @@ window.dispatchEvent(new Event('chartReady'));
 日涨跌：+0.25%（+¥2,491）" style="background: rgba(226, 59, 59, 0.41); color: rgb(51, 64, 79);"><span class="cal-d">7</span><span class="cal-v">0.25%</span></div><div class="cal-cell today" title="2026-08-08
 总资产：¥995,264
 日涨跌：+0.00%（+¥0）" style="background: rgb(234, 237, 241); color: rgb(144, 153, 168);"><span class="cal-d">8</span><span class="cal-v">0.00%</span></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div></div><div class="cal-legend">颜色代表当日涨跌幅（红涨绿跌）：<span><i class="sw" style="background:rgba(226,59,59,.85)"></i>涨</span><span><i class="sw" style="background:rgba(22,163,74,.85)"></i>跌</span><span style="margin-left:6px">颜色越深幅度越大 · 悬停查看明细</span></div></div>
+    <div class="range hidden" id="detailRangeBtns">
+      <button data-r="30">近1月</button>
+      <button data-r="90">近3月</button>
+      <button data-r="365">近1年</button>
+      <button data-r="0" class="active">全部</button>
+      <span class="cal-sep"></span>
+      <span class="dt-filter">
+        <input type="number" id="dtFromY" class="dt-ymd dt-year" placeholder="年" min="2000" max="2100"><span>年</span>
+        <input type="number" id="dtFromM" class="dt-ymd" placeholder="月" min="1" max="12"><span>月</span>
+        <span class="dt-to">至</span>
+        <input type="number" id="dtToY" class="dt-ymd dt-year" placeholder="年" min="2000" max="2100"><span>年</span>
+        <input type="number" id="dtToM" class="dt-ymd" placeholder="月" min="1" max="12"><span>月</span>
+      </span>
+      <button id="dtClear" class="dt-clear">清除筛选</button>
+    </div>
     <div id="seriesDebug" class="hidden">
       <table class="debug"><thead><tr><th>日期</th><th>基金</th><th>美股</th><th>现金</th><th>合计</th><th>日环比</th></tr></thead><tbody id="seriesDebugBody"><tr class=""><td>2026-07-09</td><td class="num">¥591,204</td><td class="num">¥79,985</td><td class="num">¥317,380</td><td class="num"><b>¥988,569</b></td><td class="num ">—</td></tr><tr class=""><td>2026-07-10</td><td class="num">¥584,910</td><td class="num">¥80,708</td><td class="num">¥317,380</td><td class="num"><b>¥982,998</b></td><td class="num down">-0.56%</td></tr><tr class=""><td>2026-07-13</td><td class="num">¥567,151</td><td class="num">¥76,109</td><td class="num">¥317,380</td><td class="num"><b>¥960,639</b></td><td class="num down">-2.27%</td></tr><tr class=""><td>2026-07-14</td><td class="num">¥576,521</td><td class="num">¥78,602</td><td class="num">¥317,380</td><td class="num"><b>¥972,503</b></td><td class="num up">+1.24%</td></tr><tr class=""><td>2026-07-15</td><td class="num">¥575,243</td><td class="num">¥77,994</td><td class="num">¥327,354</td><td class="num"><b>¥980,592</b></td><td class="num up">+0.83%</td></tr><tr class=""><td>2026-07-16</td><td class="num">¥555,532</td><td class="num">¥74,118</td><td class="num">¥327,354</td><td class="num"><b>¥957,005</b></td><td class="num down">-2.41%</td></tr><tr class=""><td>2026-07-17</td><td class="num">¥540,097</td><td class="num">¥70,755</td><td class="num">¥327,354</td><td class="num"><b>¥938,206</b></td><td class="num down">-1.96%</td></tr><tr class=""><td>2026-07-20</td><td class="num">¥538,150</td><td class="num">¥70,880</td><td class="num">¥327,354</td><td class="num"><b>¥936,385</b></td><td class="num down">-0.19%</td></tr><tr class=""><td>2026-07-21</td><td class="num">¥558,328</td><td class="num">¥74,778</td><td class="num">¥327,354</td><td class="num"><b>¥960,460</b></td><td class="num up">+2.57%</td></tr><tr class=""><td>2026-07-22</td><td class="num">¥556,919</td><td class="num">¥73,636</td><td class="num">¥327,354</td><td class="num"><b>¥957,910</b></td><td class="num down">-0.27%</td></tr><tr class=""><td>2026-07-23</td><td class="num">¥551,540</td><td class="num">¥69,466</td><td class="num">¥327,354</td><td class="num"><b>¥948,360</b></td><td class="num down">-1.00%</td></tr><tr class=""><td>2026-07-24</td><td class="num">¥540,625</td><td class="num">¥67,056</td><td class="num">¥327,354</td><td class="num"><b>¥935,035</b></td><td class="num down">-1.40%</td></tr><tr class=""><td>2026-07-27</td><td class="num">¥536,859</td><td class="num">¥66,427</td><td class="num">¥362,659</td><td class="num"><b>¥965,946</b></td><td class="num up">+3.31%</td></tr><tr class=""><td>2026-07-28</td><td class="num">¥519,323</td><td class="num">¥64,499</td><td class="num">¥362,659</td><td class="num"><b>¥946,482</b></td><td class="num down">-2.02%</td></tr><tr class=""><td>2026-07-29</td><td class="num">¥506,519</td><td class="num">¥60,508</td><td class="num">¥362,659</td><td class="num"><b>¥929,686</b></td><td class="num down">-1.77%</td></tr><tr class=""><td>2026-07-30</td><td class="num">¥523,374</td><td class="num">¥66,323</td><td class="num">¥362,659</td><td class="num"><b>¥952,356</b></td><td class="num up">+2.44%</td></tr><tr class=""><td>2026-07-31</td><td class="num">¥534,512</td><td class="num">¥67,706</td><td class="num">¥362,659</td><td class="num"><b>¥964,877</b></td><td class="num up">+1.31%</td></tr><tr class=""><td>2026-08-03</td><td class="num">¥541,198</td><td class="num">¥71,205</td><td class="num">¥362,659</td><td class="num"><b>¥975,062</b></td><td class="num up">+1.06%</td></tr><tr class=""><td>2026-08-04</td><td class="num">¥558,844</td><td class="num">¥76,370</td><td class="num">¥364,502</td><td class="num"><b>¥999,716</b></td><td class="num up">+2.53%</td></tr><tr class=""><td>2026-08-05</td><td class="num">¥558,060</td><td class="num">¥74,349</td><td class="num">¥364,502</td><td class="num"><b>¥996,911</b></td><td class="num down">-0.28%</td></tr><tr class=""><td>2026-08-06</td><td class="num">¥554,750</td><td class="num">¥73,522</td><td class="num">¥364,502</td><td class="num"><b>¥992,774</b></td><td class="num down">-0.42%</td></tr><tr class=""><td>2026-08-07</td><td class="num">¥554,750</td><td class="num">¥76,012</td><td class="num">¥364,502</td><td class="num"><b>¥995,264</b></td><td class="num up">+0.25%</td></tr><tr class="last"><td>2026-08-08</td><td class="num">¥554,750</td><td class="num">¥76,012</td><td class="num">¥364,502</td><td class="num"><b>¥995,264</b></td><td class="num up">+0.00%</td></tr></tbody></table>
-    </div>
+      <div id="detailPager" class="detail-pager">
+        <button id="dpPrev" class="dp-btn">‹ 上一页</button>
+        <span id="dpInfo" class="dp-info"></span>
+        <button id="dpNext" class="dp-btn">下一页 ›</button>
+      </div>
+      </div>
+    <div id="fxDetailWrap" class="fx-detail hidden">
+        <div class="range" id="fxDetailRangeBtns">
+          <button data-r="30">近1月</button>
+          <button data-r="90">近3月</button>
+          <button data-r="365">近1年</button>
+          <button data-r="0" class="active">全部</button>
+          <span class="cal-sep"></span>
+          <span class="dt-filter">
+            <input type="number" id="fxFromY" class="dt-ymd dt-year" placeholder="年" min="2000" max="2100"><span>年</span>
+            <input type="number" id="fxFromM" class="dt-ymd" placeholder="月" min="1" max="12"><span>月</span>
+            <span class="dt-to">至</span>
+            <input type="number" id="fxToY" class="dt-ymd dt-year" placeholder="年" min="2000" max="2100"><span>年</span>
+            <input type="number" id="fxToM" class="dt-ymd" placeholder="月" min="1" max="12"><span>月</span>
+          </span>
+          <button id="fxClear" class="dt-clear">清除筛选</button>
+        </div>
+        <table class="debug"><thead><tr><th>日期</th><th>总净值(USD)</th><th>现金(USD)</th><th>持仓市值(USD)</th><th>日环比</th></tr></thead><tbody id="fxDetailBody"></tbody></table>
+        <div id="fxDetailPager" class="detail-pager">
+          <button id="fxdpPrev" class="dp-btn">‹ 上一页</button>
+          <span id="fxdpInfo" class="dp-info"></span>
+          <button id="fxdpNext" class="dp-btn">下一页 ›</button>
+        </div>
+      </div>
   </section><section class="panel" id="nxSection">
     <div class="pane-head">
       <div>
@@ -790,10 +690,7 @@ window.dispatchEvent(new Event('chartReady'));
     </div>
     <div class="setting-row" id="usInvestSetRow" style="cursor:default;">
       <div class="label"><span class="li-ic">🇺🇸</span>美股总投入</div>
-      <div class="value" style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
-        <input id="usInvestSetInput" type="number" step="0.01" placeholder="自动计算" style="width:120px;padding:7px 10px;border:1px solid #e2e2e2;border-radius:9px;font:inherit;font-size:13px;text-align:right;color:#222;">
-        <button class="sm ghost" id="usInvestSetAuto">自动</button>
-      </div>
+      <div class="value" id="usInvestVal">¥0.00</div>
     </div>
     <div class="setting-row">
       <div class="label">投资组合成本</div>
@@ -1029,18 +926,18 @@ if __name__ == "__main__":
       <thead><tr><th class="sortable" data-sort="name">名称/代码<span class="sort-ind">⇅</span></th><th class="sortable sorted" data-sort="mv">市值(¥)<span class="sort-ind">▼</span></th><th class="sortable" data-sort="pnl">浮动<span class="sort-ind">⇅</span></th><th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th><th class="sortable" data-sort="usd">现/均价<span class="sort-ind">⇅</span></th><th class="sortable" data-sort="time">时间<span class="sort-ind">⇅</span></th><th>操作</th></tr></thead>
       <tbody id="tbUs"><tr class="us-row-toggle" data-us-row="dakmrd6">
         <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;"><span class="item-ic"><img data-b64="3" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;Pr&lt;/span&gt;';"></span><span>纳斯达克100三倍做多</span></div><div class="cell-sub"><span class="tag">TQQQ</span> ▸</div></td>
-        <td><div class="cell-main">¥76,012</div><div class="cell-sub">151 股</div></td>
-        <td class="up"><div class="cell-main">¥9,602</div><div class="cell-sub up">14.46%</div></td>
-        <td class="up"><div class="cell-main">¥2,491</div><div class="cell-sub up">3.39%</div></td>
-        <td><div class="cell-main">$74.47</div><div class="cell-sub">$65.06</div></td>
+        <td><div class="cell-main">¥76,016</div><div class="cell-sub">151 股</div></td>
+        <td class="up"><div class="cell-main">¥9,806</div><div class="cell-sub up">14.81%</div></td>
+        <td class="up"><div class="cell-main">¥2,577</div><div class="cell-sub up">3.39%</div></td>
+        <td><div class="cell-main">$74.47</div><div class="cell-sub">$64.86</div></td>
         <td class="time-cell"><span class="time-bar tb-live">实时</span></td>
         <td><button class="btn-quote" data-quote="us" data-qcode="TQQQ" data-qname="纳斯达克100三倍做多">行情</button>
             <button class="sm" data-edit="us" data-id="dakmrd6">编辑</button>
             <button class="sm danger" data-del="us" data-id="dakmrd6">删</button></td></tr>
         <tr class="us-trade-detail hidden" id="trade-detail-dakmrd6"><td colspan="7"><div class="trade-inner">
-          <div class="trade-stats"><span><b>持有</b> 151 股</span><span><b>均价</b> $65.06</span><span><b>已实现收益</b> <span class="up">+¥84</span></span><span><b>总交易</b> 2 笔</span></div>
+          <div class="trade-stats"><span><b>持有</b> 151 股</span><span><b>均价</b> $64.86</span><span><b>已实现收益</b> —</span><span><b>总交易</b> 2 笔</span></div>
           <div class="trade-actions"><button class="sm primary" data-trade-buy="dakmrd6">+ 买入</button><button class="sm" data-trade-sell="dakmrd6">- 卖出</button><button class="sm" data-trade-dividend="dakmrd6">+ 分红</button></div>
-          <table class="trade-table"><thead><tr><th>日期</th><th>类型</th><th>价格($)</th><th>数量</th><th>金额($)</th><th></th></tr></thead><tbody><tr><td>2026-04-01</td><td><span class="tag ok">买入</span></td><td>$65.06</td><td>155</td><td>$10084.77</td><td><button class="btn-trade-sm" data-trade-edit="dakmrd6" data-trade-idx="0">编辑</button> <button class="btn-trade-sm danger" data-trade-del="dakmrd6" data-trade-idx="0">删</button></td></tr><tr><td>2026-08-04</td><td><span class="tag err">卖出</span></td><td>$68.16</td><td>4</td><td>$272.64</td><td><button class="btn-trade-sm" data-trade-edit="dakmrd6" data-trade-idx="1">编辑</button> <button class="btn-trade-sm danger" data-trade-del="dakmrd6" data-trade-idx="1">删</button></td></tr></tbody></table>
+          <table class="trade-table"><thead><tr><th>日期</th><th>类型</th><th>价格($)</th><th>数量</th><th>金额($)</th><th></th></tr></thead><tbody><tr><td>2026-02-10</td><td><span class="tag ok">买入</span></td><td>$49.56</td><td>55</td><td>$2725.80</td><td><button class="btn-trade-sm" data-trade-edit="dakmrd6" data-trade-idx="0">编辑</button> <button class="btn-trade-sm danger" data-trade-del="dakmrd6" data-trade-idx="0">删</button></td></tr><tr><td>2026-08-10</td><td><span class="tag ok">买入</span></td><td>$73.63258814</td><td>96</td><td>$7068.73</td><td><button class="btn-trade-sm" data-trade-edit="dakmrd6" data-trade-idx="1">编辑</button> <button class="btn-trade-sm danger" data-trade-del="dakmrd6" data-trade-idx="1">删</button></td></tr></tbody></table>
         </div></td></tr><tr class="us-row-toggle" data-us-row="uprwxv8">
         <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;"><span class="item-ic"><img data-b64="2" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;Mi&lt;/span&gt;';"></span><span>微软</span></div><div class="cell-sub"><span class="tag">MSFT</span> ▸</div></td>
         <td><div class="cell-main">¥0</div><div class="cell-sub">0 股</div></td>
@@ -1292,6 +1189,9 @@ let cash  = load('pa_cash', []);
 let fxRate  = Number(localStorage.getItem('pa_fx'));   if(!fxRate||isNaN(fxRate)) fxRate=7.0;
 let fxManual = localStorage.getItem('pa_fxman'); fxManual = (fxManual==null||fxManual==='')?null:Number(fxManual);
 let usInvestManual = localStorage.getItem('pa_usinv'); usInvestManual = (usInvestManual==null||usInvestManual==='')?null:Number(usInvestManual);
+// 美股总投入「自动」公式的缓存值：所有 forexTrades 的 cnh 之和（取自 Asset_parsed.json）。
+// 当 usInvestManual 为 null（未手动设置）时，默认与「自动」按钮用同一公式。
+var usInvestAutoVal = null;
 // 汇率抓取结果状态（持久化，跨刷新保留）
 let fxLastDate = localStorage.getItem('pa_fxdate') || null;   // 最近一次成功抓取时的更新日期 YYYY-MM-DD
 let fxLastOk   = localStorage.getItem('pa_fxok'); fxLastOk = (fxLastOk===null)?null:(fxLastOk==='1');   // null=未抓过, true=成功, false=失败
@@ -1317,6 +1217,31 @@ if(window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__.usInvest!=null &&
   usInvestManual = Number(window.__SEED__.usInvest);
   save();
 }
+
+/* 固定美股交易种子：写入即永久保留，不受后续读取 Asset_parsed.json 影响。
+   每次加载都会按 symbol 匹配对应标的、把固定交易合并进去（同 _fixed 标识已存在则跳过，幂等）；
+   因此即便将来美股持仓改由 JSON 导入，这条固定买入也不会被覆盖。标的不存在时不强行创建。 */
+const FIXED_US_TRADES = {
+  'TQQQ': [
+    { _fixed:'tqqq-20260210-buy', date:'2026-02-10', type:'buy', price:49.56, shares:55, amount:+(55*49.56).toFixed(2) }
+  ]
+};
+(function mergeFixedUsTrades(){
+  try{
+    if(!Array.isArray(us)) return;
+    Object.keys(FIXED_US_TRADES).forEach(function(sym){
+      var item = us.find(function(x){ return String(x.symbol||'').toUpperCase()===sym.toUpperCase(); });
+      if(!item) return;                       // 该标的当前不存在则跳过
+      if(!Array.isArray(item.trades)) item.trades = [];
+      FIXED_US_TRADES[sym].forEach(function(ft){
+        if(item.trades.some(function(t){ return t._fixed===ft._fixed; })) return;  // 已合并过
+        item.trades.push(Object.assign({}, ft));
+      });
+      item.trades.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+    });
+    save();   // 持久化合并结果（写入 localStorage）
+  }catch(e){}
+})();
 
 /* 首次迁移：为基金/美股/现金各条目默认图标设为 HSBC（仅执行一次；后续用户手动修改保留） */
 const DEFAULT_ICON = {img:__B[5], n:'HSBC'};
@@ -1379,6 +1304,16 @@ function syncCatIconSettings(){
 
 let chart = null;
 let rangeDays = 30;
+let detailRangeDays = 0;        // 每日明细独立区间：30/90/365/0(全部)，与曲线图 rangeDays 解耦
+let detailStartTs = null;       // 明细自定义筛选起始(含)，null=不限
+let detailEndTs = null;         // 明细自定义筛选结束(含)，null=不限
+let detailPage = 1;             // 每日明细当前页码（每页 DETAIL_PAGE_SIZE 条）
+// 盈透明细（读取 Asset_parsed.json 的每日总净值/现金）独立筛选与分页状态
+let fxDetailRangeDays = 0;      // 盈透明细区间：30/90/365/0(全部)
+let fxDetailStartTs = null;     // 自定义起始(含)
+let fxDetailEndTs = null;       // 自定义结束(含)
+let fxDetailPage = 1;           // 盈透明细当前页码（每页 DETAIL_PAGE_SIZE 条）
+let fxRows = null;              // 缓存：[{date, net, cash}] 升序（来自 JSON）
 let viewMode = 'curve';   // 'curve' | 'cal' | 'detail'
 let calRangeMode = 'day';   // 'day' | 'week' | 'month' | 'year'
 let calMetric = 'pct';       // 'pct' | 'amt'
@@ -1400,6 +1335,7 @@ function effFx(){ const m=(fxManual!=null&&!isNaN(fxManual)&&fxManual>0)?fxManua
 /* ---------- 工具 ---------- */
 function fmt(n, dec=2){ if(n==null||isNaN(n)) n=0; return '¥'+Number(n).toLocaleString('zh-CN',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
 function fmt0(n){ return '¥'+Math.round(n||0).toLocaleString('zh-CN'); }
+function fmt2(n){ return '¥'+Number(n||0).toLocaleString('zh-CN',{minimumFractionDigits:2, maximumFractionDigits:2}); }
 function fmtAmtShort(n){
   const s = n>=0 ? '+' : '-';
   const a = Math.abs(Math.round(n||0));
@@ -2042,8 +1978,9 @@ function computeCurrent(){
   const dayPnlSum = targetFundDayPnl + usDayPnl;
   const dayPrevSum = targetFundPrevVal + usPrevVal;
   const dayRetVal = dayPrevSum>0 ? dayPnlSum/dayPrevSum : null;
-  // 美股总投入：优先使用手动设置的值
-  if(usInvestManual!=null&&!isNaN(usInvestManual)&&usInvestManual>0) usTotalBuyCost=usInvestManual;
+  // 美股总投入：优先用 JSON「自动」公式值（forexTrades cnh 之和），旧手动锁定值仅作兜底（设置里已无输入框）
+  if(usInvestAutoVal!=null&&!isNaN(usInvestAutoVal)&&usInvestAutoVal>0) usTotalBuyCost=usInvestAutoVal;
+  else if(usInvestManual!=null&&!isNaN(usInvestManual)&&usInvestManual>0) usTotalBuyCost=usInvestManual;
   return {fx, fundVal, usVal, cashVal, total:fundVal+usVal+cashVal, fundCost, usCost,
           pnl:(fundVal-fundCost)+(usVal-usCost),
           fundDayPnl, usDayPnl,
@@ -2194,7 +2131,9 @@ function globalEarliest(){
   });
   return e;
 }
-function buildSeries(){
+function buildSeries(opts){
+  opts=opts||{};
+  const skipRange=!!opts.skipRange;   // 明细视图传 true：不做曲线图 rangeDays 切片，避免曲线筛选污染明细
   const fx=effFx();
   const dateSet=new Set();
   const add=ts=>{ if(ts!=null) dateSet.add(ymd(ts)); };
@@ -2248,8 +2187,9 @@ function buildSeries(){
       cumBuyUC += fst3.totalBuyCost*fx;
       cumRealUC += fst3.realizedPnl*fx;
     });
-    // 与「总收益率」卡片口径一致：美股总投入若设了手动值(usInvestManual)，则用其覆盖累计买入成本（分母），对所有日期生效
-    if(usInvestManual!=null && !isNaN(usInvestManual) && usInvestManual>0) cumBuyUC = usInvestManual;
+    // 与「总收益率」卡片口径一致：美股总投入优先用 JSON 自动公式值覆盖累计买入成本（分母），旧手动值兜底
+    cumBuyUC = (usInvestAutoVal!=null && !isNaN(usInvestAutoVal) && usInvestAutoVal>0) ? usInvestAutoVal
+             : (usInvestManual!=null && !isNaN(usInvestManual) && usInvestManual>0 ? usInvestManual : cumBuyUC);
     let cv=0; cash.forEach(c=>{ var t=parseDate(c.date); if(t!=null&&t<=ts){ var a=calcCashAmountAt(c, ts); cv += (c.currency==='usd')? a*fx : a; } });
     const cumHoldCost=cumFC+cumUC;
     const floatPnl=fv+uv-cumHoldCost;
@@ -2261,7 +2201,7 @@ function buildSeries(){
   });
 
   let idx0=0;
-  if(rangeDays>0){ const cut=todayTs()-rangeDays*86400000; while(idx0<labels.length && parseDate(labels[idx0])<cut) idx0++; }
+  if(!skipRange && rangeDays>0){ const cut=todayTs()-rangeDays*86400000; while(idx0<labels.length && parseDate(labels[idx0])<cut) idx0++; }
   else { const ge=globalEarliest(); if(ge!=null){ while(idx0<labels.length && parseDate(labels[idx0])<ge) idx0++; } }   // 「全部」从第一次交易时间开始
   let L=labels.slice(idx0), F=fundArr.slice(idx0), U=usArr.slice(idx0), C=cashArr.slice(idx0), R=retArr.slice(idx0);
   const maxPts=900;
@@ -2275,6 +2215,96 @@ function buildSeries(){
   }
   const total=L.map((_,i)=>+(F[i]+U[i]+C[i]).toFixed(2));
   return {labels:L, F, U, C, total, ret:R};
+}
+
+/* ---------- 每日明细 / 曲线图 / 日历图 统一数据源 ----------
+   现金列 = (除去盈透证券外其他现金项按时间累加) + 盈透明细每日现金(USD)×实时汇率
+   美股列 = 盈透持仓市值(USD)×实时汇率 + 资产页固定55股TQQQ逐日市值(=55×TQQQ历史收盘价×汇率，2026-02-10买入前为0)
+            【规则】盈透数据(2026-08-07)之后的所有日期（含最近一天），美股直接读取资产列表里的市值（含 IBKR 96 股 + 固定55股，按实时价估值，与资产页一致）；盈透数据覆盖的日期仍走原公式
+   基金列 = 原有逐日基金市值
+   （与「每日明细」口径完全一致，曲线图总资产、日历图均读取此序列） */
+function isYitouItem(c){
+  return c && ((c.note && String(c.note).indexOf('盈透')>=0) || (c.id && String(c.id).indexOf('盈透')>=0));
+}
+function yitouCashItem(){ return cash.find(isYitouItem) || null; }
+/* 除去「盈透证券」项外，其他现金项按时间逐日累加（到 ts 为止）的人民币金额 */
+function baseCashCNYAt(ts){
+  const fx=effFx(); let cv=0;
+  cash.forEach(function(c){
+    if(isYitouItem(c)) return;                 // 排除盈透证券项（改由逐日 fxCash 代入）
+    var t=parseDate(c.date);
+    if(t!=null && t<=ts){ var a=calcCashAmountAt(c, ts); cv += (c.currency==='usd') ? a*fx : a; }
+  });
+  return cv;
+}
+function fxAtDate(dStr){
+  if(!fxRows || !fxRows.length) return null;
+  let lo=0, hi=fxRows.length-1, ans=-1;
+  while(lo<=hi){ const mid=(lo+hi)>>1; if(fxRows[mid].date <= dStr){ ans=mid; lo=mid+1; } else { hi=mid-1; } }
+  return ans>=0 ? fxRows[ans] : null;
+}
+/* 盈透数据最后一天（'YYYY-MM-DD'）；之后无盈透数据，美股改读资产列表市值 */
+function lastFxRowDate(){
+  if(!fxRows || !fxRows.length) return null;
+  return fxRows[fxRows.length-1].date;
+}
+/* 资产页「固定 55 股 TQQQ」(FIXED_US_TRADES 中 _fixed='tqqq-20260210-buy') 的逐日市值（人民币）：
+   55 股 × TQQQ 当日历史收盘价 × 实时汇率；买入日(2026-02-10)之前为 0。
+   历史收盘价取自该 TQQQ 美股项的 _hist（加载时由新浪日K线填充），无数据时回退到当前价。 */
+function fixedTqqqValueAt(ts, fx){
+  const item = us.find(function(x){ return String(x.symbol||'').toUpperCase()==='TQQQ'; });
+  if(!item) return 0;
+  const ft = (item.trades||[]).find(function(t){ return t._fixed==='tqqq-20260210-buy'; });
+  if(!ft) return 0;
+  const buyTs = parseDate(ft.date);
+  if(buyTs==null || ts < buyTs) return 0;
+  const shares = Number(ft.shares)||0;
+  if(!(shares>0)) return 0;
+  let price = valOnOrBefore(item._hist||[], ts, 'price');
+  if(price==null || !(price>0)) price = (item.price!=null && item.price>0) ? Number(item.price) : 0;
+  return shares * price * fx;
+}
+/* 资产列表里美股当前市值合计（人民币）：与资产页/英雄卡口径完全一致
+   = Σ(各美股项 当前持有股数 × 当前价 × 实时汇率)，当前价优先用 u.price（实时行情），回退 u._usd */
+function usMarketValueFromList(fx){
+  let v=0;
+  us.forEach(function(u){
+    var st=getTradeStatsAt(u, todayTs());
+    if(!st || st.holdShares<=0) return;
+    var price=(u.price!=null && u.price>0) ? u.price : (u._usd||0);
+    if(!(price>0)) return;
+    v += st.holdShares * price * fx;
+  });
+  return v;
+}
+function buildDetailSeries(opts){
+  opts=opts||{};
+  const skipRange=!!opts.skipRange;
+  const fx=effFx();
+  const s=buildSeries({skipRange:skipRange});   // 仅取逐日 labels 与基金(fund)
+  const labels=s.labels, F=s.F, n=labels.length;
+  const U=[], C=[], total=[];
+  for(let i=0;i<n;i++){
+    const ts=parseDate(labels[i]);
+    const fr=fxAtDate(labels[i]);
+    const fxCash=fr?fr.cash:0;
+    const lastFx=lastFxRowDate();
+    let usVal;
+    if(i===n-1 || (lastFx!=null && labels[i] > lastFx)){
+      // 最近一天 / 盈透数据之后的所有日期：美股直接读取资产列表里的市值（与资产页一致，含 IBKR 96 股 + 固定 55 股，按实时价估值）
+      usVal=usMarketValueFromList(fx);
+    } else {
+      const fxNet=fr?fr.net:0;                             // 盈透逐日总净值(USD)
+      const usIBKR=(fxNet-fxCash)*fx;                      // 美股(盈透持仓市值) = (总净值−现金)×实时汇率
+      const usFixed=fixedTqqqValueAt(ts, fx);              // 资产页固定 55 股 TQQQ 逐日市值
+      usVal=usIBKR + usFixed;
+    }
+    const cashAmt=baseCashCNYAt(ts) + fxCash*fx;           // 现金 = 其他现金项按时间累加 + 盈透明细每日现金×汇率
+    U.push(+usVal.toFixed(2));
+    C.push(+cashAmt.toFixed(2));
+    total.push(+(F[i]+usVal+cashAmt).toFixed(2));
+  }
+  return {labels:labels, F:F, U:U, C:C, total:total};
 }
 
 /* ---------- 渲染 ---------- */
@@ -3086,11 +3116,12 @@ function deleteDividend(stockId, idx){
 }
 
 function drawChartInternal(){
-  const s=buildSeries();
+  const s=buildSeries();              // 仅取投资收益率(ret)，与现金口径无关
+  const d=buildDetailSeries();        // 总资产(已修正现金口径，与每日明细一致)
   const cv=$('chart');
   if(chart) chart.destroy();
   const ds=[
-    {label:'总资产', data:s.total, type:'line', borderColor:'#1f2733', borderWidth:2, fill:true, backgroundColor:'rgba(31,39,51,.08)', pointRadius:0, tension:.15, yAxisID:'y'},
+    {label:'总资产', data:d.total, type:'line', borderColor:'#1f2733', borderWidth:2, fill:true, backgroundColor:'rgba(31,39,51,.08)', pointRadius:0, tension:.15, yAxisID:'y'},
     {label:'投资收益率', data:s.ret, type:'line', borderColor:'#f59e0b', borderWidth:2, fill:false, pointRadius:0, tension:.15, yAxisID:'y1'}
   ];
   const crosshair={
@@ -3131,7 +3162,7 @@ function drawChartInternal(){
   function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
     ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
     ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-  chart=new Chart(cv.getContext('2d'),{type:'line',data:{labels:s.labels,datasets:ds},
+  chart=new Chart(cv.getContext('2d'),{type:'line',data:{labels:d.labels,datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false,labels:{boxWidth:12,font:{size:12}}},
         tooltip:{enabled:false,callbacks:{label:c=>{
@@ -3156,13 +3187,12 @@ function drawChartInternal(){
     });
     cv.addEventListener('mouseleave',()=>{ if(chart){ chart.$cross={index:null}; chart.draw(); } });
   }
-  renderSeriesDebug(s);
 }
 
-/* 复用 buildSeries 的当日市值算法，任意日期 ts 的总资产（人民币） */
+/* 复用 buildDetailSeries 的当日市值算法，任意日期 ts 的总资产（人民币），与每日明细完全一致 */
 function assetAt(ts){
   const fx=effFx();
-  let fv=0, uv=0;
+  let fv=0;
   funds.forEach(function(f){
     var earliest=getEarliestTradeDate(f);
     if(earliest==null||ts<earliest) return;
@@ -3172,15 +3202,18 @@ function assetAt(ts){
     if(nav==null && f.manualNav!=null && f.manualNav!=='') nav=Number(f.manualNav);
     if(nav!=null) fv += fst2.holdShares*nav;
   });
-  us.forEach(function(u){
-    var earliest=getEarliestTradeDate(u);
-    if(earliest==null||ts<earliest) return;
-    var fst3=getTradeStatsAt(u, ts);
-    var hist=u._hist||[];
-    var usd = hist.length? (valOnOrBefore(hist, ts,'price') != null ? valOnOrBefore(hist, ts,'price') : hist[0].price) : (u.price!=null?Number(u.price):0);
-    if(fst3.holdShares>0) uv += fst3.holdShares*usd*fx;
-  });
-  let cv=0; cash.forEach(c=>{ var t=parseDate(c.date); if(t!=null&&t<=ts){ var a=calcCashAmountAt(c, ts); cv += (c.currency==='usd')? a*fx : a; } });
+  const fr=fxAtDate(ymd(ts));
+  const fxCash=fr?fr.cash:0;
+  const lastFx=lastFxRowDate();
+  let uv;
+  if(lastFx!=null && ts > parseDate(lastFx)){
+    // 最近一天 / 盈透数据之后的所有日期：美股读取资产列表里的市值（与资产页/每日明细一致）
+    uv=usMarketValueFromList(fx);
+  } else {
+    const fxNet=fr?fr.net:0;
+    uv=(fxNet-fxCash)*fx + fixedTqqqValueAt(ts, fx);  // 美股 = 盈透持仓市值 + 资产页固定55股TQQQ逐日市值
+  }
+  const cv=baseCashCNYAt(ts) + fxCash*fx;                // 现金 = 其他现金项按时间累加 + 盈透明细每日现金×汇率
   return fv+uv+cv;
 }
 
@@ -3448,14 +3481,18 @@ function setView(v){
   const cv=$('chartView');    if(cv) cv.classList.toggle('hidden', v!=='curve');
   const cal=$('calView');      if(cal) cal.classList.toggle('hidden', v!=='cal');
   const sd=$('seriesDebug');   if(sd) sd.classList.toggle('hidden', v!=='detail');
+  const fx=$('fxDetailWrap');  if(fx) fx.classList.toggle('hidden', v!=='fxdetail');
   const rb=$('rangeBtns');     if(rb) rb.classList.toggle('hidden', v!=='curve');
   const crb=$('calRangeBtns'); if(crb) crb.classList.toggle('hidden', v!=='cal');
+  const drb=$('detailRangeBtns'); if(drb) drb.classList.toggle('hidden', v!=='detail');
+  const fdrb=$('fxDetailRangeBtns'); if(fdrb) fdrb.classList.toggle('hidden', v!=='fxdetail');
   drawChart();
 }
 
 function drawChart(){
   if(viewMode==='cal'){ drawCalendar(); return; }
-  if(viewMode==='detail'){ const s=buildSeries(); renderSeriesDebug(s); return; }
+  if(viewMode==='detail'){ const s=buildDetailSeries({skipRange:true}); renderSeriesDebug(s); return; }
+  if(viewMode==='fxdetail'){ renderFxDetail(); return; }
   if(window.Chart) return drawChartInternal();
   const box=document.querySelector('.chart-box');
   if(box && !document.getElementById('chart')) box.innerHTML='<canvas id="chart"></canvas>';
@@ -3476,27 +3513,217 @@ function drawChart(){
   }
 }
 
+const DETAIL_PAGE_SIZE = 60;
 function renderSeriesDebug(s){
   const tb=$('seriesDebugBody'); if(!tb) return;
   const n=s.labels.length; if(!n){ tb.innerHTML=''; return; }
-  // 显示所选区间内的全部明细条目，避免「最近45条」把更早月份的1号截断而看不到；
-  // 仅「全部」视图为防止过长限制为最近1500条（≈6年交易日，足以看到各月1号）
-  const start = (rangeDays>0) ? 0 : Math.max(0, n-1500);
+  // 直接使用统一序列 buildDetailSeries 的结果：s.F/s.U/s.C/s.total 已含正确现金口径（其他现金项按时间累加 + 盈透明细每日现金）
+  // 每日明细独立筛选（与曲线图 rangeDays 完全解耦）：
+  // 自定义日期优先 → 其次 detailRangeDays 预设区间 → 最后「全部」(限1500条防过长)
+  const idxs=[];
+  if(detailStartTs!=null || detailEndTs!=null){
+    const lo = detailStartTs!=null ? detailStartTs : -8640000000000000;
+    const hi = detailEndTs!=null ? detailEndTs : 8640000000000000;
+    for(let i=n-1;i>=0;i--){ const ts=parseDate(s.labels[i]); if(ts>=lo && ts<=hi) idxs.push(i); }
+  } else if(detailRangeDays>0){
+    const cut = todayTs() - detailRangeDays*86400000;
+    for(let i=n-1;i>=0;i--){ const ts=parseDate(s.labels[i]); if(ts>=cut) idxs.push(i); }
+  } else {
+    const start=Math.max(0, n-1500);
+    for(let i=n-1;i>=start;i--) idxs.push(i);
+  }
+  const total=idxs.length;
+  const totalPages=Math.max(1, Math.ceil(total/DETAIL_PAGE_SIZE));
+  if(detailPage>totalPages) detailPage=totalPages;
+  if(detailPage<1) detailPage=1;
+  const from=(detailPage-1)*DETAIL_PAGE_SIZE;
+  const to=Math.min(from+DETAIL_PAGE_SIZE, total);
   let html='';
-  for(let i=n-1;i>=start;i--){
-    const chg = (i>0 && s.total[i-1])? (s.total[i]-s.total[i-1])/s.total[i-1]*100 : null;
+  for(let k=from;k<to;k++){
+    const i=idxs[k];
+    const fund=s.F[i]||0, us=s.U[i]||0, cash=s.C[i]||0, tot=s.total[i]||0;
+    const prevTot=(i>0)? s.total[i-1] : null;
+    const chg = (prevTot)? (tot-prevTot)/prevTot*100 : null;
     const up = chg==null? '' : (chg>=0?'up':'down');
     const last = i===n-1;
     html+='<tr class="'+(last?'last':'')+'">'
       +'<td>'+s.labels[i]+'</td>'
-      +'<td class="num">'+fmt0(s.F[i])+'</td>'
-      +'<td class="num">'+fmt0(s.U[i])+'</td>'
-      +'<td class="num">'+fmt0(s.C[i])+'</td>'
-      +'<td class="num"><b>'+fmt0(s.total[i])+'</b></td>'
+      +'<td class="num">'+fmt0(fund)+'</td>'
+      +'<td class="num">'+fmt0(us)+'</td>'
+      +'<td class="num">'+fmt0(cash)+'</td>'
+      +'<td class="num"><b>'+fmt0(tot)+'</b></td>'
       +'<td class="num '+up+'">'+(chg==null?'—':((chg>=0?'+':'')+chg.toFixed(2)+'%'))+'</td>'
       +'</tr>';
   }
   tb.innerHTML=html;
+  // 分页器
+  const pager=$('detailPager');
+  if(pager){
+    const info=$('dpInfo');
+    if(info) info.textContent='第 '+detailPage+' / '+totalPages+' 页 · 共 '+total+' 条';
+    const prev=$('dpPrev'), next=$('dpNext');
+    if(prev) prev.disabled = (detailPage<=1);
+    if(next) next.disabled = (detailPage>=totalPages);
+    pager.classList.toggle('hidden', totalPages<=1);
+  }
+}
+
+// 盈透明细：从 JSON 缓存 fxRows 渲染（筛选/分页逻辑与每日明细一致）
+function renderFxDetail(){
+  const tb=$('fxDetailBody'); if(!tb) return;
+  if(fxRows===null){ tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">加载中…</td></tr>'; return; }
+  const n=fxRows.length; if(!n){ tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">无数据</td></tr>'; return; }
+  const idxs=[];
+  if(fxDetailStartTs!=null || fxDetailEndTs!=null){
+    const lo = fxDetailStartTs!=null ? fxDetailStartTs : -8640000000000000;
+    const hi = fxDetailEndTs!=null ? fxDetailEndTs : 8640000000000000;
+    for(let i=n-1;i>=0;i--){ const ts=parseDate(fxRows[i].date); if(ts>=lo && ts<=hi) idxs.push(i); }
+  } else if(fxDetailRangeDays>0){
+    const cut = todayTs() - fxDetailRangeDays*86400000;
+    for(let i=n-1;i>=0;i--){ const ts=parseDate(fxRows[i].date); if(ts>=cut) idxs.push(i); }
+  } else {
+    const start=Math.max(0, n-1500);
+    for(let i=n-1;i>=start;i--) idxs.push(i);
+  }
+  const total=idxs.length;
+  const totalPages=Math.max(1, Math.ceil(total/DETAIL_PAGE_SIZE));
+  if(fxDetailPage>totalPages) fxDetailPage=totalPages;
+  if(fxDetailPage<1) fxDetailPage=1;
+  const from=(fxDetailPage-1)*DETAIL_PAGE_SIZE;
+  const to=Math.min(from+DETAIL_PAGE_SIZE, total);
+  let html='';
+  for(let k=from;k<to;k++){
+    const i=idxs[k];
+    const row=fxRows[i];
+    const prevNet = i>0 ? fxRows[i-1].net : null;
+    const chg = (prevNet!=null && prevNet!==0) ? (row.net-prevNet)/prevNet*100 : null;
+    const up = chg==null ? '' : (chg>=0?'up':'down');
+    const pos = row.net - row.cash;   // 持仓市值（USD）
+    html+='<tr>'
+      +'<td>'+row.date+'</td>'
+      +'<td class="num">'+fmtUSD(row.net)+'</td>'
+      +'<td class="num">'+fmtUSD(row.cash)+'</td>'
+      +'<td class="num">'+fmtUSD(pos)+'</td>'
+      +'<td class="num '+up+'">'+(chg==null?'—':((chg>=0?'+':'')+chg.toFixed(2)+'%'))+'</td>'
+      +'</tr>';
+  }
+  tb.innerHTML=html;
+  const pager=$('fxDetailPager');
+  if(pager){
+    const info=$('fxdpInfo');
+    if(info) info.textContent='第 '+fxDetailPage+' / '+totalPages+' 页 · 共 '+total+' 条';
+    const prev=$('fxdpPrev'), next=$('fxdpNext');
+    if(prev) prev.disabled = (fxDetailPage<=1);
+    if(next) next.disabled = (fxDetailPage>=totalPages);
+    pager.classList.toggle('hidden', totalPages<=1);
+  }
+}
+
+// 加载盈透明细数据（Asset_parsed.json），成功后缓存并（若在明细视图）渲染
+function loadFxDetailData(){
+  fetch('Asset_parsed.json', {cache:'no-store'})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(j){
+      const net = (j && Array.isArray(j.totalNetValueDaily)) ? j.totalNetValueDaily : [];
+      const cash = (j && Array.isArray(j.cashDaily)) ? j.cashDaily : [];
+      const map = {};
+      net.forEach(function(o){ if(o && o.date){ const e=map[o.date]||(map[o.date]={date:o.date}); e.net=Number(o.value)||0; } });
+      cash.forEach(function(o){ if(o && o.date){ const e=map[o.date]||(map[o.date]={date:o.date}); e.cash=Number(o.value)||0; } });
+      fxRows = Object.keys(map).sort().map(function(k){ const e=map[k]; return {date:k, net:e.net||0, cash:e.cash||0}; });
+      if(viewMode==='fxdetail') renderFxDetail();
+    })
+    .catch(function(){
+      const tb=$('fxDetailBody');
+      if(tb) tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">无法读取 Asset_parsed.json（需通过本地服务器或已发布页面打开，直接双击 file:// 会被 CORS 拦截）</td></tr>';
+    });
+}
+
+/* 美股明细 ← Asset_parsed.json 持仓同步：
+   - 遍历 JSON.holdings，按 symbol 与代码内 us 匹配
+   - 不存在则新建：图标按规则选 ProShares/Microsoft/NVIDIA/Oracle/Interactive Brokers，
+     代号=symbol，名称留空（待行情自动获取），当前价=markPrice，不填历史收盘价
+   - 已存在则清空其交易（保留 _fixed 固定种子 FIXED_US_TRADES），再补一条「当日」买入：
+     价=costBasisPrice，量=position
+   - 异步执行（需 fetch JSON），故 ICONS 等符号表在脚本执行完后已就绪 */
+function usIconForSym(sym){
+  var tbl = { 'TQQQ':'ProShares', 'MSFT':'Microsoft 微软', 'NVDA':'NVIDIA 英伟达', 'ORCL':'Oracle 甲骨文' };
+  var nm = tbl[String(sym||'').toUpperCase()] || 'Interactive Brokers';
+  var e = (typeof ICONS!=='undefined') && ICONS.find(function(x){ return x.n===nm; });
+  return e ? {n:e.n, img:e.img, c:e.c, i:e.i, cat:e.cat} : DEFAULT_ICON;
+}
+async function syncUsFromJson(){
+  try{
+    var r = await fetch('Asset_parsed.json', {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var j = await r.json();
+    if(!j || !Array.isArray(j.holdings) || !j.holdings.length) return;
+    var todayStr = ymd(todayTs());
+    j.holdings.forEach(function(h){
+      var sym = String(h.symbol||'').toUpperCase();
+      if(!sym) return;
+      var item = us.find(function(x){ return String(x.symbol||'').toUpperCase()===sym; });
+      if(!item){
+        item = { symbol:sym, name:'', price:Number(h.markPrice)||0, histText:'', _hist:[], id:uid(), trades:[], icon:usIconForSym(sym) };
+        us.push(item);
+      } else {
+        item.trades = (item.trades||[]).filter(function(t){ return t._fixed; });   // 仅保留固定种子
+        if(h.markPrice!=null && !isNaN(Number(h.markPrice))) item.price = Number(h.markPrice);
+        item.icon = usIconForSym(sym);
+      }
+      item.trades.push({
+        date: todayStr, type:'buy',
+        price: Number(h.costBasisPrice)||0,
+        shares: Number(h.position)||0,
+        amount: +((Number(h.costBasisPrice)||0)*(Number(h.position)||0)).toFixed(2),
+        _json:true
+      });
+    });
+    save();
+    renderTables();
+    refreshUsOnly();   // 自动获取名称/当前价，并重算展示
+  }catch(e){ /* file:// 协议或网络失败时静默跳过，保留既有数据 */ }
+}
+
+/* 现金「盈透证券」项 ← Asset_parsed.json 最近一条盈透明细（cashDaily 的现金 USD）：
+   - 找到现金里 note/id 含「盈透」的现金项（没有则新建，币种 usd，名称 盈透证券）
+   - 清空其全部收支记录
+   - 读取最近一条盈透明细的时间(date)与现金金额(cash USD)：
+       正 → 收入(in)，负 → 支出(out)，金额取绝对值
+   - 币种对齐为 usd（JSON 现金以 USD 计），日期取最近一条盈透明细日期 */
+async function syncCashFromJson(){
+  try{
+    var r = await fetch('Asset_parsed.json', {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var j = await r.json();
+    var net = (j && Array.isArray(j.totalNetValueDaily)) ? j.totalNetValueDaily : [];
+    var cashDaily = (j && Array.isArray(j.cashDaily)) ? j.cashDaily : [];
+    var map = {};
+    net.forEach(function(o){ if(o && o.date){ var e=map[o.date]||(map[o.date]={date:o.date}); e.net=Number(o.value)||0; } });
+    cashDaily.forEach(function(o){ if(o && o.date){ var e=map[o.date]||(map[o.date]={date:o.date}); e.cash=Number(o.value)||0; } });
+    var rows = Object.keys(map).sort().map(function(k){ var e=map[k]; return {date:k, net:e.net||0, cash:e.cash||0}; });
+    if(!rows.length) return;
+    var last = rows[rows.length-1];                 // 最近一条盈透明细
+    var date = last.date;
+    var usdCash = Number(last.cash)||0;             // 现金金额（USD）
+    var item = cash.find(function(c){
+      return (c.note && String(c.note).indexOf('盈透')>=0) || (c.id && String(c.id).indexOf('盈透')>=0);
+    });
+    if(!item){
+      item = { id:uid(), date:date, currency:'usd', note:'盈透证券', transactions:[], amount:0, icon:DEFAULT_ICON };
+      cash.push(item);
+    }
+    item.transactions = [];                          // 清空全部收支记录
+    item.currency = 'usd';                           // 与 JSON 现金(USD)对齐
+    item.date = date;                                // 日期取最近一条盈透明细日期
+    var amt = +(Math.abs(usdCash)).toFixed(2);
+    if(amt>0){
+      item.transactions.push({ date:date, type: usdCash>=0 ? 'in' : 'out', amount: amt });
+    }
+    item.amount = calcCashAmount(item);
+    save();
+    renderTables();
+    var cur = computeCurrent(); renderHero(cur); renderCards(cur); drawChart();
+  }catch(e){ /* file:// 协议或网络失败时静默跳过，保留既有数据 */ }
 }
 
 /* ---------- 刷新 ---------- */
@@ -3643,9 +3870,11 @@ function renderFxSetting(){
 /* 基础数据：基金总投入 / 投资组合成本（自动计算，随刷新更新） */
 function renderBasicData(cur){
   var fv=document.getElementById('fundInvestVal');
-  if(fv) fv.textContent=fmt0(cur.fundTotalBuyCost||0);
+  if(fv) fv.textContent=fmt2(cur.fundTotalBuyCost||0);
+  var uv=document.getElementById('usInvestVal');
+  if(uv) uv.textContent=fmt2(cur.usTotalBuyCost||0);
   var pv=document.getElementById('portfolioCostVal');
-  if(pv) pv.textContent=fmt0((cur.fundTotalBuyCost||0)+(cur.usTotalBuyCost||0));
+  if(pv) pv.textContent=fmt2((cur.fundTotalBuyCost||0)+(cur.usTotalBuyCost||0));
 }
 
 /* ---------- 弹窗 ---------- */
@@ -3911,7 +4140,86 @@ $('calRangeBtns').addEventListener('click',e=>{ const b=e.target.closest('button
   if(b.dataset.cal){ document.querySelectorAll('#calRangeBtns [data-cal]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); calRangeMode=b.dataset.cal; drawCalendar(); }
   else if(b.dataset.metric){ document.querySelectorAll('#calRangeBtns [data-metric]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); calMetric=b.dataset.metric; drawCalendar(); }
 });
-// 挂单页：按标的多选筛选 + 时间范围选择
+// 每日明细独立区间 + 自定义日期筛选（与曲线图 rangeBtns 完全解耦，只控制明细表）
+$('detailRangeBtns').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.id==='dtClear'){
+    detailStartTs=null; detailEndTs=null;
+    ['dtFromY','dtFromM','dtToY','dtToM'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+    document.querySelectorAll('#detailRangeBtns [data-r]').forEach(x=>x.classList.toggle('active', x.dataset.r==='0'));
+    detailPage=1;
+    drawChart(); return;
+  }
+  if(b.dataset.r!=null){
+    document.querySelectorAll('#detailRangeBtns [data-r]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    detailRangeDays=Number(b.dataset.r);
+    detailStartTs=null; detailEndTs=null;   // 选预设区间时清除自定义日期
+    detailPage=1;
+    drawChart();
+  }
+});
+// 每日明细自定义日期输入（年/月，按整月筛选）
+['dtFromY','dtFromM','dtToY','dtToM'].forEach(function(id){
+  const el=$(id); if(!el) return;
+  el.addEventListener('change',function(){
+    const fY=$('dtFromY').value, fM=$('dtFromM').value;
+    const tY=$('dtToY').value, tM=$('dtToM').value;
+    const pad=function(x){ return String(x).padStart(2,'0'); };
+    const lastDay=function(y,m){ return new Date(Date.UTC(Number(y), Number(m), 0)).getUTCDate(); };
+    // 起始=该月1号；结束=该月最后一天。只填一边则开放到最早/今天。
+    detailStartTs = (fY&&fM)? parseDate(fY+'-'+pad(fM)+'-01') : null;
+    detailEndTs   = (tY&&tM)? parseDate(tY+'-'+pad(tM)+'-'+lastDay(tY,tM)) : null;
+    if(detailStartTs!=null || detailEndTs!=null){
+      document.querySelectorAll('#detailRangeBtns [data-r]').forEach(x=>x.classList.remove('active'));
+    }
+    detailPage=1;
+    if(viewMode==='detail') drawChart();
+  });
+});
+// 每日明细分页
+$('dpPrev').addEventListener('click',function(){ if(detailPage>1){ detailPage--; if(viewMode==='detail') drawChart(); } });
+$('dpNext').addEventListener('click',function(){ detailPage++; if(viewMode==='detail') drawChart(); });
+// 盈透明细独立区间 + 自定义日期筛选（与曲线图/每日明细完全解耦，只控制盈透明细表）
+$('fxDetailRangeBtns').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.id==='fxClear'){
+    fxDetailStartTs=null; fxDetailEndTs=null;
+    ['fxFromY','fxFromM','fxToY','fxToM'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+    document.querySelectorAll('#fxDetailRangeBtns [data-r]').forEach(x=>x.classList.toggle('active', x.dataset.r==='0'));
+    fxDetailPage=1;
+    if(viewMode==='detail') renderFxDetail(); return;
+  }
+  if(b.dataset.r!=null){
+    document.querySelectorAll('#fxDetailRangeBtns [data-r]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    fxDetailRangeDays=Number(b.dataset.r);
+    fxDetailStartTs=null; fxDetailEndTs=null;   // 选预设区间时清除自定义日期
+    fxDetailPage=1;
+    if(viewMode==='detail') renderFxDetail();
+  }
+});
+// 盈透明细自定义日期输入（年/月，按整月筛选）
+['fxFromY','fxFromM','fxToY','fxToM'].forEach(function(id){
+  const el=$(id); if(!el) return;
+  el.addEventListener('change',function(){
+    const fY=$('fxFromY').value, fM=$('fxFromM').value;
+    const tY=$('fxToY').value, tM=$('fxToM').value;
+    const pad=function(x){ return String(x).padStart(2,'0'); };
+    const lastDay=function(y,m){ return new Date(Date.UTC(Number(y), Number(m), 0)).getUTCDate(); };
+    // 起始=该月1号；结束=该月最后一天。只填一边则开放到最早/今天。
+    fxDetailStartTs = (fY&&fM)? parseDate(fY+'-'+pad(fM)+'-01') : null;
+    fxDetailEndTs   = (tY&&tM)? parseDate(tY+'-'+pad(tM)+'-'+lastDay(tY,tM)) : null;
+    if(fxDetailStartTs!=null || fxDetailEndTs!=null){
+      document.querySelectorAll('#fxDetailRangeBtns [data-r]').forEach(x=>x.classList.remove('active'));
+    }
+    fxDetailPage=1;
+    if(viewMode==='detail') renderFxDetail();
+  });
+});
+// 盈透明细分页
+$('fxdpPrev').addEventListener('click',function(){ if(fxDetailPage>1){ fxDetailPage--; if(viewMode==='detail') renderFxDetail(); } });
+$('fxdpNext').addEventListener('click',function(){ fxDetailPage++; if(viewMode==='detail') renderFxDetail(); });
 document.body.addEventListener('change',function(e){
   var pf=e.target.closest('#pendingFilterPop [data-pid]'); if(pf){ pendingFilter[pf.dataset.pid]=pf.checked; renderPending(); return; }
   var pr=e.target.closest('#pendingRange'); if(pr){ pendingRange=pr.value; renderPending(); }
@@ -4055,6 +4363,9 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
   ['fund','us','cash','pending'].forEach(function(k){ renderCatTab(k); });
   paintStatusTags();   // 先用默认缓存(黄)状态绘制，再触发刷新
   if(funds.length||us.length){ refresh(); } else setStatus('idle','添加资产后点“刷新实时行情”');
+  loadFxDetailData();   // 后台加载 Asset_parsed.json 的每日总净值/现金，切到明细视图时渲染
+  syncUsFromJson();     // 后台按 Asset_parsed.json 持仓同步美股明细（建/清/补买入）
+  syncCashFromJson();   // 后台按 Asset_parsed.json 最近一条盈透明细同步现金「盈透证券」项
 })();
 </script>
 
@@ -4489,7 +4800,6 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
     if (name === 'settings') {
       setTimeout(function(){
         try { if (typeof renderFxSetting === 'function') renderFxSetting(); } catch(e){}
-        try { if (typeof syncUsInvestSetting === 'function') syncUsInvestSetting(); } catch(e){}
         try { if (typeof syncCatIconSettings === 'function') syncCatIconSettings(); } catch(e){}
       }, 0);
     }
@@ -4548,24 +4858,26 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
     h.addEventListener('click', function(){ h.parentElement.classList.toggle('collapsed'); });
   });
 
-  // 美股总投入：在设置内直接编辑（不再跳转资产页）
-  function syncUsInvestSetting(){
-    var i = document.getElementById('usInvestSetInput');
-    if (i) i.value = (usInvestManual!=null && !isNaN(usInvestManual)) ? String(usInvestManual) : '';
+  // 美股总投入：只读显示，取值 = Asset_parsed.json 中 forexTrades 的 cnh 之和（与基金总投入一致，自动计算，无输入框/按钮）
+  function sumForexCnh(j){
+    var fx = (j && Array.isArray(j.forexTrades)) ? j.forexTrades : [];
+    var sum = 0;
+    for (var i=0; i<fx.length; i++){ var c = fx[i] && fx[i].cnh; if (typeof c === 'number') sum += c; }
+    return Math.round(sum * 100) / 100;
   }
-  syncUsInvestSetting();
-  var usSetInput = document.getElementById('usInvestSetInput');
-  if (usSetInput) usSetInput.addEventListener('input', function(e){
-    var v = parseFloat(e.target.value);
-    usInvestManual = (!isNaN(v) && v>0) ? v : null;
-    save();
-    var cur = computeCurrent(); renderHero(cur); renderCards(cur); renderTables(); drawChart();
-  });
-  var usSetAuto = document.getElementById('usInvestSetAuto');
-  if (usSetAuto) usSetAuto.addEventListener('click', function(){
-    usInvestManual = null; syncUsInvestSetting(); save();
-    var cur = computeCurrent(); renderHero(cur); renderCards(cur); renderTables(); drawChart();
-  });
+
+  // 页面打开即从 JSON 读取美股总投入（自动公式值）；读取失败则保留旧手动锁定值兜底
+  (function loadUsInvestAuto(){
+    fetch('Asset_parsed.json', {cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(j){
+        usInvestAutoVal = sumForexCnh(j);
+        var cur = computeCurrent();
+        renderHero(cur); renderCards(cur); renderTables(); renderBasicData(cur); drawChart();
+      })
+      .catch(function(){});   // 读取失败静默：保留旧手动值或 0
+  })();
+
   syncAutoUs();
   try { if (typeof renderFxSetting === 'function') renderFxSetting(); } catch(e){}
 

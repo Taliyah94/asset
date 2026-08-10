@@ -1,0 +1,51 @@
+name: IBKR 每日资产同步
+
+on:
+  schedule:
+    # 北京时间 每天 04:30 = UTC 前一天 20:30
+    - cron: "30 20 * * *"
+  workflow_dispatch: {}   # 允许在 Actions 页面手动触发
+
+permissions:
+  contents: write        # 允许把更新后的 Asset_parsed.json 提交回仓库
+
+concurrency:
+  group: ibkr-daily
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          # 用仓库默认 token 提交，避免 PAT 额外配置
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 运行 IBKR 1day 解析脚本
+        env:
+          IBKR_TOKEN: ${{ secrets.IBKR_TOKEN }}
+          IBKR_QUERY_ID_1DAY: ${{ secrets.IBKR_QUERY_ID_1DAY }}
+          IBKR_QUERY_ID_ASSET: ${{ secrets.IBKR_QUERY_ID_ASSET }}
+          JSON_PATH: ${{ github.workspace }}/Asset_parsed.json
+        run: python parse_ibkr_asset1day.py
+
+      - name: 提交并推送更新后的 JSON
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Asset_parsed.json
+          # 仅当 JSON 有变化才提交（避免无谓的空提交触发 Pages 重建）
+          if git diff --cached --quiet; then
+            echo "Asset_parsed.json 无变化，跳过提交"
+          else
+            git commit -m "chore: 每日同步 IBKR 资产快照 $(date +%Y-%m-%d)"
+            git push
+          fi
