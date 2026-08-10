@@ -87,7 +87,7 @@ def http_get(url, timeout=60):
 
 
 # ----------------------- Flex Web Service -----------------------
-def request_flex_xml(token, query_id, max_wait=300, interval=10, send_retries=8):
+def request_flex_xml(token, query_id, max_wait=540, interval=10, send_retries=15):
     """
     调用 IBKR Flex Web Service（两步式）：
       1) SendRequest -> 拿到 ReferenceCode
