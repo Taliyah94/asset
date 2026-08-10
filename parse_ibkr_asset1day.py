@@ -39,6 +39,19 @@ parse_ibkr_asset1day.py — 盈透证券(IBKR)每日资产快照同步脚本
 - 持仓只取 1day 报表最新 reportDate 的快照（覆盖式更新），不保留历史持仓。
 - 若当日数据尚未生成（如周末/休市，报表可能不含今天），脚本不会凭空造数据，
   仅保留已下载到的日期；缺失日期由前一次运行或历史 365day 数据补足。
+
+调度说明（2026-08-10 调整）
+--------------------------
+- 由 GitHub Actions 每 30 分钟一个独立 cron 触发：
+  「02:00 / 02:30 / 03:00 / 03:30 / 04:00 / 04:30 / 05:00 UTC」
+  = 北京时间 10:00 ~ 13:00，每个整半点各跑一次。
+- 美股收盘后 IBKR 不会立即更新报表，通常约北京时间 10:00 才就绪；
+  早到的 cron 会因「报表未刷新」直接退出，等下一个 cron（30 分钟后）再试，
+  平时任务只需 1~2 分钟，不空耗 Actions 时长。
+- 脚本用 JSON 里的 lastSync（北京时间日期）标记「今日已同步」：
+  一旦当日任一次成功，后续 cron 直接跳过；次日自动解除。
+  手动在 Actions 页面触发时可勾选 force 强制重跑。
+- 05:00 UTC（13:00 北京时间）是当日最后一次尝试；仍失败则放弃，次日 02:00 再开始。
 """
 import xml.etree.ElementTree as ET
 import json
@@ -84,6 +97,12 @@ def http_get(url, timeout=60):
     req = urllib.request.Request(url, headers={"User-Agent": "ibkr-asset-sync/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read().decode("utf-8")
+
+
+def beijing_now():
+    """当前北京时间（UTC+8）。GitHub Actions runner 默认 UTC，统一用此函数换算。"""
+    return datetime.datetime.now(datetime.timezone.utc).astimezone(
+        datetime.timezone(datetime.timedelta(hours=8)))
 
 
 # ----------------------- Flex Web Service -----------------------
@@ -228,54 +247,33 @@ def merge_daily(existing, new_map):
     return total, cash
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--xml", help="本地 XML 路径（调试用，跳过联网下载）")
-    ap.add_argument("--json", help="输出 JSON 路径（默认脚本同目录 Asset_parsed.json）")
-    args = ap.parse_args()
+def fetch_validate(token, query_id, result):
+    """
+    下载并校验 1day 报表是否已「刷新到当日」。
+    成功返回报表 XML 字符串；若 IBKR 未就绪（瞬时错误 / 报表陈旧）则抛异常，
+    由调用方决定延时重试。
+    """
+    xml_txt = request_flex_xml(token, query_id)
+    root = ET.fromstring(xml_txt)
+    eq_map = parse_equity(root)
+    if not eq_map:
+        raise RuntimeError("报表无 EquitySummary 数据（IBKR 可能尚未生成）")
+    latest_date = max(eq_map.keys())
+    existing_latest = max(
+        (row["date"] for row in (result.get("totalNetValueDaily") or [])),
+        default=None)
+    if existing_latest and latest_date <= existing_latest:
+        raise RuntimeError(
+            f"报表最新日期 {latest_date} 未超过已同步 {existing_latest}，"
+            f"IBKR 尚未刷新当日数据")
+    return xml_txt
 
-    json_path = args.json or os.environ.get("JSON_PATH", DEFAULT_JSON)
 
-    # ---- 读取已有 json ----
-    if os.path.exists(json_path):
-        with open(json_path, encoding="utf-8") as f:
-            result = json.load(f)
-        print(f"[load] 已有 Asset_parsed.json: {json_path}")
-    else:
-        result = {
-            "account": {},
-            "totalNetValueDaily": [],
-            "cashDaily": [],
-            "holdings": [],
-            "electronicFundTransfers": [],
-            "forexTrades": [],
-        }
-        print(f"[init] 未找到 json，新建于 {json_path}")
-
-    # ---- 获取 1day XML ----
-    if args.xml:
-        print(f"[xml] 使用本地文件: {args.xml}")
-        xml_txt = open(args.xml, encoding="utf-8").read()
-    else:
-        token = os.environ.get("IBKR_TOKEN")
-        q1 = os.environ.get("IBKR_QUERY_ID_1DAY")
-        if not token or not q1:
-            sys.exit("ERROR: 需设置 IBKR_TOKEN 与 IBKR_QUERY_ID_1DAY，或使用 --xml")
-        print("[flex] 下载 1day 报表 ...")
-        try:
-            xml_txt = request_flex_xml(token, q1)
-            print("[flex] 1day 报表下载完成")
-        except RuntimeError as e:
-            # IBKR Flex 报表生成端临时不可用（"could not be generated" 等）。
-            # 夜间任务遇到这种情况应「干净跳过」而非失败：保留上次成功的 JSON，
-            # 不提交空改动，等待下一个 cron（北京时间 04:30）自动重试。
-            print(f"[warn] IBKR Flex 1day 下载失败，本次跳过同步（保留原 JSON）：{e}")
-            print("[warn] 明日定时任务将自动重试。")
-            sys.exit(0)
-
+def do_parse_and_write(xml_txt, result, json_path):
+    """解析 1day 报表并写回 Asset_parsed.json（账户/每日净值/现金/持仓/换汇）。"""
     root = ET.fromstring(xml_txt)
 
-    # ---- 账户信息（仅当 1day 含 AccountInformation 时更新）----
+    # ---- 账户信息（仅当含 AccountInformation 时更新）----
     ai = root.find(".//AccountInformation")
     if ai is not None:
         a = ai.attrib
@@ -302,7 +300,7 @@ def main():
 
     # ---- 可选：用 asset(365day) 报表刷新 forexTrades / efts ----
     q_asset = os.environ.get("IBKR_QUERY_ID_ASSET")
-    if (not args.xml) and q_asset:
+    if q_asset:
         try:
             print("[flex] 下载 asset(365day) 报表以刷新换汇/转账 ...")
             xml_a = request_flex_xml(os.environ.get("IBKR_TOKEN"), q_asset)
@@ -343,6 +341,62 @@ def main():
     print(f"       账户: {result['account'].get('accountId')}  "
           f"总净值天数: {len(total)}  现金天数: {len(cash)}  "
           f"持仓: {len(holdings)}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--xml", help="本地 XML 路径（调试用，跳过联网下载与跳过判断）")
+    ap.add_argument("--json", help="输出 JSON 路径（默认脚本同目录 Asset_parsed.json）")
+    ap.add_argument("--force", action="store_true",
+                    help="忽略「今日已同步」标记，强制重新拉取（手动补跑用）")
+    args = ap.parse_args()
+
+    json_path = args.json or os.environ.get("JSON_PATH", DEFAULT_JSON)
+
+    # ---- 读取已有 json ----
+    if os.path.exists(json_path):
+        with open(json_path, encoding="utf-8") as f:
+            result = json.load(f)
+        print(f"[load] 已有 Asset_parsed.json: {json_path}")
+    else:
+        result = {
+            "account": {},
+            "totalNetValueDaily": [],
+            "cashDaily": [],
+            "holdings": [],
+            "electronicFundTransfers": [],
+            "forexTrades": [],
+        }
+        print(f"[init] 未找到 json，新建于 {json_path}")
+
+    # ---- 本地调试：直接解析一次，不判断今日是否已同步 ----
+    if args.xml:
+        print(f"[xml] 使用本地文件: {args.xml}")
+        do_parse_and_write(open(args.xml, encoding="utf-8").read(), result, json_path)
+        return
+
+    token = os.environ.get("IBKR_TOKEN")
+    q1 = os.environ.get("IBKR_QUERY_ID_1DAY")
+    if not token or not q1:
+        sys.exit("ERROR: 需设置 IBKR_TOKEN 与 IBKR_QUERY_ID_1DAY，或使用 --xml")
+
+    # ---- 今日已同步过则跳过（由 GitHub 每 30 分钟一个 cron 负责重试）----
+    today_bj = beijing_now().strftime("%Y-%m-%d")
+    if (not args.force) and result.get("lastSync") == today_bj:
+        print(f"[skip] 今日（{today_bj}）已同步过，跳过本次运行；"
+              f"如需重跑可加 --force")
+        return
+
+    # ---- 单次尝试：失败直接退出，等下一个 cron（30 分钟后）再试 ----
+    print(f"[sync] 尝试拉取 @ 北京时间 {beijing_now():%Y-%m-%d %H:%M}")
+    try:
+        xml_txt = fetch_validate(token, q1, result)
+    except Exception as e:
+        print(f"[warn] 拉取失败：{e}；本窗口内下一个 cron 将自动重试")
+        return
+    result["lastSync"] = today_bj
+    do_parse_and_write(xml_txt, result, json_path)
+    print(f"[ok] 同步成功（标记为 {today_bj}）")
 
 
 if __name__ == "__main__":
