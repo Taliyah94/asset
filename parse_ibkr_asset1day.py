@@ -51,8 +51,12 @@ import argparse
 import datetime
 
 # ----------------------------- 配置 -----------------------------
-IBKR_BASE_URL = os.environ.get(
-    "IBKR_BASE_URL", "https://gdcdyn.interactivebrokers.com/spaces/iv/ivf/flexoauth")
+IBKR_SEND_URL = os.environ.get(
+    "IBKR_SEND_URL",
+    "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest")
+IBKR_GET_URL = os.environ.get(
+    "IBKR_GET_URL",
+    "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement")
 DEFAULT_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "Asset_parsed.json")
 
@@ -83,20 +87,19 @@ def http_get(url, timeout=60):
 
 
 # ----------------------- Flex Web Service -----------------------
-def request_flex_xml(token, query_id, max_wait=120, interval=5):
+def request_flex_xml(token, query_id, max_wait=180, interval=8):
     """
-    调用 Flex Web Service：
-      1) 提交查询，拿到 referenceCode
-      2) 轮询取回 XML（最多等待 max_wait 秒）
-    返回 XML 字符串；失败抛异常。
+    调用 IBKR Flex Web Service（两步式）：
+      1) SendRequest -> 拿到 ReferenceCode
+      2) GetStatement 轮询 -> 取到完整报表 XML
+    返回报表 XML 字符串；失败抛异常。
     """
-    # 1) 提交
-    submit = (f"{IBKR_BASE_URL}?t={token}&"
-              f"q={query_id}&v=3")
+    # 1) 提交报表请求
+    submit = f"{IBKR_SEND_URL}?t={token}&q={query_id}&v=3"
     code = None
+    last_err = ""
     for _ in range(3):
         txt = http_get(submit)
-        # 成功返回 <FlexQueryResponse><Status>Success</Status><ReferenceCode>XXX</ReferenceCode>...
         rc = txt.split("<ReferenceCode>")[1].split("</ReferenceCode>")[0] \
             if "<ReferenceCode>" in txt else None
         err = txt.split("<ErrorMessage>")[1].split("</ErrorMessage>")[0] \
@@ -105,25 +108,28 @@ def request_flex_xml(token, query_id, max_wait=120, interval=5):
             code = rc
             break
         if err:
-            raise RuntimeError(f"Flex submit error: {err}")
+            last_err = err
         time.sleep(interval)
     if not code:
-        raise RuntimeError(f"Flex submit failed, response: {txt[:500]}")
+        raise RuntimeError(f"Flex SendRequest 失败: {last_err or txt[:300]}")
 
-    # 2) 取回
+    # 2) 取回报表（可能还在生成，需轮询）
     deadline = time.time() + max_wait
-    get_url = f"{IBKR_BASE_URL}?t={token}&q={code}&v=3"
+    get_url = f"{IBKR_GET_URL}?t={token}&q={code}&v=3"
     while time.time() < deadline:
         txt = http_get(get_url)
-        if "<FlexQueryResponse" in txt and "<EquitySummaryByReportDateInBase" in txt:
-            return txt
         if "<ErrorMessage>" in txt:
             msg = txt.split("<ErrorMessage>")[1].split("</ErrorMessage>")[0]
-            # 还在生成中（FinishTime 未到）会返回错误信息，需继续轮询
+            # 1009/1018 等：还在生成或临时错误，继续轮询
+            last_err = msg
             time.sleep(interval)
             continue
+        # 成功返回包含报表数据（FlexStatementResponse / FlexQueryResponse）
+        if "<EquitySummaryByReportDateInBase" in txt or "<FlexQueryResponse" in txt \
+                or "<FlexStatementResponse" in txt:
+            return txt
         time.sleep(interval)
-    raise RuntimeError("Flex get timed out waiting for report")
+    raise RuntimeError(f"Flex GetStatement 超时等待报表（最后错误: {last_err}）")
 
 
 # ----------------------------- 解析 -----------------------------
