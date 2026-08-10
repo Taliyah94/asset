@@ -208,19 +208,22 @@ window.dispatchEvent(new Event('chartReady'));
   .pending-filter-pop .pf-tag{margin-left:auto;font-size:10px;color:#8a94a6;border:1px solid var(--line);border-radius:4px;padding:0 5px;flex:none;}
   .pending-filter-pop .pf-empty{font-size:12px;color:var(--muted);padding:6px;text-align:center;}
   .pending-filter-pop .pf-sep{flex:1;}
-  /* 挂单表：固定布局，紧凑字号，整体不横向溢出（适配 iPhone 15PM） */
-  .tbl-scroll > table.pending-tbl{min-width:0;width:100%;table-layout:fixed;font-size:11px;}
-  .pending-tbl th{font-size:10px;color:var(--muted);font-weight:600;}
-  .pending-tbl th,.pending-tbl td{padding:6px 4px;}
+  /* 挂单表：固定布局，整体不横向溢出（适配 iPhone 15PM） */
+  .tbl-scroll > table.pending-tbl{min-width:0;width:100%;table-layout:fixed;font-size:13px;}
+  .pending-tbl th{font-size:12px;color:var(--muted);font-weight:600;}
+  .pending-tbl th, .pending-tbl td{padding:8px 4px;text-align:center;}
   .pending-tbl td.cls-name{word-break:break-word;}
-  .pending-tbl td.cls-date{white-space:nowrap;}
+  .pending-tbl td.cls-date{white-space:nowrap;text-align:left;}
   .pending-tbl td.cls-amt{white-space:nowrap;}
   .pending-tbl td.cls-code{word-break:break-word;}
-  .pending-tbl td.cls-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
-  /* 期权代码：两行（到期日 / 类型+行权价简写） */
-  .opt-code{display:inline-flex;flex-direction:column;line-height:1.3;text-align:left;}
-  .opt-code .opt-exp{font-weight:600;}
-  .opt-code .opt-strike{font-size:10px;color:var(--muted);}
+  .pending-tbl td.cls-num{white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .pending-tbl td.cls-num .qty-price{font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .tbl-scroll > table.pending-tbl th:last-child,
+  .tbl-scroll > table.pending-tbl td:last-child{text-align:center;padding-right:4px;}
+  /* 期权代码：两行（底层+到期日 / 类型+行权价简写） */
+  .opt-code{display:inline-flex;flex-direction:column;line-height:1.25;text-align:center;}
+  .opt-code .opt-under{font-weight:600;}
+  .opt-code .opt-strike{font-size:11px;color:var(--muted);margin-top:1px;}
   .pending-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px;}
   .pf-select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;max-width:48%;}
   .pf-sum{font-size:13px;color:var(--muted);text-align:right;}
@@ -788,7 +791,7 @@ window.dispatchEvent(new Event('chartReady'));
       </div>
     </div>
       <div class="setting-row">
-        <div class="label"><span class="cat-ic-prev" id="catPrevPending"><span class="item-ic"><img data-b64="35" alt="" onerror="this.parentNode.innerHTML='<span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;>St</span>';"></span></span>挂单</div>
+        <div class="label"><span class="cat-ic-prev" id="catPrevPending"><span class="item-ic"><img data-b64="13" alt="" onerror="this.parentNode.innerHTML='<span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;>虎</span>';"></span></span>挂单</div>
         <div class="value">
           <button class="sm" id="catEditPending">修改</button>
           <button class="sm ghost" id="catClearPending">清除</button>
@@ -1011,7 +1014,7 @@ if __name__ == "__main__":
     <button data-tab="fund" class=""><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='<span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;>嘉实</span>';"></span> 基金</button>
     <button data-tab="us" class=""><span class="item-ic"><img data-b64="9" alt="" onerror="this.parentNode.innerHTML='<span class=&quot;item-ic fb&quot; style=&quot;background:#FF6C00&quot;>IB</span>';"></span> 美股</button>
     <button data-tab="cash" class="active"><span class="item-ic"><img data-b64="10" alt="" onerror="this.parentNode.innerHTML='<span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;>Ro</span>';"></span> 现金</button>
-    <button data-tab="pending" class=""><span class="item-ic"><img data-b64="35" alt="" onerror="this.parentNode.innerHTML='<span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;>St</span>';"></span> 挂单</button>
+    <button data-tab="pending" class=""><span class="item-ic"><img data-b64="13" alt="" onerror="this.parentNode.innerHTML='<span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;>虎</span>';"></span> 挂单</button>
   </div>
 
   <section class="tabpane" id="pane-fund" style="display: none;">
@@ -1098,8 +1101,8 @@ if __name__ == "__main__":
     </div>
     <div class="tbl-scroll">
       <table class="pending-tbl">
-        <colgroup><col style="width:18%"><col style="width:26%"><col style="width:16%"><col style="width:20%"><col style="width:20%"></colgroup>
-        <thead><tr><th>日期</th><th>代码</th><th style="text-align:right;">股数</th><th style="text-align:right;">价格</th><th style="text-align:right;">已实现盈亏</th></tr></thead>
+        <colgroup><col style="width:20%"><col style="width:30%"><col style="width:26%"><col style="width:24%"></colgroup>
+        <thead><tr><th>日期</th><th>代码</th><th>股数/价格</th><th>已实现盈亏</th></tr></thead>
         <tbody id="tbPending"></tbody>
       </table>
     </div>
@@ -1378,7 +1381,7 @@ let catIcon = (function(){
   }catch(e){}
   return {fund:null, us:null, cash:null};
 })();
-if(!catIcon.pending) catIcon.pending = {n:'HSBC', img:__B[5]};
+if(!catIcon.pending) catIcon.pending = {n:'Tiger Brokers 老虎', img:__B[13]};
 function saveCatIcon(){ try{ localStorage.setItem('pa_caticon', JSON.stringify(catIcon)); }catch(e){} }
 const CAT_LABEL = {fund:'基金', us:'美股', cash:'现金', pending:'挂单'};
 var pendingFilter = {};  // 挂单页「按标的」多选筛选状态（key=交易代码 symbol，默认全开）
@@ -1511,17 +1514,23 @@ function fmtShortDate(iso){
   if(m) return m[1].slice(2)+'-'+m[2]+'-'+m[3];
   return s;
 }
-// 交易代码：期权（带 C/P+8位行权价）拆两行；其余原样
+// 交易代码：期权（底层+到期日 / 类型+行权价简写）拆两行；其余原样
 function fmtTradeCode(sym){
   var s=String(sym||'');
-  var m=s.match(/\s+(\d{6})([CP])(\d{8})\s*$/);
+  var m=s.match(/^(.*?)\s+(\d{6})([CP])(\d{8})\s*$/);   // ORCL  260807P00140000
   if(m){
-    var strike=parseInt(m[3],10)/1000;          // 末8位 ÷1000 = 真实行权价
+    var strike=parseInt(m[4],10)/1000;          // 末8位 ÷1000 = 真实行权价
     var ss=(strike%1===0)?String(strike):strike.toLocaleString('en-US',{maximumFractionDigits:1});
-    return '<span class="opt-code"><span class="opt-exp">'+esc(m[1])+'</span>'
-         + '<span class="opt-strike">'+esc(m[2]+ss)+'</span></span>';
+    return '<span class="opt-code"><span class="opt-under">'+esc(m[1]+m[2])+'</span>'
+         + '<span class="opt-strike">'+esc(m[3]+ss)+'</span></span>';
   }
   return esc(s);
+}
+// 交易底层代码：期权取底层标的（如 NVDA），正股原样；用于筛选归并
+function tradeUnderlying(sym){
+  var s=String(sym||'');
+  var m=s.match(/^(.*?)\s+\d{6}[CP]\d{8}\s*$/);
+  return m ? m[1].trim() : s.trim();
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
 
@@ -2241,7 +2250,7 @@ function drawAllocation(){
        +'<span class="vl">'+fmt0(it.val)+'</span></div>';
   });
   var tStr=fmt0(total);
-  var tFont=tStr.length>9?15:(tStr.length>7?18.5:22);
+  var tFont=tStr.length>9?17:(tStr.length>7?21:25);
   var svg='<svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">'
         +'<circle cx="180" cy="180" r="'+rin+'" fill="#0f172a"/>'
       +'<text x="180" y="'+(180+tFont*0.35).toFixed(1)+'" text-anchor="middle" font-size="'+tFont+'" font-weight="800" fill="#fff">'+tStr+'</text>'
@@ -2627,10 +2636,10 @@ function renderPendingFilterList(q){
   // 统计 TRADES 中出现的不同代码（含期权完整代码），默认全选
   var seen={}, arr=[];
   TRADES.forEach(function(t){
-    var s=t.symbol||'';
-    if(!seen[s]){ seen[s]=true; arr.push({sym:s, cat:t.cat||'', n:0}); }
+    var u=tradeUnderlying(t.symbol);
+    if(!seen[u]){ seen[u]=true; arr.push({sym:u, cat:t.cat||'', n:0}); }
   });
-  arr.forEach(function(o){ o.n = TRADES.filter(function(t){ return (t.symbol||'')===o.sym; }).length; });
+  arr.forEach(function(o){ o.n = TRADES.filter(function(t){ return tradeUnderlying(t.symbol)===o.sym; }).length; });
   arr.sort(function(a,b){ return (a.sym||'').localeCompare(b.sym||''); });
   arr = arr.filter(function(o){ if(!q) return true; return (o.sym||'').toLowerCase().indexOf(q)>=0; });
   var html = arr.map(function(o){
@@ -2672,10 +2681,10 @@ function buildPendingRows(trades, ccy){
 }
 function renderPending(){
   var tb = $('tbPending'); if(!tb) return;
-  // 所有代码默认选中
-  TRADES.forEach(function(t){ if(pendingFilter[t.symbol]===undefined) pendingFilter[t.symbol]=true; });
-  // 按筛选状态过滤
-  var rows = TRADES.filter(function(t){ return pendingFilter[t.symbol]!==false; });
+  // 所有底层代码默认选中（期权按底层标的归并）
+  TRADES.forEach(function(t){ var u=tradeUnderlying(t.symbol); if(pendingFilter[u]===undefined) pendingFilter[u]=true; });
+  // 按筛选状态过滤（期权随底层标的筛选）
+  var rows = TRADES.filter(function(t){ return pendingFilter[tradeUnderlying(t.symbol)]!==false; });
   // 日期倒序（最新在上）
   rows = rows.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
   // 已实现盈亏合计（USD，IBKR 原生币种）
@@ -2686,7 +2695,7 @@ function renderPending(){
     if(!rows.length){ pnlEl.textContent='—'; pnlEl.style.color=''; }
     else { pnlEl.textContent=(pnl>=0?'+':'-')+'$'+Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); pnlEl.style.color=(pnl>=0?'var(--up)':'var(--down)'); }
   }
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="5" class="empty">还没有任何交易记录。</td></tr>'; return; }
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="4" class="empty">还没有任何交易记录。</td></tr>'; return; }
   tb.innerHTML = rows.map(function(t){
     var qty = (String(t.buySell||'').toUpperCase()==='SELL' ? 'sell ' : 'buy ') + Math.abs(Number(t.quantity)||0);
     var price = Number(t.price)||0;
@@ -2696,8 +2705,7 @@ function renderPending(){
     return '<tr>'
       + '<td class="cls-date">'+esc(fmtShortDate(t.date))+'</td>'
       + '<td class="cls-code">'+fmtTradeCode(t.symbol)+'</td>'
-      + '<td class="cls-num">'+esc(qty)+'</td>'
-      + '<td class="cls-num">$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      + '<td class="cls-num">'+esc(qty)+'<div class="qty-price">$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></td>'
       + '<td class="cls-num" style="color:'+col+';">'+sign+'$'+Math.abs(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       + '</tr>';
   }).join('');
@@ -4393,7 +4401,7 @@ document.body.addEventListener('click',function(e){
   if(pfPop && pfPop.style.display==='flex' && !e.target.closest('#pendingFilterPop')){ pfPop.style.display='none'; }
   // 全选（重置筛选）
   var pfReset=e.target.closest('#btnPendingFilterReset'); if(pfReset){
-    TRADES.forEach(function(t){ pendingFilter[t.symbol]=true; });
+    TRADES.forEach(function(t){ pendingFilter[tradeUnderlying(t.symbol)]=true; });
     renderPendingFilterList($('pendingFilterSearch')?$('pendingFilterSearch').value:'');
     if(pfPop) pfPop.style.display='none'; renderPending(); return;
   }
