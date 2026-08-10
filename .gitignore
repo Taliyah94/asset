@@ -1,0 +1,8 @@
+# 临时调试日志 / 压缩包，不应入库
+_logs/
+_logs.zip
+_logs*.zip
+_set_secrets.py
+_test_out.json
+__pycache__/
+*.pyc

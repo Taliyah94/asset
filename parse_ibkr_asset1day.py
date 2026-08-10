@@ -87,19 +87,35 @@ def http_get(url, timeout=60):
 
 
 # ----------------------- Flex Web Service -----------------------
-def request_flex_xml(token, query_id, max_wait=180, interval=8):
+def request_flex_xml(token, query_id, max_wait=300, interval=10, send_retries=8):
     """
     调用 IBKR Flex Web Service（两步式）：
       1) SendRequest -> 拿到 ReferenceCode
       2) GetStatement 轮询 -> 取到完整报表 XML
     返回报表 XML 字符串；失败抛异常。
+
+    关键经验：IBKR Flex 接口经常返回「Statement could not be generated at
+    this time. Please try again shortly.」这类**瞬时**错误（尤其在整点/批量
+    生成时段）。因此 SendRequest 与 GetStatement 都必须做**指数退避重试**，
+    而不是一遇到 ErrorMessage 就放弃。
     """
-    # 1) 提交报表请求
+    TRANSIENT = ("could not be generated", "try again", "please wait",
+                 "in progress", "in queue", "1018", "1009", "temporarily")
+
+    # 1) 提交报表请求（瞬时错误需多次退避重试）
     submit = f"{IBKR_SEND_URL}?t={token}&q={query_id}&v=3"
     code = None
     last_err = ""
-    for _ in range(3):
-        txt = http_get(submit)
+    wait = interval
+    for attempt in range(1, send_retries + 1):
+        try:
+            txt = http_get(submit)
+        except Exception as e:  # 网络抖动也计入重试
+            last_err = f"网络异常: {e}"
+            print(f"[flex] SendRequest 第{attempt}次网络异常，{wait}s 后重试")
+            time.sleep(wait)
+            wait = min(wait * 2, 60)
+            continue
         rc = txt.split("<ReferenceCode>")[1].split("</ReferenceCode>")[0] \
             if "<ReferenceCode>" in txt else None
         err = txt.split("<ErrorMessage>")[1].split("</ErrorMessage>")[0] \
@@ -107,28 +123,47 @@ def request_flex_xml(token, query_id, max_wait=180, interval=8):
         if rc:
             code = rc
             break
-        if err:
-            last_err = err
-        time.sleep(interval)
+        last_err = err or txt[:300]
+        is_transient = any(k in last_err.lower() for k in TRANSIENT)
+        if is_transient and attempt < send_retries:
+            print(f"[flex] SendRequest 第{attempt}次瞬时错误（{last_err[:80]}），"
+                  f"{wait}s 后重试")
+            time.sleep(wait)
+            wait = min(wait * 2, 60)
+            continue
+        # 非瞬时错误（如 Invalid request）：立即失败
+        raise RuntimeError(f"Flex SendRequest 失败: {last_err}")
     if not code:
-        raise RuntimeError(f"Flex SendRequest 失败: {last_err or txt[:300]}")
+        raise RuntimeError(f"Flex SendRequest 重试{send_retries}次仍失败: {last_err}")
 
-    # 2) 取回报表（可能还在生成，需轮询）
+    # 2) 取回报表（可能还在生成，需轮询 + 退避）
     deadline = time.time() + max_wait
     get_url = f"{IBKR_GET_URL}?t={token}&q={code}&v=3"
+    gwait = interval
     while time.time() < deadline:
-        txt = http_get(get_url)
+        try:
+            txt = http_get(get_url)
+        except Exception as e:
+            print(f"[flex] GetStatement 网络异常，{gwait}s 后重试: {e}")
+            time.sleep(gwait)
+            gwait = min(gwait * 2, 60)
+            continue
         if "<ErrorMessage>" in txt:
             msg = txt.split("<ErrorMessage>")[1].split("</ErrorMessage>")[0]
-            # 1009/1018 等：还在生成或临时错误，继续轮询
             last_err = msg
-            time.sleep(interval)
-            continue
+            is_transient = any(k in msg.lower() for k in TRANSIENT)
+            if is_transient and time.time() + gwait < deadline:
+                print(f"[flex] 报表仍在生成（{msg[:60]}），{gwait}s 后轮询")
+                time.sleep(gwait)
+                gwait = min(gwait * 2, 60)
+                continue
+            if not is_transient:  # 硬错误
+                raise RuntimeError(f"Flex GetStatement 失败: {msg}")
         # 成功返回包含报表数据（FlexStatementResponse / FlexQueryResponse）
         if "<EquitySummaryByReportDateInBase" in txt or "<FlexQueryResponse" in txt \
                 or "<FlexStatementResponse" in txt:
             return txt
-        time.sleep(interval)
+        time.sleep(gwait)
     raise RuntimeError(f"Flex GetStatement 超时等待报表（最后错误: {last_err}）")
 
 
