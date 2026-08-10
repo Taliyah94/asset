@@ -52,7 +52,7 @@ import datetime
 
 # ----------------------------- 配置 -----------------------------
 IBKR_BASE_URL = os.environ.get(
-    "IBKR_BASE_URL", "https://gdcdyn.interactivebrokers.com/spaces/iv/ivf/xml")
+    "IBKR_BASE_URL", "https://gdcdyn.interactivebrokers.com/spaces/iv/ivf/flexoauth")
 DEFAULT_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "Asset_parsed.json")
 
@@ -91,7 +91,7 @@ def request_flex_xml(token, query_id, max_wait=120, interval=5):
     返回 XML 字符串；失败抛异常。
     """
     # 1) 提交
-    submit = (f"{IBKR_BASE_URL}/flexoauth?t={token}&"
+    submit = (f"{IBKR_BASE_URL}?t={token}&"
               f"q={query_id}&v=3")
     code = None
     for _ in range(3):
@@ -112,7 +112,7 @@ def request_flex_xml(token, query_id, max_wait=120, interval=5):
 
     # 2) 取回
     deadline = time.time() + max_wait
-    get_url = f"{IBKR_BASE_URL}/flexoauth?t={token}&q={code}&v=3"
+    get_url = f"{IBKR_BASE_URL}?t={token}&q={code}&v=3"
     while time.time() < deadline:
         txt = http_get(get_url)
         if "<FlexQueryResponse" in txt and "<EquitySummaryByReportDateInBase" in txt:
