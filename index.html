@@ -1344,13 +1344,26 @@ const FIXED_US_TRADES = {
   }catch(e){}
 })();
 
-/* 首次迁移：为基金/美股/现金各条目默认图标设为 HSBC（仅执行一次；后续用户手动修改保留） */
+/* 首次迁移：为无图标的条目补默认图标（仅执行一次；后续用户手动修改保留）
+   - 美股按代号匹配品牌（TQQQ→ProShares / MSFT→Microsoft / NVDA→NVIDIA / ORCL→Oracle），未匹配→Interactive Brokers
+   - 基金/现金沿用历史约定默认 HSBC（仅作占位，用户可在「图标修改」中更改） */
 const DEFAULT_ICON = {img:__B[5], n:'HSBC'};
+var US_BRAND_DEF = {
+  'TQQQ': {n:'ProShares', img:__B[3], cat:'western'},
+  'MSFT': {n:'Microsoft 微软', img:__B[2], cat:'western'},
+  'NVDA': {n:'NVIDIA 英伟达', img:__B[4], cat:'western'},
+  'ORCL': {n:'Oracle 甲骨文', img:__B[43], cat:'western'}
+};
+function usDefaultIcon(sym){
+  return US_BRAND_DEF[String(sym||'').toUpperCase()] || {n:'Interactive Brokers', img:__B[9], cat:'brokerage', c:'#FF6C00', i:'IB'};
+}
 (function initDefaultIcons(){
   try{
     if(localStorage.getItem('pa_iconinit')) return;
     [funds, us, cash].forEach(function(arr){
-      (arr||[]).forEach(function(x){ if(!x.icon) x.icon = DEFAULT_ICON; });
+      (arr||[]).forEach(function(x){
+        if(!x.icon) x.icon = (arr===us) ? usDefaultIcon(x.symbol) : DEFAULT_ICON;
+      });
     });
     save();
     localStorage.setItem('pa_iconinit','1');
@@ -2420,7 +2433,13 @@ function renderHero(cur){
     } else pp.innerHTML='预测资产：—';
   }
   const ps=$('pnlSummary'); if(ps){
-    const totalPnl=cur.pnl+cur.fundTotalRealizedPnl+cur.usTotalRealizedPnl;
+    // 总收益 = 基金总收益 + 美股总收益（与基金/美股卡片口径一致）
+    const fxNowTop=effFx();
+    const ycTop=yitouCashItem();
+    const yitouCashCNYTop = ycTop ? (Number(ycTop.amount)||0)*(ycTop.currency==='usd'?fxNowTop:1) : 0;
+    const fundTotalGain=(cur.fundVal-cur.fundCost)+cur.fundTotalRealizedPnl;
+    const usTotalGainTop=(cur.usVal+yitouCashCNYTop)-cur.usTotalBuyCost; // 美股总投入=cur.usTotalBuyCost(=usInvestAutoVal)
+    const totalPnl=fundTotalGain+usTotalGainTop;
     const totalPnlClass=totalPnl>=0?'up':'down';
     const totalInvest=cur.fundTotalBuyCost+cur.usTotalBuyCost;
     const totalRetAll=totalInvest>0?totalPnl/totalInvest:null;
@@ -2465,6 +2484,18 @@ function renderCards(cur){
   const usPnl=cur.usVal-cur.usCost;
   const fundRet=(cur.fundCost>0)? fundPnl/cur.fundCost : null;
   const usRet=(cur.usCost>0)? usPnl/cur.usCost : null;
+  /* 美股「总收益 / 总收益率」新口径：
+     美股总收益 = (美股市值 + 现金里的盈透证券) − 基础数据里的美股总投入
+     美股总收益率 = 美股总收益 ÷ 基础数据里的美股总投入
+     — usVal 为人民币市值；yitouCashItem() 取现金里「盈透证券」项(USD)，乘汇率转人民币；
+       美股总投入优先用 JSON 自动公式值 usInvestAutoVal，旧手动值兜底 */
+  const fxNow=effFx();
+  const yc=yitouCashItem();
+  const yitouCashCNY = yc ? (Number(yc.amount)||0)*(yc.currency==='usd'?fxNow:1) : 0;
+  const usInvest = (usInvestAutoVal!=null && !isNaN(usInvestAutoVal) && usInvestAutoVal>0) ? usInvestAutoVal
+                 : (usInvestManual!=null && !isNaN(usInvestManual) && usInvestManual>0 ? usInvestManual : 0);
+  const usTotalGain = (cur.usVal + yitouCashCNY) - usInvest;
+  const usTotalGainRet = usInvest>0 ? usTotalGain/usInvest : null;
   const pctHtml=r=> (r==null||!isFinite(r))? '<span class="sub2">—</span>' : '<span class="'+(r>=0?'up':'down')+'">'+(r>=0?'+':'')+(r*100).toFixed(2)+'%</span>';
   const pnlHtml=v=> '<span class="'+(v>=0?'up':'down')+'">'+(v>=0?'+':'')+fmt0(v)+'</span>';
   const kv=(l,v)=> '<div class="kv"><span class="l">'+l+'</span>'+(v||'<span class="sub2">—</span>')+'</div>';
@@ -2474,8 +2505,8 @@ function renderCards(cur){
      totalPnl:fundPnl+cur.fundTotalRealizedPnl,
      totalRet: cur.fundTotalBuyCost>0 ? (fundPnl+cur.fundTotalRealizedPnl)/cur.fundTotalBuyCost : null},
     {name:'美股',color:'--us',v:cur.usVal,pnl:usPnl,ret:usRet,dayRet:cur.usDayRet,dayPnl:cur.usDayPnl,time:cur.usDayTime,
-     totalPnl:usPnl+cur.usTotalRealizedPnl,
-     totalRet: cur.usTotalBuyCost>0 ? (usPnl+cur.usTotalRealizedPnl)/cur.usTotalBuyCost : null},
+     totalPnl:usTotalGain,
+     totalRet:usTotalGainRet},
     {name:'现金',color:'--cash',v:cur.cashVal,pnl:null,ret:null,dayRet:null,dayPnl:null,time:'—',totalPnl:null,totalRet:null}
   ];
   let html='';
@@ -3494,7 +3525,13 @@ function renderCalYear(box, useAmt){
 
   /* 投资以来汇总 = 顶部「总收益卡片」口径（总盈亏 / 总收益率） */
   const cur=computeCurrent();
-  const totalPnl=cur.pnl+cur.fundTotalRealizedPnl+cur.usTotalRealizedPnl;
+  // 总收益 = 基金总收益 + 美股总收益（与基金/美股卡片口径一致）
+  const fxNowTop=effFx();
+  const ycTop=yitouCashItem();
+  const yitouCashCNYTop = ycTop ? (Number(ycTop.amount)||0)*(ycTop.currency==='usd'?fxNowTop:1) : 0;
+  const fundTotalGain=(cur.fundVal-cur.fundCost)+cur.fundTotalRealizedPnl;
+  const usTotalGainTop=(cur.usVal+yitouCashCNYTop)-cur.usTotalBuyCost; // 美股总投入=cur.usTotalBuyCost(=usInvestAutoVal)
+  const totalPnl=fundTotalGain+usTotalGainTop;
   const totalInvest=cur.fundTotalBuyCost+cur.usTotalBuyCost;
   const totalRetAll=totalInvest>0?totalPnl/totalInvest:0;
   const pill=document.createElement('div'); pill.className='cal-total-pill'+(totalPnl<0?' neg':'');
@@ -3768,7 +3805,7 @@ async function syncUsFromJson(){
       } else {
         item.trades = (item.trades||[]).filter(function(t){ return t._fixed; });   // 仅保留固定种子
         if(h.markPrice!=null && !isNaN(Number(h.markPrice))) item.price = Number(h.markPrice);
-        item.icon = usIconForSym(sym);
+        if(!item.icon) item.icon = usIconForSym(sym);   // 仅在缺图标时补，保留用户手动设置的图标
       }
       item.trades.push({
         date: todayStr, type:'buy',
@@ -4516,14 +4553,15 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
   };
   // 纳斯达克100 PE 刻度分界：沿用 worldperatio 滚动10年统计（μ=27.31 σ=4.05，读取日 2026-08-07）
   // 区间：<μ-2σ(19.22)=便宜 | μ-2σ~μ-σ(19.22~23.27)=低估 | μ-σ~μ+σ(23.27~31.36)=公平 | μ+σ~μ+2σ(31.36~35.40)=高估 | >μ+2σ(35.40)=昂贵
+  // 仪表盘定义域取对称 [0, 2×μ]=[0,54.62]，使 μ(27.31) 精确落在 50% 中点刻度（蓝色 μ 刻度线）
   // 注意：仪表盘刻度用 worldperatio 的 μ=27.31；但界面显示的 μ 值（gPE_mu / 指针）用的是 history market 当前 PE（d.pe=28.59），两者不同，按用户要求刻意区分。
   function zonePE(v){ return v<19.22 ? 'cheap' : v<23.27 ? 'under' : v<=31.36 ? 'fair' : v<=35.40 ? 'over' : 'exp'; }
   function zoneVXN(v){ return v<15 ? 'calm' : v<20 ? 'normal' : v<30 ? 'mid' : 'high'; }
 
   // ---- 仪表盘（彩色分区间弧 + 刻度 + 指针）----
   var GAUGE_CFGS = {
-    PE:  { svg:'gPE',  lo:10, hi:45,  dec:1, bounds:true,
-      zones:[ [10,19.22,'#0a8a4a'], [19.22,23.27,'#1a9e54'], [23.27,31.36,'#64748b'], [31.36,35.40,'#b45309'], [35.40,45,'#d24545'] ],
+    PE:  { svg:'gPE',  lo:0, hi:54.62,  dec:1, bounds:true,
+      zones:[ [0,19.22,'#0a8a4a'], [19.22,23.27,'#1a9e54'], [23.27,31.36,'#64748b'], [31.36,35.40,'#b45309'], [35.40,54.62,'#d24545'] ],
       leg:['cheap','under','fair','over','exp'] },
     VXN: { svg:'gVXN', lo:0,  hi:50,  dec:1,
       zones:[ [0,15,'#1a9e54'], [15,20,'#0d9488'], [20,30,'#b45309'], [30,50,'#d24545'] ],
