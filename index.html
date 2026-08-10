@@ -217,6 +217,9 @@ window.dispatchEvent(new Event('chartReady'));
   .pf-select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;max-width:48%;}
   .pf-sum{font-size:13px;color:var(--muted);text-align:right;}
   .pf-sum #pendingPnl{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
+  .pf-range-note{font-size:12px;color:var(--muted);}
+  .pending-tbl td.cls-code{word-break:break-word;}
+  .pending-tbl td.cls-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
   /* 现金明细：项目条长、金额条短；美元金额与折算人民币分两行 */
   #pane-cash table th:nth-child(1), #pane-cash table td:nth-child(1){width:48%;}
   #pane-cash table th:nth-child(2), #pane-cash table td:nth-child(2){width:26%;}
@@ -1076,31 +1079,23 @@ if __name__ == "__main__":
 
   <section class="tabpane" id="pane-pending" style="display: none;">
     <div class="pane-head">
-      <strong style="font-size:14px;">全部交易记录（基金 / 美股）</strong>
+      <strong style="font-size:14px;">交易记录</strong>
       <button class="primary sm" id="btnPendingFilter">筛选</button>
     </div>
     <div class="pending-filter-pop" id="pendingFilterPop" style="display: none;">
-      <div class="pfp-search"><input id="pendingFilterSearch" type="text" placeholder="搜索标的（名称 / 代码）" autocomplete="off"></div>
-      <div class="pfp-list" id="pendingFilterList"><label class="pf-item"><input type="checkbox" data-pid="m8z1huk" checked="">嘉实美国成长股票人民币 <span class="pf-code">000043</span><span class="pf-tag">基</span></label><label class="pf-item"><input type="checkbox" data-pid="tronvix" checked="">广发全球精选股票(QDII)人民币A <span class="pf-code">270023</span><span class="pf-tag">基</span></label><label class="pf-item"><input type="checkbox" data-pid="smtqhq5" checked="">广发全球精选股票(QDII)人民币C <span class="pf-code">021277</span><span class="pf-tag">基</span></label><label class="pf-item"><input type="checkbox" data-pid="pqd8mui" checked="">嘉实纳斯达克100ETF发起联接(QDII)A人民币 <span class="pf-code">016532</span><span class="pf-tag">基</span></label><label class="pf-item"><input type="checkbox" data-pid="k9u57jb" checked="">嘉实纳斯达克100ETF发起联接(QDII)C人民币 <span class="pf-code">016533</span><span class="pf-tag">基</span></label><label class="pf-item"><input type="checkbox" data-pid="dakmrd6" checked="">纳斯达克100三倍做多<span class="pf-tag">美</span></label></div>
+      <div class="pfp-search"><input id="pendingFilterSearch" type="text" placeholder="搜索标的（代码）" autocomplete="off"></div>
+      <div class="pfp-list" id="pendingFilterList"></div>
       <span class="pf-sep"></span>
       <button class="sm ghost" id="btnPendingFilterReset">全选</button>
     </div>
     <div class="pending-toolbar">
-      <select id="pendingRange" class="pf-select">
-        <option value="all">全部</option>
-        <option value="1w">近1周</option>
-        <option value="1m">近1月</option>
-        <option value="3m">近3月</option>
-        <option value="1y">近1年</option>
-        <option value="5y">近5年</option>
-      </select>
-      <div class="pf-sum">已实现盈亏：<span id="pendingPnl" style="color: var(--up);">+¥0</span></div>
+      <div class="pf-sum">已实现盈亏：<span id="pendingPnl" style="color: var(--up);">+$0</span></div>
     </div>
     <div class="tbl-scroll">
       <table class="pending-tbl">
-        <colgroup><col style="width:26%"><col style="width:46%"><col style="width:28%"></colgroup>
-        <thead><tr><th>日期</th><th>标的</th><th style="text-align:right;">盈亏</th></tr></thead>
-        <tbody id="tbPending"><tr><td class="cls-date">2026-08-10</td><td class="cls-name">纳斯达克100三倍做多</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr><tr><td class="cls-date">2026-08-10</td><td class="cls-name">纳斯达克100指数ETF-Invesco</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr><tr><td class="cls-date">2026-02-10</td><td class="cls-name">纳斯达克100三倍做多</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr><tr><td class="cls-date">2026-02-06</td><td class="cls-name">嘉实美国成长股票人民币</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr><tr><td class="cls-date">2026-02-06</td><td class="cls-name">广发全球精选股票(QDII)人民币A</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr><tr><td class="cls-date">2026-02-06</td><td class="cls-name">广发全球精选股票(QDII)人民币C</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr><tr><td class="cls-date">2026-02-06</td><td class="cls-name">嘉实纳斯达克100ETF发起联接(QDII)A人民币</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr><tr><td class="cls-date">2026-02-06</td><td class="cls-name">嘉实纳斯达克100ETF发起联接(QDII)C人民币</td><td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td></tr></tbody>
+        <colgroup><col style="width:20%"><col style="width:27%"><col style="width:17%"><col style="width:18%"><col style="width:18%"></colgroup>
+        <thead><tr><th>日期</th><th>代码</th><th style="text-align:right;">股数</th><th style="text-align:right;">价格</th><th style="text-align:right;">已实现盈亏</th></tr></thead>
+        <tbody id="tbPending"></tbody>
       </table>
     </div>
   </section>
@@ -1381,8 +1376,9 @@ let catIcon = (function(){
 if(!catIcon.pending) catIcon.pending = {n:'HSBC', img:__B[5]};
 function saveCatIcon(){ try{ localStorage.setItem('pa_caticon', JSON.stringify(catIcon)); }catch(e){} }
 const CAT_LABEL = {fund:'基金', us:'美股', cash:'现金', pending:'挂单'};
-var pendingFilter = {};  // 挂单页「按标的」多选筛选状态（key=标的id，默认全开）
-var pendingRange = 'all';                              // 挂单页时间范围：all/1w/1m/3m/1y/5y
+var pendingFilter = {};  // 挂单页「按标的」多选筛选状态（key=交易代码 symbol，默认全开）
+var pendingRange = 'all';                              // 挂单页时间范围：保留兼容，已不再使用
+var TRADES = [];        // 交易记录（来自 Asset_parsed.json 的 trades 字段，近一月）
 const CAT_DEFAULT_FULL = {}, CAT_DEFAULT_ICON = {};
 ['fund','us','cash','pending'].forEach(function(k){
   var b = document.querySelector('button[data-tab="'+k+'"]');
@@ -2604,20 +2600,24 @@ function pendingInstruments(){
 function renderPendingFilterList(q){
   var box=$('pendingFilterList'); if(!box) return;
   var q=(q||'').trim().toLowerCase();
-  // 新标的默认选中
-  pendingInstruments().forEach(function(it){ if(pendingFilter[it.id]===undefined) pendingFilter[it.id]=true; });
-  var html = pendingInstruments().filter(function(it){
-    if(!q) return true;
-    return ((it.name||'')+' '+(it.code||'')).toLowerCase().indexOf(q)>=0;
-  }).map(function(it){
-    var on = pendingFilter[it.id]!==false;
-    var tag = it.cat==='fund'?'基':'美';
-    return '<label class="pf-item"><input type="checkbox" data-pid="'+esc(it.id)+'"'+(on?' checked':'')+'>'
-      + esc(it.name||'(未命名)')
-      + (it.code ? (' <span class="pf-code">'+esc(it.code)+'</span>') : '')
-      + '<span class="pf-tag">'+tag+'</span></label>';
+  // 统计 TRADES 中出现的不同代码（含期权完整代码），默认全选
+  var seen={}, arr=[];
+  TRADES.forEach(function(t){
+    var s=t.symbol||'';
+    if(!seen[s]){ seen[s]=true; arr.push({sym:s, cat:t.cat||'', n:0}); }
+  });
+  arr.forEach(function(o){ o.n = TRADES.filter(function(t){ return (t.symbol||'')===o.sym; }).length; });
+  arr.sort(function(a,b){ return (a.sym||'').localeCompare(b.sym||''); });
+  arr = arr.filter(function(o){ if(!q) return true; return (o.sym||'').toLowerCase().indexOf(q)>=0; });
+  var html = arr.map(function(o){
+    var on = pendingFilter[o.sym]!==false;
+    return '<label class="pf-item"><input type="checkbox" data-sym="'+esc(o.sym)+'"'+(on?' checked':'')+'>'
+      + '<span>'+esc(o.sym)+'</span>'
+      + ' <span class="pf-code">'+o.n+' 笔</span>'
+      + (o.cat?('<span class="pf-tag">'+esc(o.cat)+'</span>'):'')
+      + '</label>';
   }).join('');
-  box.innerHTML = html || '<div class="pf-empty">没有匹配的标的</div>';
+  box.innerHTML = html || '<div class="pf-empty">没有匹配的交易标的</div>';
 }
 /* 按笔 FIFO：返回该标的每笔交易行数据（含每笔卖出对应的已实现盈亏，原生币种）。
    买入 pnl=null（无已实现盈亏），卖出 pnl=该笔 FIFO 配对盈亏，分红 pnl=分红金额。 */
@@ -2648,49 +2648,33 @@ function buildPendingRows(trades, ccy){
 }
 function renderPending(){
   var tb = $('tbPending'); if(!tb) return;
-  var insts = pendingInstruments();
-  insts.forEach(function(it){ if(pendingFilter[it.id]===undefined) pendingFilter[it.id]=true; });  // 新标的默认选中
-  var cut = pendingCutoff();
-  var rows = [];
-  var pnl = 0;   // 已实现盈亏（FIFO，人民币）：基金=原生人民币，美股=美元×汇率
-  (funds||[]).forEach(function(f){
-    if(pendingFilter[f.id]===false) return;
-    buildPendingRows(f.trades, 'cny').forEach(function(r){ r.name=f.name||''; r.code=f.code||''; r.cat='fund'; r.key=f.id; rows.push(r); });
-    pnl += fifoRealizedRange(f.trades, cut);                 // 基金：人民币
-  });
-  (us||[]).forEach(function(u){
-    if(pendingFilter[u.id]===false) return;
-    buildPendingRows(u.trades, 'usd').forEach(function(r){ r.name=u.name||''; r.code=u.code||''; r.cat='us'; r.key=u.id; rows.push(r); });
-    pnl += fifoRealizedRange(u.trades, cut) * fxRate;        // 美股：美元→人民币
-  });
-  // 挂单交易不读取现金：现金流水不纳入列表，也不计入盈亏
-  if(cut){ rows = rows.filter(function(r){ return (r.date||'') >= cut; }); }
+  // 所有代码默认选中
+  TRADES.forEach(function(t){ if(pendingFilter[t.symbol]===undefined) pendingFilter[t.symbol]=true; });
+  // 按筛选状态过滤
+  var rows = TRADES.filter(function(t){ return pendingFilter[t.symbol]!==false; });
+  // 日期倒序（最新在上）
+  rows = rows.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  // 已实现盈亏合计（USD，IBKR 原生币种）
+  var pnl = 0;
+  rows.forEach(function(t){ pnl += Number(t.realized)||0; });
   var pnlEl = $('pendingPnl');
   if(pnlEl){
     if(!rows.length){ pnlEl.textContent='—'; pnlEl.style.color=''; }
-    else { pnlEl.textContent=(pnl>=0?'+':'-')+'¥'+Math.round(Math.abs(pnl)).toLocaleString('zh-CN'); pnlEl.style.color=(pnl>=0?'var(--up)':'var(--down)'); }
+    else { pnlEl.textContent=(pnl>=0?'+':'-')+'$'+Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); pnlEl.style.color=(pnl>=0?'var(--up)':'var(--down)'); }
   }
-  rows.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="3" class="empty">还没有任何交易记录。</td></tr>'; return; }
-  tb.innerHTML = rows.map(function(r){
-    var label = esc(r.name||'');
-    if(r.type==='buy'){
-      // 买入不产生已实现盈亏，显示「—」
-      return '<tr>'
-        + '<td class="cls-date">'+esc(r.date||'')+'</td>'
-        + '<td class="cls-name">'+label+'</td>'
-        + '<td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);">—</td>'
-        + '</tr>';
-    }
-    // 卖出 / 分红：显示该笔已实现盈亏（卖出用 FIFO 配对计算）
-    var val = Number(r.pnl||0);
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="5" class="empty">还没有任何交易记录。</td></tr>'; return; }
+  tb.innerHTML = rows.map(function(t){
+    var qty = (String(t.buySell||'').toUpperCase()==='SELL' ? 'sell ' : 'buy ') + Math.abs(Number(t.quantity)||0);
+    var price = Number(t.price)||0;
+    var val = Number(t.realized)||0;
+    var col = val>0 ? 'var(--up)' : (val<0 ? 'var(--down)' : 'var(--muted)');
     var sign = val>=0 ? '+' : '-';
-    var sym = r.ccy==='usd' ? '$' : '¥';
-    var col = val>=0 ? 'var(--up)' : 'var(--down)';   // 盈=红，亏=绿，与顶部汇总一致
     return '<tr>'
-      + '<td class="cls-date">'+esc(r.date||'')+'</td>'
-      + '<td class="cls-name">'+label+'</td>'
-      + '<td class="cls-amt" style="text-align:right;font-variant-numeric:tabular-nums;color:'+col+';">'+sign+sym+Math.round(Math.abs(val)).toLocaleString('zh-CN')+'</td>'
+      + '<td class="cls-date">'+esc(t.date||'')+'</td>'
+      + '<td class="cls-code">'+esc(t.symbol||'')+'</td>'
+      + '<td class="cls-num">'+esc(qty)+'</td>'
+      + '<td class="cls-num">$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4})+'</td>'
+      + '<td class="cls-num" style="color:'+col+';">'+sign+'$'+Math.abs(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       + '</tr>';
   }).join('');
 }
@@ -3863,6 +3847,20 @@ async function syncCashFromJson(){
   }catch(e){ /* file:// 协议或网络失败时静默跳过，保留既有数据 */ }
 }
 
+/* 交易记录 ← Asset_parsed.json 的 trades 字段（近一月，IBKR 原生 USD）：
+   - 读取 j.trades，存入全局 TRADES
+   - 渲染「交易记录」表格（日期 / 代码 / 股数 / 价格 / 已实现盈亏），可按代码筛选 */
+async function syncTradesFromJson(){
+  try{
+    var r = await fetch('Asset_parsed.json', {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var j = await r.json();
+    if(!j || !Array.isArray(j.trades)) return;
+    TRADES = j.trades.slice();
+    renderPending();
+  }catch(e){ /* file:// 协议或网络失败时静默跳过，保留既有数据 */ }
+}
+
 /* ---------- 刷新 ---------- */
 async function refresh(){
   setStatus('loading','');   // 加载期间只显示状态药丸（缓存·黄），与汇率同款，不额外显示加载提示
@@ -4358,8 +4356,7 @@ $('fxDetailRangeBtns').addEventListener('click',e=>{
 $('fxdpPrev').addEventListener('click',function(){ if(fxDetailPage>1){ fxDetailPage--; if(viewMode==='detail') renderFxDetail(); } });
 $('fxdpNext').addEventListener('click',function(){ fxDetailPage++; if(viewMode==='detail') renderFxDetail(); });
 document.body.addEventListener('change',function(e){
-  var pf=e.target.closest('#pendingFilterPop [data-pid]'); if(pf){ pendingFilter[pf.dataset.pid]=pf.checked; renderPending(); return; }
-  var pr=e.target.closest('#pendingRange'); if(pr){ pendingRange=pr.value; renderPending(); }
+  var pf=e.target.closest('#pendingFilterPop [data-sym]'); if(pf){ pendingFilter[pf.dataset.sym]=pf.checked; renderPending(); return; }
 });
 document.body.addEventListener('input',function(e){
   var s=e.target.closest('#pendingFilterSearch'); if(s){ renderPendingFilterList(s.value); }
@@ -4372,7 +4369,7 @@ document.body.addEventListener('click',function(e){
   if(pfPop && pfPop.style.display==='flex' && !e.target.closest('#pendingFilterPop')){ pfPop.style.display='none'; }
   // 全选（重置筛选）
   var pfReset=e.target.closest('#btnPendingFilterReset'); if(pfReset){
-    pendingInstruments().forEach(function(it){ pendingFilter[it.id]=true; });
+    TRADES.forEach(function(t){ pendingFilter[t.symbol]=true; });
     renderPendingFilterList($('pendingFilterSearch')?$('pendingFilterSearch').value:'');
     if(pfPop) pfPop.style.display='none'; renderPending(); return;
   }
@@ -4503,6 +4500,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
   loadFxDetailData();   // 后台加载 Asset_parsed.json 的每日总净值/现金，切到明细视图时渲染
   syncUsFromJson();     // 后台按 Asset_parsed.json 持仓同步美股明细（建/清/补买入）
   syncCashFromJson();   // 后台按 Asset_parsed.json 最近一条盈透明细同步现金「盈透证券」项
+  syncTradesFromJson(); // 后台按 Asset_parsed.json 的 trades 字段渲染「交易记录」表
 })();
 </script>
 
@@ -4511,9 +4509,10 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
   var $ = function(id){ return document.getElementById(id); };
   var KEY = 'nasdaqIndicators_v1';
   var DEF = { pe:31.43, vxn:28.06, dynpe:22.29, asOf:'2026-07-24', peAsOf:'2026-07-27', vxnAsOf:'2026-07-27' };
+  // worldperatio 滚动10年统计读取时间（μ=27.31 σ=4.05 用于仪表盘刻度分界；μ 显示值用 history market 的 PE）
+  var wpAsOf = '2026-08-07';
   // worldperatio 滚动10年统计（来源 https://worldperatio.com/index/nasdaq-100/，读取日 2026-08-07，当前 PE=29.39）
   // μ=27.31（滚动10年均值），σ=4.05；仪表盘刻度分界与下方「μ 均值」均以本 μ 为单一数据源
-  var wpAsOf = '2026-08-07';
   var wpMU = 27.31;
   var wpSigma = 4.05;
 
