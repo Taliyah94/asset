@@ -208,18 +208,23 @@ window.dispatchEvent(new Event('chartReady'));
   .pending-filter-pop .pf-tag{margin-left:auto;font-size:10px;color:#8a94a6;border:1px solid var(--line);border-radius:4px;padding:0 5px;flex:none;}
   .pending-filter-pop .pf-empty{font-size:12px;color:var(--muted);padding:6px;text-align:center;}
   .pending-filter-pop .pf-sep{flex:1;}
-  /* 挂单表：固定布局，日期/金额定宽，标的自动换行，整体不横向溢出 */
-  .tbl-scroll > table.pending-tbl{min-width:0;width:100%;table-layout:fixed;}
+  /* 挂单表：固定布局，紧凑字号，整体不横向溢出（适配 iPhone 15PM） */
+  .tbl-scroll > table.pending-tbl{min-width:0;width:100%;table-layout:fixed;font-size:11px;}
+  .pending-tbl th{font-size:10px;color:var(--muted);font-weight:600;}
+  .pending-tbl th,.pending-tbl td{padding:6px 4px;}
   .pending-tbl td.cls-name{word-break:break-word;}
   .pending-tbl td.cls-date{white-space:nowrap;}
   .pending-tbl td.cls-amt{white-space:nowrap;}
+  .pending-tbl td.cls-code{word-break:break-word;}
+  .pending-tbl td.cls-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  /* 期权代码：两行（到期日 / 类型+行权价简写） */
+  .opt-code{display:inline-flex;flex-direction:column;line-height:1.3;text-align:left;}
+  .opt-code .opt-exp{font-weight:600;}
+  .opt-code .opt-strike{font-size:10px;color:var(--muted);}
   .pending-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px;}
   .pf-select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;max-width:48%;}
   .pf-sum{font-size:13px;color:var(--muted);text-align:right;}
   .pf-sum #pendingPnl{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
-  .pf-range-note{font-size:12px;color:var(--muted);}
-  .pending-tbl td.cls-code{word-break:break-word;}
-  .pending-tbl td.cls-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
   /* 现金明细：项目条长、金额条短；美元金额与折算人民币分两行 */
   #pane-cash table th:nth-child(1), #pane-cash table td:nth-child(1){width:48%;}
   #pane-cash table th:nth-child(2), #pane-cash table td:nth-child(2){width:26%;}
@@ -1093,7 +1098,7 @@ if __name__ == "__main__":
     </div>
     <div class="tbl-scroll">
       <table class="pending-tbl">
-        <colgroup><col style="width:20%"><col style="width:27%"><col style="width:17%"><col style="width:18%"><col style="width:18%"></colgroup>
+        <colgroup><col style="width:18%"><col style="width:26%"><col style="width:16%"><col style="width:20%"><col style="width:20%"></colgroup>
         <thead><tr><th>日期</th><th>代码</th><th style="text-align:right;">股数</th><th style="text-align:right;">价格</th><th style="text-align:right;">已实现盈亏</th></tr></thead>
         <tbody id="tbPending"></tbody>
       </table>
@@ -1499,6 +1504,25 @@ function ymd(ts){ const d=new Date(ts + 8*3600*1000); const p=x=>String(x).padSt
 function ymdShort(s){ if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; var p=s.split('-'); return p[1]+'-'+p[2]; }
 function parseDate(s){ const t=Date.parse(s); return isNaN(t)?null:t; }
 function todayTs(){ const d=new Date(); d.setUTCHours(0,0,0,0); return d.getTime(); }
+// 交易日期：2026-08-07 → 26-08-07
+function fmtShortDate(iso){
+  var s=String(iso||'').trim();
+  var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return m[1].slice(2)+'-'+m[2]+'-'+m[3];
+  return s;
+}
+// 交易代码：期权（带 C/P+8位行权价）拆两行；其余原样
+function fmtTradeCode(sym){
+  var s=String(sym||'');
+  var m=s.match(/\s+(\d{6})([CP])(\d{8})\s*$/);
+  if(m){
+    var strike=parseInt(m[3],10)/1000;          // 末8位 ÷1000 = 真实行权价
+    var ss=(strike%1===0)?String(strike):strike.toLocaleString('en-US',{maximumFractionDigits:1});
+    return '<span class="opt-code"><span class="opt-exp">'+esc(m[1])+'</span>'
+         + '<span class="opt-strike">'+esc(m[2]+ss)+'</span></span>';
+  }
+  return esc(s);
+}
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
 
 /* 日期下拉框辅助 */
@@ -2670,10 +2694,10 @@ function renderPending(){
     var col = val>0 ? 'var(--up)' : (val<0 ? 'var(--down)' : 'var(--muted)');
     var sign = val>=0 ? '+' : '-';
     return '<tr>'
-      + '<td class="cls-date">'+esc(t.date||'')+'</td>'
-      + '<td class="cls-code">'+esc(t.symbol||'')+'</td>'
+      + '<td class="cls-date">'+esc(fmtShortDate(t.date))+'</td>'
+      + '<td class="cls-code">'+fmtTradeCode(t.symbol)+'</td>'
       + '<td class="cls-num">'+esc(qty)+'</td>'
-      + '<td class="cls-num">$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4})+'</td>'
+      + '<td class="cls-num">$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       + '<td class="cls-num" style="color:'+col+';">'+sign+'$'+Math.abs(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       + '</tr>';
   }).join('');
