@@ -262,8 +262,16 @@ def main():
         if not token or not q1:
             sys.exit("ERROR: 需设置 IBKR_TOKEN 与 IBKR_QUERY_ID_1DAY，或使用 --xml")
         print("[flex] 下载 1day 报表 ...")
-        xml_txt = request_flex_xml(token, q1)
-        print("[flex] 1day 报表下载完成")
+        try:
+            xml_txt = request_flex_xml(token, q1)
+            print("[flex] 1day 报表下载完成")
+        except RuntimeError as e:
+            # IBKR Flex 报表生成端临时不可用（"could not be generated" 等）。
+            # 夜间任务遇到这种情况应「干净跳过」而非失败：保留上次成功的 JSON，
+            # 不提交空改动，等待下一个 cron（北京时间 04:30）自动重试。
+            print(f"[warn] IBKR Flex 1day 下载失败，本次跳过同步（保留原 JSON）：{e}")
+            print("[warn] 明日定时任务将自动重试。")
+            sys.exit(0)
 
     root = ET.fromstring(xml_txt)
 
