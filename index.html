@@ -292,6 +292,7 @@ window.dispatchEvent(new Event('chartReady'));
   .time-bar{display:inline-block;max-width:100%;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;line-height:1.3;color:#fff;white-space:nowrap;}
   .time-bar.tb-live{background:#1a9e54;}
   .time-bar.tb-stale{background:#d24545;}
+  .time-bar.tb-option{background:#3b6ef5;}
   /* 基金「时间」列：短格式 MM-DD 保持单行不换行 */
   #pane-fund .time-bar{white-space:nowrap;}
   .tbl-scroll > table > thead > tr > th:first-child{z-index:4;background:#fbfcfe;}
@@ -1892,6 +1893,24 @@ function fundNeedsPredict(f, discDay){
   if(!t || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return false;
   return t < discDay;
 }
+// "YYYY-MM-DD" 加减任意天数（时区安全），n 可为负
+function ymdAddDays(s, n){
+  var p=s.split('-'); var y=+p[0], m=+p[1], d=+p[2];
+  var dt=new Date(y, m-1, d); dt.setDate(dt.getDate()+n);
+  var pad=function(x){ return String(x).padStart(2,'0'); };
+  return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+}
+// hero 面板「预测资产」总额专用闸门：比明细口径更保守。
+// 明细口径门槛 = discDay（停在截止日之前的才预测）；
+// hero 口径门槛 = discDay - 1天（只预测停在「截止日 - 1天」及更早的基金，再新一档的不算）。
+// 例：8-11 21:30前 discDay=08-10 → hero 只预测 08-08 及更早，08-09 不计算；
+//     8-11 21:30后 ~ 8-12 21:30前 discDay=08-11 → hero 只预测 08-09 及更早，08-10 不计算；类推。
+function fundNeedsPredictHero(f, discDay){
+  if(f && f.manualNav!=null && f.manualNav!=='') return false;   // 手动填写了当前净值 → 已更新，不预测
+  var t=f && f._dayTime;
+  if(!t || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return false;
+  return t < ymdAddDays(discDay, -1);
+}
 // 抓取单只标的日K线（qfq），返回 [{date,open,close,high,low},...]
 function fetchKline(sym){
   return new Promise(function(resolve){
@@ -2076,9 +2095,11 @@ function computeCurrent(){
     }
     targetFundDayPnl += _tPnl; targetFundPrevVal += _tPrev;
     // 当日预测：基于公开持仓加权估算（与基金表「当日预测」列同源）
-    // 闸门：仅当基金明细净值日期尚未更新到披露截止日(=已应更新的日期)才预测，避免对已更新净值重复估算
-    var _predPct=null, _predPnl=null;
-    if(fundNeedsPredict(f, fundDiscDay) && window._holdQ && FUND_HOLDINGS[f.code]){
+    // 算出成分股加权涨跌幅 _predPct 后，按两种闸门分别赋值：
+    //   _dayPredict    —— 明细口径（不动）：净值日期 < 披露截止日 才预测
+    //   _dayPredictHero—— hero 口径（新增）：门槛 = 截止日 - 1天，只预测停在截止日前一天的基金
+    var _predPct=null, _predPnl=null, _predPnlHero=null;
+    if(window._holdQ && FUND_HOLDINGS[f.code]){
       var _ph=FUND_HOLDINGS[f.code], _av=0, _sw=0;
       var _pd=predictDayForFund(f, fundDiscDay);
       _ph.items.forEach(function(it){
@@ -2090,12 +2111,13 @@ function computeCurrent(){
         _predPct=_sw/_av;
         var _base=(nav!=null)? holdSh*nav : null;
         if(_base!=null) _base = _base - (f._dayPnl||0); // 昨日市值
-        _predPnl=(_base!=null)? _base*_predPct/100 : null;
+        if(fundNeedsPredict(f, fundDiscDay) && _base!=null) _predPnl=_base*_predPct/100;       // 明细口径
+        if(fundNeedsPredictHero(f, fundDiscDay) && _base!=null) _predPnlHero=_base*_predPct/100; // hero 口径
       }
     }
-    f._dayPredict=_predPnl; f._dayPredictPct=_predPct;
+    f._dayPredict=_predPnl; f._dayPredictPct=_predPct; f._dayPredictHero=_predPnlHero;
   });
-  const fundPredictPnl = funds.reduce((s,f)=>s+(f._dayPredict||0),0);
+  const fundPredictPnl = funds.reduce((s,f)=>s+(f._dayPredictHero||0),0);  // hero 预测资产：门槛=截止日-1天
   let usTotalRealizedPnl=0, usTotalBuyCost=0;
   us.forEach(u=>{
     var st=getTradeStats(u); var holdSh=st.holdShares;
@@ -2828,8 +2850,9 @@ function renderTables(){
       var uSym=uo?uo.label:(u.symbol||'');
       var st=u._stats||getTradeStats(u); var holdSh=st.holdShares;
       var usd=u._usd!=null?u._usd:(u.price!=null?Number(u.price):0);
-      var mv=holdSh*usd*fx;
-      var cost=st.avgCost>0?holdSh*st.avgCost*fx:null;
+      var mult=usUnitMult(u);   // 期权×100合约乘数（正股为1）
+      var mv=holdSh*mult*usd*fx;
+      var cost=st.avgCost>0?holdSh*mult*st.avgCost*fx:null;
       var pnl=(cost!=null)?mv-cost:null;
       var pnlPct=(pnl!=null&&cost>0)?(pnl/cost*100):null;
       var pnlCls=pnl==null?'':(pnl>=0?'up':'down');
@@ -2844,16 +2867,16 @@ function renderTables(){
       var realizedCls = st.realizedPnl>0?'up':(st.realizedPnl<0?'down':'');
       return `<tr class="us-row-toggle" data-us-row="${u.id}">
         <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ▸</div></td>
-        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh} 股</div></td>
+        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?' 张':' 股'}</div></td>
         <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>
         <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>
         <td><div class="cell-main">${usd?fmtUSD(usd):'—'}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):'—'}</div></td>
-        <td class="time-cell">${ uo ? `<span class="time-bar tb-stale" title="IBKR markPrice 快照日">${esc(ymdShort(u._markDate)||'—')}</span>` : `<span class="time-bar ${u._ok===true?'tb-live':'tb-stale'}">${esc(ymdShort(u._dayTime)||'—')}</span>` }</td>
+        <td class="time-cell">${ uo ? `<span class="time-bar tb-option" title="IBKR markPrice 快照日">${esc(ymdShort(u._markDate)||'—')}</span>` : `<span class="time-bar ${u._ok===true?'tb-live':'tb-stale'}">${esc(ymdShort(u._dayTime)||'—')}</span>` }</td>
         <td><button class="btn-quote" data-quote="us" data-qcode="${esc(u.symbol||'')}" data-qname="${esc(u.name||'')}">行情</button>
             <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>
             <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>
         <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="7"><div class="trade-inner">
-          <div class="trade-stats"><span><b>持有</b> ${holdSh} 股</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):'—'}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>
+          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?' 张':' 股'}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):'—'}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>
           <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>
           ${renderTradeTable(u)}
         </div></td></tr>`;
