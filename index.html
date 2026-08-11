@@ -1864,13 +1864,17 @@ function fundNavDateStr(f){
   if(f && f._dayTime && /^\d{4}-\d{2}-\d{2}$/.test(f._dayTime)) return f._dayTime;
   return null;
 }
-// 预测目标日 = 净值日期 + 1 天（即基金下一个待披露净值所覆盖的交易日）
-function predictDayForFund(f){
+// 预测目标日：默认 = 净值日期 + 1 天；但若传入 asOf(=披露截止日)，则统一用 asOf，
+// 确保所有“待预测”基金都估算同一天(=最新应披露日)的涨跌，而不是各自 navDate+1
+// （当某基金净值滞后时，navDate+1 会错误地估到历史某天的涨跌）。
+function predictDayForFund(f, asOf){
   var nd=fundNavDateStr(f); if(!nd) return null;
-  return ymdAdd1(nd);
+  return asOf || ymdAdd1(nd);
 }
-// 基金净值披露截止日（北京时间）：21:30 前，当日净值尚未披露完毕，
-// 已更新的基金明细净值日期应停在「昨天」；21:30 及之后披露完毕，截止日=今天。
+// 基金净值披露截止日（北京时间）：21:30 分界，按“最新应披露日”滚动。
+//   21:30 之前 → 截止日 = 昨天（如 8-11 21:30 前 = 08-10）；
+//   21:30 及之后 → 截止日 = 今天（如 8-11 21:30 后 = 08-11，一直持续到 8-12 21:30 前）。
+// 含义：基金「时间」列已到达截止日的视为已披露，不再进入「预测资产」；停在截止日之前的才被预测。
 function fundDisclosureDay(){
   var bj=new Date(Date.now()+8*3600*1000);          // 北京时间
   var h=bj.getHours(), m=bj.getMinutes();
@@ -1880,7 +1884,10 @@ function fundDisclosureDay(){
 }
 // 该基金是否需要「当日预测」：明细净值日期尚未更新到披露截止日(=已更新到的应有日期)才预测。
 // 已更新到截止日(或更晚)的不再预测，避免对已披露净值重复估算。非日期(实时/手动/—)不预测。
+// 关键修正：用户已通过「手动净值」填写当前净值(manualNav)的基金，视为已更新到最新，不再预测。
+// 否则手动更新的基金仍会被当成“未更新”而重复预测，导致「预测资产」把已更新的基金也算进 -6262 这类数值。
 function fundNeedsPredict(f, discDay){
+  if(f && f.manualNav!=null && f.manualNav!=='') return false;   // 手动填写了当前净值 → 已更新，不预测
   var t=f && f._dayTime;
   if(!t || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return false;
   return t < discDay;
@@ -1919,8 +1926,8 @@ async function collectHoldingKline(funds){
   var need={};
   var discDay=fundDisclosureDay();
   (funds||[]).forEach(function(f){
-    if(!fundNeedsPredict(f, discDay)) return;   // 已更新到披露截止日的不预测
-    var pd=predictDayForFund(f); if(!pd) return;
+    if(!fundNeedsPredict(f, discDay)) return;   // 已更新到披露截止日(或手动填写净值)的不预测
+    var pd=predictDayForFund(f, discDay); if(!pd) return;
     var ph=FUND_HOLDINGS[f.code]; if(!ph||!ph.items) return;
     ph.items.forEach(function(it){
       var mk=it.m||'us';
@@ -2040,7 +2047,10 @@ function computeCurrent(){
     fundTotalBuyCost += fst.totalBuyCost;
     // 当日（OLD：最新净值日涨跌）—— 用于「基金」卡片与基金明细表
     var dRet=null, dPnl=0, dTime='—', dPrev=0;
-    if(list&&list.length){
+    if(f.manualNav!=null && f.manualNav!==''){
+      // 手动净值：视为已更新到披露截止日(=今日/昨日)，"时间"列显示该日期，预测资产不再计入
+      dTime = fundDisclosureDay();
+    } else if(list&&list.length){
       var last=list[list.length-1].nav;
       var prev= list.length>1 ? list[list.length-2].nav : last;
       if(prev&&prev!==0){
@@ -2049,7 +2059,7 @@ function computeCurrent(){
       }
       dTime=ymd(list[list.length-1].t);
     } else if(nav!=null){
-      dTime = (f.manualNav!=null&&f.manualNav!=='')? '手动净值' : '—';
+      dTime='—';
     }
     f._dayRet=dRet; f._dayPnl=dPnl; f._dayTime=dTime; f._dayPrevVal=dPrev;
     f._stats=fst; f._nav=nav;
@@ -2070,7 +2080,7 @@ function computeCurrent(){
     var _predPct=null, _predPnl=null;
     if(fundNeedsPredict(f, fundDiscDay) && window._holdQ && FUND_HOLDINGS[f.code]){
       var _ph=FUND_HOLDINGS[f.code], _av=0, _sw=0;
-      var _pd=predictDayForFund(f);
+      var _pd=predictDayForFund(f, fundDiscDay);
       _ph.items.forEach(function(it){
         if(typeof it.p!=='number') return;
         var _ch=holdingChg(it,_pd);
@@ -2774,7 +2784,7 @@ function renderTables(){
       var predPct=null, predPnl=null, predCls='';
       if(fundNeedsPredict(f, fundDisclosureDay()) && window._holdQ && FUND_HOLDINGS[f.code]){
         var _ph=FUND_HOLDINGS[f.code], _av=0, _sw=0;
-        var _pd=predictDayForFund(f);
+        var _pd=predictDayForFund(f, fundDisclosureDay());
         _ph.items.forEach(function(it){
           if(typeof it.p!=='number') return;
           var _ch=holdingChg(it,_pd);
