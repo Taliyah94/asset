@@ -107,20 +107,27 @@ def beijing_now():
 
 
 # ----------------------- Flex Web Service -----------------------
-def request_flex_xml(token, query_id, max_wait=540, interval=10, send_retries=15):
+def request_flex_xml(token, query_id, max_wait=540, interval=20, send_retries=5):
     """
     调用 IBKR Flex Web Service（两步式）：
       1) SendRequest -> 拿到 ReferenceCode
       2) GetStatement 轮询 -> 取到完整报表 XML
     返回报表 XML 字符串；失败抛异常。
 
-    关键经验：IBKR Flex 接口经常返回「Statement could not be generated at
-    this time. Please try again shortly.」这类**瞬时**错误（尤其在整点/批量
-    生成时段）。因此 SendRequest 与 GetStatement 都必须做**指数退避重试**，
-    而不是一遇到 ErrorMessage 就放弃。
+    关键经验：
+    - IBKR Flex 接口经常返回「Statement could not be generated at this time.
+      Please try again shortly.」这类**瞬时**错误（报表尚未生成/批量时段），
+      需做指数退避重试——但**单轮只试几次即可**，真正的重试交给「每 30 分钟
+      一个 cron 窗口」自然触发，不必一轮内猛锤。
+    - 单轮 SendRequest 过于频繁会触发 IBKR 频率限制「Too many failed
+      attempts…」，该限制会把当天后续所有 cron 窗口都堵死。因此命中频率限制
+      后本轮立即放弃，等下一个 cron 窗口（30 分钟后）再试。
     """
     TRANSIENT = ("could not be generated", "try again", "please wait",
                  "in progress", "in queue", "1018", "1009", "temporarily")
+    # 频率限制：命中后本轮立即放弃，等下一个 cron 窗口，避免越限越多把当天堵死
+    RATELIMIT = ("too many failed attempts", "review your configuration",
+                 "rate limit", "too many requests", "exceeded")
 
     # 1) 提交报表请求（瞬时错误需多次退避重试）
     submit = f"{IBKR_SEND_URL}?t={token}&q={query_id}&v=3"
@@ -144,6 +151,10 @@ def request_flex_xml(token, query_id, max_wait=540, interval=10, send_retries=15
             code = rc
             break
         last_err = err or txt[:300]
+        # 命中频率限制：本轮放弃（不要继续空耗请求，否则会锁死当天后续窗口）
+        if any(k in last_err.lower() for k in RATELIMIT):
+            raise RuntimeError(f"Flex 触发频率限制（{last_err[:80]}），"
+                               f"本窗口放弃，等下一个 cron")
         is_transient = any(k in last_err.lower() for k in TRANSIENT)
         if is_transient and attempt < send_retries:
             print(f"[flex] SendRequest 第{attempt}次瞬时错误（{last_err[:80]}），"
@@ -334,10 +345,12 @@ def fetch_validate(token, query_id, result):
     existing_latest = max(
         (row["date"] for row in (result.get("totalNetValueDaily") or [])),
         default=None)
-    if existing_latest and latest_date <= existing_latest:
+    # 仅当 IBKR 返回的报表比已同步的还“旧”时才跳过（避免用陈旧数据覆盖）；
+    # 相等（如北京时间 08-11 拉到的正是美东 08-10）也要允许覆盖写入。
+    if existing_latest and latest_date < existing_latest:
         raise RuntimeError(
-            f"报表最新日期 {latest_date} 未超过已同步 {existing_latest}，"
-            f"IBKR 尚未刷新当日数据")
+            f"报表最新日期 {latest_date} 早于已同步 {existing_latest}，"
+            f"IBKR 拉到了陈旧数据，跳过本次写入")
     return xml_txt
 
 
@@ -499,7 +512,13 @@ def main():
         print(f"[warn] 拉取失败：{e}；本窗口内下一个 cron 将自动重试")
         return
     result["lastSync"] = today_bj
-    do_parse_and_write(xml_txt, result, json_path)
+    try:
+        do_parse_and_write(xml_txt, result, json_path)
+    except Exception:
+        # 把完整堆栈打到 Actions 日志，便于定位失败根因（不再只显示 step failed）
+        import traceback as _tb
+        _tb.print_exc()
+        raise
     print(f"[ok] 同步成功（标记为 {today_bj}）")
 
 
