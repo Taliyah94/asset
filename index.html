@@ -1900,16 +1900,13 @@ function ymdAddDays(s, n){
   var pad=function(x){ return String(x).padStart(2,'0'); };
   return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
 }
-// hero 面板「预测资产」总额专用闸门：比明细口径更保守。
-// 明细口径门槛 = discDay（停在截止日之前的才预测）；
-// hero 口径门槛 = discDay - 1天（只预测停在「截止日 - 1天」及更早的基金，再新一档的不算）。
-// 例：8-11 21:30前 discDay=08-10 → hero 只预测 08-08 及更早，08-09 不计算；
-//     8-11 21:30后 ~ 8-12 21:30前 discDay=08-11 → hero 只预测 08-09 及更早，08-10 不计算；类推。
+// hero 面板「预测资产」总额闸门：与明细「当日预测」列同口径。
+// 即：基金「时间」列净值日期尚未更新到披露截止日(discDay)才预测；
+// 一旦某只基金的时间更新到了截止日(加了一天)，它就自动不再被预测，只预测其余未更新的。
+// 例：8-11 21:30后 ~ 8-12 21:30前 discDay=08-11 → 预测 08-10 及更早，08-11 不预测；
+//     8-12 21:30后 discDay=08-12 → 预测 08-11 及更早，08-12 不预测；类推。
 function fundNeedsPredictHero(f, discDay){
-  if(f && f.manualNav!=null && f.manualNav!=='') return false;   // 手动填写了当前净值 → 已更新，不预测
-  var t=f && f._dayTime;
-  if(!t || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return false;
-  return t < ymdAddDays(discDay, -1);
+  return fundNeedsPredict(f, discDay);
 }
 // 抓取单只标的日K线（qfq），返回 [{date,open,close,high,low},...]
 function fetchKline(sym){
@@ -2096,8 +2093,8 @@ function computeCurrent(){
     targetFundDayPnl += _tPnl; targetFundPrevVal += _tPrev;
     // 当日预测：基于公开持仓加权估算（与基金表「当日预测」列同源）
     // 算出成分股加权涨跌幅 _predPct 后，按两种闸门分别赋值：
-    //   _dayPredict    —— 明细口径（不动）：净值日期 < 披露截止日 才预测
-    //   _dayPredictHero—— hero 口径（新增）：门槛 = 截止日 - 1天，只预测停在截止日前一天的基金
+    //   _dayPredict    —— 明细口径：净值日期 < 披露截止日 才预测
+    //   _dayPredictHero—— hero 口径（与明细同口径）：同样 净值日期 < 披露截止日 才预测
     var _predPct=null, _predPnl=null, _predPnlHero=null;
     if(window._holdQ && FUND_HOLDINGS[f.code]){
       var _ph=FUND_HOLDINGS[f.code], _av=0, _sw=0;
@@ -2117,7 +2114,7 @@ function computeCurrent(){
     }
     f._dayPredict=_predPnl; f._dayPredictPct=_predPct; f._dayPredictHero=_predPnlHero;
   });
-  const fundPredictPnl = funds.reduce((s,f)=>s+(f._dayPredictHero||0),0);  // hero 预测资产：门槛=截止日-1天
+  const fundPredictPnl = funds.reduce((s,f)=>s+(f._dayPredictHero||0),0);  // hero 预测资产：与明细当日预测同口径
   let usTotalRealizedPnl=0, usTotalBuyCost=0;
   us.forEach(u=>{
     var st=getTradeStats(u); var holdSh=st.holdShares;
@@ -2139,6 +2136,7 @@ function computeCurrent(){
     }
     // 时间列：美股为实时，显示“实时”
     dTime = (u._quoteTime && u._quoteTime!=='') ? '实时' : (hist.length? ymd(hist[hist.length-1].t) : '—');
+    if(isOptionSymbol(u.symbol)){ dRet=null; dPnl=null; }   // 期权无实时日行情：当日盈亏/收益率显示「—」
     u._dayRet=dRet; u._dayPnl=dPnl; u._dayTime=dTime; u._dayPrevVal=dPrev;
     u._stats=st; u._usd=usd; u._realizedPnl=realizedPnlCny;
   });
@@ -2854,7 +2852,7 @@ function renderTables(){
       var mv=holdSh*mult*usd*fx;
       var cost=st.avgCost>0?holdSh*mult*st.avgCost*fx:null;
       var pnl=(cost!=null)?mv-cost:null;
-      var pnlPct=(pnl!=null&&cost>0)?(pnl/cost*100):null;
+      var pnlPct=(pnl!=null&&cost!=null)?(pnl/Math.abs(cost)*100):null;   // 空头 cost 为负，分母取绝对值，百分比才正确（如 +51.33%）
       var pnlCls=pnl==null?'':(pnl>=0?'up':'down');
       var pnlTxt=pnl==null?'—':fmt0(pnl);
       var pctTxt=pnlPct==null?'—':(pnlPct.toFixed(2)+'%');
@@ -2872,7 +2870,7 @@ function renderTables(){
         <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>
         <td><div class="cell-main">${usd?fmtUSD(usd):'—'}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):'—'}</div></td>
         <td class="time-cell">${ uo ? `<span class="time-bar tb-option" title="IBKR markPrice 快照日">${esc(ymdShort(u._markDate)||'—')}</span>` : `<span class="time-bar ${u._ok===true?'tb-live':'tb-stale'}">${esc(ymdShort(u._dayTime)||'—')}</span>` }</td>
-        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(u.symbol||'')}" data-qname="${esc(u.name||'')}">行情</button>
+        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||'')}" data-qname="${esc(uo?uo.root:(u.name||''))}">行情</button>
             <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>
             <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>
         <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="7"><div class="trade-inner">
@@ -2981,7 +2979,7 @@ function fifoProcess(trades){
   });
   var holdShares=0, rCost=0;
   lots.forEach(function(l){ holdShares+=l.shares; rCost+=l.shares*l.price; });
-  var avgCost = holdShares>0 ? rCost/holdShares : 0;
+  var avgCost = holdShares!==0 ? rCost/holdShares : 0;   // 空头(holdShares<0)同样按带符号数量算均价，避免期权Short显示「—」
   var avgSell = totalSell>0 ? totalSellRev/totalSell : 0;
   return {holdShares:holdShares, avgCost:avgCost, avgSell:avgSell, realizedPnl:realized, totalBuy:totalBuy, totalBuyCost:totalBuyCost, totalSell:totalSell, totalSellRev:totalSellRev};
 }
