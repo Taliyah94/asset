@@ -538,6 +538,10 @@
     {
       "date": "2026-08-11",
       "value": 27540.409182224
+    },
+    {
+      "date": "2026-08-12",
+      "value": 28181.539182224
     }
   ],
   "cashDaily": [
@@ -1072,6 +1076,10 @@
     {
       "date": "2026-08-11",
       "value": 509.569182224
+    },
+    {
+      "date": "2026-08-12",
+      "value": 509.569182224
     }
   ],
   "holdings": [
@@ -1080,30 +1088,30 @@
       "side": "Long",
       "position": 69.0,
       "costBasisPrice": 297.413979188,
-      "markPrice": 295.83,
-      "positionValue": 20412.27,
+      "markPrice": 297.98,
+      "positionValue": 20560.62,
       "costBasisMoney": 20521.564564,
-      "unrealizedPnl": -109.294564
+      "unrealizedPnl": 39.055436
     },
     {
       "symbol": "TQQQ",
       "side": "Long",
       "position": 96.0,
       "costBasisPrice": 73.632588146,
-      "markPrice": 73.06,
-      "positionValue": 7013.76,
+      "markPrice": 74.6,
+      "positionValue": 7161.6,
       "costBasisMoney": 7068.728462,
-      "unrealizedPnl": -54.968462
+      "unrealizedPnl": 92.871538
     },
     {
       "symbol": "ORCL  260814P00140000",
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.383035667,
-      "markPrice": 1.2804,
-      "positionValue": -384.12,
+      "markPrice": 0.1306,
+      "positionValue": -39.18,
       "costBasisMoney": -414.9107,
-      "unrealizedPnl": 30.7907
+      "unrealizedPnl": 375.7307
     }
   ],
   "electronicFundTransfers": [
@@ -2150,5 +2158,5 @@
       "tradeId": "9871796079"
     }
   ],
-  "lastSync": "2026-08-12"
+  "lastSync": "2026-08-13"
 }
