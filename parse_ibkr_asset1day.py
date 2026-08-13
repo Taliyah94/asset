@@ -63,6 +63,7 @@ import urllib.error
 import argparse
 import datetime
 import calendar
+import re
 
 # ----------------------------- 配置 -----------------------------
 IBKR_SEND_URL = os.environ.get(
@@ -382,6 +383,31 @@ def do_parse_and_write(xml_txt, result, json_path):
     holdings, latest = parse_holdings(root)
     result["holdings"] = holdings
     print(f"[holdings] 报表日 {latest}，当前持仓 {len(holdings)} 项")
+
+    # ---- 期权 A/B 基准：缓存 2 天，每日循环 ----
+    # 数据口径（与前端「期权当日盈亏」对齐）：
+    #   A = 上一次运行算出的 B（即「昨天」的期权 markPrice）
+    #   B = 本次运行算出的期权 markPrice（即「今天」）
+    # 前端取数：盘外(北京 4:00~21:30) 用 A；盘中(21:30~次日4:00) 用 B。
+    # 脚本每天北京 ~17:00 跑一次（12:10 cron 排队后实际完成），配合 lastSync
+    # 每日只更新一次；A/B 循环完全由上次 B 降级为 A 实现，无需前端维护。
+    _opt_prev_b = (result.get("optBase") or {}).get("B")
+    _opt_today = beijing_now().strftime("%Y-%m-%d")
+    _opt_prices = {}
+    for _h in holdings:
+        _sym = (_h.get("symbol") or "")
+        # 期权符号形如 ORCL  260814P00140000（含空格、6位日期+C/P+8位行权价）
+        if not re.match(r"^\s*[A-Za-z]{1,6}\s*\d{6}[CP]\d{8}\s*$", _sym):
+            continue
+        _mp = _h.get("markPrice")
+        if isinstance(_mp, (int, float)) and _mp > 0:
+            _opt_prices[_sym] = _mp
+    _opt_a = {"date": (_opt_prev_b or {}).get("date"),
+              "prices": dict((_opt_prev_b or {}).get("prices", {}))}
+    _opt_b = {"date": _opt_today, "prices": _opt_prices}
+    result["optBase"] = {"A": _opt_a, "B": _opt_b}
+    print(f"[optBase] A(date={_opt_a['date']}) {len(_opt_a['prices'])} 项, "
+          f"B(date={_opt_today}) {len(_opt_b['prices'])} 项")
 
     # ---- 可选：用 asset(365day) 报表刷新 forexTrades / efts / 交易明细 ----
     asset_trades = []
