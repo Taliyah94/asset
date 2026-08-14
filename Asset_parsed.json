@@ -4,7 +4,7 @@
     "accountName": "XIAOMEI REN",
     "currency": "USD",
     "openDate": "2026-02-06",
-    "lastTradeDate": "2026-08-10"
+    "lastTradeDate": "2026-08-13"
   },
   "totalNetValueDaily": [
     {
@@ -542,6 +542,10 @@
     {
       "date": "2026-08-12",
       "value": 28181.539182224
+    },
+    {
+      "date": "2026-08-13",
+      "value": 28839.889073785
     }
   ],
   "cashDaily": [
@@ -1080,38 +1084,22 @@
     {
       "date": "2026-08-12",
       "value": 509.569182224
+    },
+    {
+      "date": "2026-08-13",
+      "value": 28940.459073785
     }
   ],
   "holdings": [
     {
-      "symbol": "QQQM",
-      "side": "Long",
-      "position": 69.0,
-      "costBasisPrice": 297.413979188,
-      "markPrice": 297.98,
-      "positionValue": 20560.62,
-      "costBasisMoney": 20521.564564,
-      "unrealizedPnl": 39.055436
-    },
-    {
-      "symbol": "TQQQ",
-      "side": "Long",
-      "position": 96.0,
-      "costBasisPrice": 73.632588146,
-      "markPrice": 74.6,
-      "positionValue": 7161.6,
-      "costBasisMoney": 7068.728462,
-      "unrealizedPnl": 92.871538
-    },
-    {
-      "symbol": "ORCL  260814P00140000",
+      "symbol": "META  260814P00582500",
       "side": "Short",
-      "position": -3.0,
-      "costBasisPrice": 1.383035667,
-      "markPrice": 0.1306,
-      "positionValue": -39.18,
-      "costBasisMoney": -414.9107,
-      "unrealizedPnl": 375.7307
+      "position": -1.0,
+      "costBasisPrice": 2.43944363,
+      "markPrice": 0.895,
+      "positionValue": -89.5,
+      "costBasisMoney": -243.944363,
+      "unrealizedPnl": 154.444363
     }
   ],
   "electronicFundTransfers": [
@@ -1211,6 +1199,83 @@
     }
   ],
   "trades": [
+    {
+      "date": "2026-08-13",
+      "symbol": "QQQM",
+      "underlying": "QQQM",
+      "cat": "STK",
+      "buySell": "SELL",
+      "quantity": -69.0,
+      "price": 302.0605,
+      "realized": 319.8,
+      "tradeId": "10053215059"
+    },
+    {
+      "date": "2026-08-13",
+      "symbol": "TQQQ",
+      "underlying": "TQQQ",
+      "cat": "STK",
+      "buySell": "SELL",
+      "quantity": -96.0,
+      "price": 76.69,
+      "realized": 292.97,
+      "tradeId": "10051966053"
+    },
+    {
+      "date": "2026-08-13",
+      "symbol": "META  260814P00582500",
+      "underlying": "META",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -1.0,
+      "price": 2.45,
+      "realized": 0.0,
+      "tradeId": "10053506950"
+    },
+    {
+      "date": "2026-08-13",
+      "symbol": "ORCL  260814P00140000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -1.0,
+      "price": 0.04,
+      "realized": 0.0,
+      "tradeId": "10052448880"
+    },
+    {
+      "date": "2026-08-13",
+      "symbol": "ORCL  260814P00140000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -2.0,
+      "price": 0.03,
+      "realized": 0.0,
+      "tradeId": "10052449078"
+    },
+    {
+      "date": "2026-08-13",
+      "symbol": "ORCL  260814P00140000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 1.0,
+      "price": 0.03,
+      "realized": 134.27,
+      "tradeId": "10052814719"
+    },
+    {
+      "date": "2026-08-13",
+      "symbol": "ORCL  260814P00140000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 5.0,
+      "price": 0.04,
+      "realized": 264.52,
+      "tradeId": "10053204978"
+    },
     {
       "date": "2026-08-10",
       "symbol": "ASML",
@@ -2035,128 +2100,19 @@
       "price": 1.71,
       "realized": 0.0,
       "tradeId": "9872878657"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "MSFT",
-      "underlying": "MSFT",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -19.0,
-      "price": 386.29,
-      "realized": 71.97,
-      "tradeId": "9864223562"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "MSFT",
-      "underlying": "MSFT",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -42.0,
-      "price": 386.29,
-      "realized": 159.86,
-      "tradeId": "9864223576"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "NVDA",
-      "underlying": "NVDA",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 100.0,
-      "price": 205.0,
-      "realized": 0.0,
-      "tradeId": "9871796080"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 320.0,
-      "price": 73.86,
-      "realized": 0.0,
-      "tradeId": "9865642243"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -320.0,
-      "price": 74.6,
-      "realized": 234.71,
-      "tradeId": "9867810690"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 20.0,
-      "price": 74.2588,
-      "realized": 0.0,
-      "tradeId": "9868203274"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 300.0,
-      "price": 74.2584,
-      "realized": 0.0,
-      "tradeId": "9868203355"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -100.0,
-      "price": 72.16,
-      "realized": -210.96,
-      "tradeId": "9871403721"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -220.0,
-      "price": 72.16,
-      "realized": -463.44,
-      "tradeId": "9871403722"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "NVDA  260713P00205000",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1.0,
-      "price": 0.34,
-      "realized": 0.0,
-      "tradeId": "9865783898"
-    },
-    {
-      "date": "2026-07-13",
-      "symbol": "NVDA  260713P00205000",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "BUY",
-      "quantity": 1.0,
-      "price": 0.0,
-      "realized": 0.0,
-      "tradeId": "9871796079"
     }
   ],
-  "lastSync": "2026-08-13"
+  "lastSync": "2026-08-14",
+  "optBase": {
+    "A": {
+      "date": null,
+      "prices": {}
+    },
+    "B": {
+      "date": "2026-08-14",
+      "prices": {
+        "META  260814P00582500": 0.895
+      }
+    }
+  }
 }
