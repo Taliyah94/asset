@@ -4,7 +4,7 @@
     "accountName": "XIAOMEI REN",
     "currency": "USD",
     "openDate": "2026-02-06",
-    "lastTradeDate": "2026-08-13"
+    "lastTradeDate": "2026-08-14"
   },
   "totalNetValueDaily": [
     {
@@ -546,6 +546,10 @@
     {
       "date": "2026-08-13",
       "value": 28839.889073785
+    },
+    {
+      "date": "2026-08-14",
+      "value": 28945.327635185
     }
   ],
   "cashDaily": [
@@ -1088,18 +1092,22 @@
     {
       "date": "2026-08-13",
       "value": 28940.459073785
+    },
+    {
+      "date": "2026-08-14",
+      "value": 5919.397635185
     }
   ],
   "holdings": [
     {
-      "symbol": "META  260814P00582500",
-      "side": "Short",
-      "position": -1.0,
-      "costBasisPrice": 2.43944363,
-      "markPrice": 0.895,
-      "positionValue": -89.5,
-      "costBasisMoney": -243.944363,
-      "unrealizedPnl": 154.444363
+      "symbol": "TQQQ",
+      "side": "Long",
+      "position": 300.0,
+      "costBasisPrice": 76.736871463,
+      "markPrice": 76.79,
+      "positionValue": 23037.0,
+      "costBasisMoney": 23021.061439,
+      "unrealizedPnl": 15.938561
     }
   ],
   "electronicFundTransfers": [
@@ -1199,6 +1207,61 @@
     }
   ],
   "trades": [
+    {
+      "date": "2026-08-14",
+      "symbol": "TQQQ",
+      "underlying": "TQQQ",
+      "cat": "STK",
+      "buySell": "BUY",
+      "quantity": 300.0,
+      "price": 77.0,
+      "realized": 0.0,
+      "tradeId": "10065659869"
+    },
+    {
+      "date": "2026-08-14",
+      "symbol": "META  260814P00582500",
+      "underlying": "META",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 1.0,
+      "price": 0.0,
+      "realized": 243.94,
+      "tradeId": "10065764953"
+    },
+    {
+      "date": "2026-08-14",
+      "symbol": "TQQQ  260814P00077000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -2.0,
+      "price": 0.27,
+      "realized": 0.0,
+      "tradeId": "10060023859"
+    },
+    {
+      "date": "2026-08-14",
+      "symbol": "TQQQ  260814P00077000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -1.0,
+      "price": 0.27,
+      "realized": 0.0,
+      "tradeId": "10060024735"
+    },
+    {
+      "date": "2026-08-14",
+      "symbol": "TQQQ  260814P00077000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 3.0,
+      "price": 0.0,
+      "realized": 0.0,
+      "tradeId": "10065659866"
+    },
     {
       "date": "2026-08-13",
       "symbol": "QQQM",
@@ -2045,74 +2108,19 @@
       "price": 6.7769,
       "realized": 0.0,
       "tradeId": "9879217152"
-    },
-    {
-      "date": "2026-07-14",
-      "symbol": "MSFT",
-      "underlying": "MSFT",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 54.0,
-      "price": 378.5,
-      "realized": 0.0,
-      "tradeId": "9872410230"
-    },
-    {
-      "date": "2026-07-14",
-      "symbol": "NVDA",
-      "underlying": "NVDA",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -100.0,
-      "price": 205.2,
-      "realized": 52.2,
-      "tradeId": "9871951667"
-    },
-    {
-      "date": "2026-07-14",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 37.0,
-      "price": 71.75,
-      "realized": 0.0,
-      "tradeId": "9871744312"
-    },
-    {
-      "date": "2026-07-14",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -37.0,
-      "price": 75.0,
-      "realized": 119.54,
-      "tradeId": "9878342482"
-    },
-    {
-      "date": "2026-07-14",
-      "symbol": "NVDA  260715P00205000",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1.0,
-      "price": 1.71,
-      "realized": 0.0,
-      "tradeId": "9872878657"
     }
   ],
-  "lastSync": "2026-08-14",
+  "lastSync": "2026-08-15",
   "optBase": {
     "A": {
-      "date": null,
-      "prices": {}
-    },
-    "B": {
       "date": "2026-08-14",
       "prices": {
         "META  260814P00582500": 0.895
       }
+    },
+    "B": {
+      "date": "2026-08-15",
+      "prices": {}
     }
   }
 }
