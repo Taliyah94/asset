@@ -13690,7 +13690,7 @@
             <div class="setting-row">
                 <div class="label"><span class="li-ic">📡</span>数据源</div>
                 <div class="value">
-                    <div class="src-legend" style="font-size:12px;color:var(--muted,#888);margin-top:4px;line-height:1.8;text-align:left;padding-left:33%;">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：21:30–次日4:00（盘中）腾讯/东方财富；4:00–21:30（盘外）Alpaca（延迟约15分钟）<br>· 期权：盘中取 Alpaca</div>
+                    <div class="src-legend" style="font-size:12px;color:var(--muted,#888);margin-top:4px;line-height:1.8;text-align:left;padding-left:33%;">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权：盘中取 Alpaca</div>
                 </div>
             </div>
             <div class="setting-row" id="setIconBrowserBtn">
@@ -13823,8 +13823,8 @@
             <div style="padding:16px 20px;">
                 <div style="margin-bottom:14px;">
                     <label style="display:block;font-size:13px;color:var(--muted,#888);margin-bottom:4px;">GitHub Token (PAT)</label>
-                    <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:8px;font-size:14px;background:var(--card,#fff);color:var(--text,#222);">
-                    <div style="font-size:11px;color:var(--muted,#aaa);margin-top:4px;">需要 repo 权限。Token 仅存在本地 localStorage。</div>
+                    <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx 或输入快捷密码" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:8px;font-size:14px;background:var(--card,#fff);color:var(--text,#222);">
+                    <div style="font-size:11px;color:var(--muted,#aaa);margin-top:4px;">需要 repo 权限。Token 仅存在本地 localStorage。输入快捷密码可自动解码为完整 Token（源码不含明文）。</div>
                 </div>
                 <div style="margin-bottom:14px;">
                     <label style="display:block;font-size:13px;color:var(--muted,#888);margin-bottom:4px;">仓库所有者 (owner)</label>
@@ -16407,10 +16407,52 @@ if __name__ == "__main__":
                                                     return new Date(u + 8 * 3600000);
                                                 }
 
+                                                /* 美东时间（America/New_York，自动区分夏令时/冬令时）的当前时分/星期/日期 */
+                                                function etNowParts(d) {
+                                                    var dt = d || new Date();
+                                                    var f = new Intl.DateTimeFormat("en-US", {
+                                                        timeZone: "America/New_York",
+                                                        hour12: false,
+                                                        weekday: "short",
+                                                        year: "numeric",
+                                                        month: "2-digit",
+                                                        day: "2-digit",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit"
+                                                    });
+                                                    var p = {};
+                                                    f.formatToParts(dt).forEach(function(x) { p[x.type] = x.value; });
+                                                    var h = parseInt(p.hour, 10);
+                                                    if (h === 24) h = 0;
+                                                    return {
+                                                        h: h,
+                                                        m: parseInt(p.minute, 10),
+                                                        wd: p.weekday,
+                                                        ymd: p.year + "-" + p.month + "-" + p.day
+                                                    };
+                                                }
+                                                var _etPartsCache = null;
+                                                function etNowCached() {
+                                                    if (_etPartsCache && Date.now() - _etPartsCache._ts < 30000) return _etPartsCache;
+                                                    try {
+                                                        _etPartsCache = etNowParts();
+                                                        _etPartsCache._ts = Date.now();
+                                                        return _etPartsCache;
+                                                    } catch (e) { return null; }
+                                                }
+
+                                                /* 美股常规时段：美东 9:30–16:00（自动夏令时/冬令时），周末休市 */
                                                 function isUsRegularSession() {
+                                                    var p = null;
+                                                    try { p = etNowCached(); } catch (e) { p = null; }
+                                                    if (p) {
+                                                        if (p.wd === "Sat" || p.wd === "Sun") return false;
+                                                        var mi = p.h * 60 + p.m;
+                                                        return mi >= 9 * 60 + 30 && mi < 16 * 60;
+                                                    }
                                                     var b = beijingNow();
-                                                    var mi = b.getHours() * 60 + b.getMinutes();
-                                                    return mi >= 21 * 60 + 30 || mi < 4 * 60;
+                                                    var mi2 = b.getHours() * 60 + b.getMinutes();
+                                                    return mi2 >= 21 * 60 + 30 || mi2 < 4 * 60;
                                                 }
 
                                                 function autoUsSrc() {
@@ -16569,6 +16611,19 @@ if __name__ == "__main__":
                                                 }
 
                                                 function computeFundTargetDate() {
+                                                    var p = null;
+                                                    try { p = etNowCached(); } catch (e) { p = null; }
+                                                    if (p) {
+                                                        /* 美东时间 9:30（美股开盘）为界：开盘前目标日=昨工作日，开盘后=今天 */
+                                                        var before = p.h < 9 || p.h === 9 && p.m < 30;
+                                                        var pp = p.ymd.split("-");
+                                                        var d = new Date(+pp[0], +pp[1] - 1, +pp[2]);
+                                                        if (before) d.setDate(d.getDate() - 1);
+                                                        var wd = d.getDay();
+                                                        if (wd === 0) d.setDate(d.getDate() - 2);
+                                                        else if (wd === 6) d.setDate(d.getDate() - 1);
+                                                        return ymd(d.getTime());
+                                                    }
                                                     var bj = beijingNow();
                                                     var d = new Date(bj.getTime());
                                                     var before = d.getHours() < 21 || d.getHours() === 21 && d.getMinutes() < 30;
@@ -16795,14 +16850,17 @@ if __name__ == "__main__":
                                                     var rectWhite = '<rect x="' + (x - half).toFixed(1) + '" y="' + (y - half).toFixed(1) + '" width="' + S + '" height="' + S + '" rx="' + rx + '" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>';
 
                                                     function imgTag(url) {
+                                                        var u = String(url || "");
+                                                        if (u.indexOf("@b64:") === 0) {
+                                                            u = window.__B ? window.__B[parseInt(u.slice(5), 10)] || "" : "";
+                                                        }
+                                                        if (!u) return "";
                                                         var is = S * .66;
-                                                        return '<image x="' + (x - is / 2).toFixed(1) + '" y="' + (y - is / 2).toFixed(1) + '" width="' + is.toFixed(1) + '" height="' + is.toFixed(1) + '" preserveAspectRatio="xMidYMid meet" href="' + url + '" xlink:href="' + url + '"></image>'
+                                                        return '<image x="' + (x - is / 2).toFixed(1) + '" y="' + (y - is / 2).toFixed(1) + '" width="' + is.toFixed(1) + '" height="' + is.toFixed(1) + '" preserveAspectRatio="xMidYMid meet" href="' + u + '" xlink:href="' + u + '"></image>'
                                                     }
                                                     if (ic.img) {
-                                                        return rectWhite + imgTag(ic.img)
-                                                    }
-                                                    if (ic.s && emb) {
-                                                        return rectWhite + imgTag(emb)
+                                                        var __tag = imgTag(ic.img);
+                                                        if (__tag) return rectWhite + __tag;
                                                     }
                                                     var txt = ic.i || (ic.n || "").slice(0, 2) || "";
                                                     var bg = ic.c || "#888";
@@ -20374,6 +20432,31 @@ if __name__ == "__main__":
                                                 };
 
                                                 /* ===== GitHub 同步功能 ===== */
+                                                /* Token 混淆存储：快捷密码为 XOR 密钥，源码不含明文 Token，也不含密码本身 */
+                                                var GH_TK_ENC = "50514869435a750b7e7f735e5f4d4a520377644b407579467f4d7e7b4676646a7e6202507d6b5279";
+                                                var GH_TK_CHK = 2043887847;
+                                                function ghTkHash(s) {
+                                                    var h = 5381;
+                                                    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+                                                    return h;
+                                                }
+                                                function ghDecodeToken(pin) {
+                                                    var k = String(pin || ""),
+                                                        hex = GH_TK_ENC || "",
+                                                        out = "";
+                                                    for (var i = 0; i < hex.length; i += 2) {
+                                                        out += String.fromCharCode(parseInt(hex.substr(i, 2), 16) ^ k.charCodeAt((i / 2) % k.length));
+                                                    }
+                                                    return out;
+                                                }
+                                                function ghResolveToken(v) {
+                                                    v = String(v || "").trim();
+                                                    if (v && !/^ghp_/.test(v)) {
+                                                        var t = ghDecodeToken(v);
+                                                        if (/^ghp_[A-Za-z0-9]{30,}$/.test(t) && ghTkHash(t) === GH_TK_CHK) return t;
+                                                    }
+                                                    return v;
+                                                }
                                                 function ghGetConfig() {
                                                     return {
                                                         token: localStorage.getItem("gh_token") || "",
@@ -20385,7 +20468,7 @@ if __name__ == "__main__":
                                                     };
                                                 }
                                                 function ghSaveConfig() {
-                                                    localStorage.setItem("gh_token", document.getElementById("ghToken").value.trim());
+                                                    localStorage.setItem("gh_token", ghResolveToken(document.getElementById("ghToken").value));
                                                     localStorage.setItem("gh_owner", document.getElementById("ghOwner").value.trim());
                                                     localStorage.setItem("gh_repo", document.getElementById("ghRepo").value.trim());
                                                     localStorage.setItem("gh_path", document.getElementById("ghPath").value.trim() || "Asset_parsed.json");
@@ -20394,7 +20477,7 @@ if __name__ == "__main__":
                                                 }
                                                 function ghFillForm() {
                                                     var c = ghGetConfig();
-                                                    document.getElementById("ghToken").value = c.token || "ghp_rhB2FIBlhtrd2ESrxCHtHtFMwDSSFTbJRjO";
+                                                    document.getElementById("ghToken").value = c.token || "";
                                                     document.getElementById("ghOwner").value = c.owner || "taliyah94";
                                                     document.getElementById("ghRepo").value = c.repo || "asset";
                                                     document.getElementById("ghPath").value = c.path;
