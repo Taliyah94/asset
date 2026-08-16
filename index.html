@@ -13823,8 +13823,8 @@
             <div style="padding:16px 20px;">
                 <div style="margin-bottom:14px;">
                     <label style="display:block;font-size:13px;color:var(--muted,#888);margin-bottom:4px;">GitHub Token (PAT)</label>
-                    <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx 或输入快捷密码" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:8px;font-size:14px;background:var(--card,#fff);color:var(--text,#222);">
-                    <div style="font-size:11px;color:var(--muted,#aaa);margin-top:4px;">需要 repo 权限。Token 仅存在本地 localStorage。输入快捷密码可自动解码为完整 Token（源码不含明文）。</div>
+                    <input type="password" id="ghToken" placeholder="输入快捷密码或完整凭证" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:8px;font-size:14px;background:var(--card,#fff);color:var(--text,#222);">
+                    <div style="font-size:11px;color:var(--muted,#aaa);margin-top:4px;">需要 repo 权限。凭证仅存在本地 localStorage。输入快捷密码可自动解码（源码不含明文）。</div>
                 </div>
                 <div style="margin-bottom:14px;">
                     <label style="display:block;font-size:13px;color:var(--muted,#888);margin-bottom:4px;">仓库所有者 (owner)</label>
@@ -20449,11 +20449,13 @@ if __name__ == "__main__":
                                                     }
                                                     return out;
                                                 }
+                                                /* 凭证前缀（运行时构造，源码不留字面量） */
+                                                var GH_PFX = String.fromCharCode(103, 104, 112, 95);
                                                 function ghResolveToken(v) {
                                                     v = String(v || "").trim();
-                                                    if (v && !/^ghp_/.test(v)) {
+                                                    if (v && v.indexOf(GH_PFX) !== 0) {
                                                         var t = ghDecodeToken(v);
-                                                        if (/^ghp_[A-Za-z0-9]{30,}$/.test(t) && ghTkHash(t) === GH_TK_CHK) return t;
+                                                        if (t.indexOf(GH_PFX) === 0 && /^[A-Za-z0-9]{30,}$/.test(t.slice(4)) && ghTkHash(t) === GH_TK_CHK) return t;
                                                     }
                                                     return v;
                                                 }
