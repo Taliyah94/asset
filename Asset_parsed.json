@@ -1987,60 +1987,16 @@
       "price": 0,
       "realized": 65.15,
       "tradeId": "9903750586"
-    },
-    {
-      "date": "2026-07-16",
-      "symbol": "NVDA",
-      "underlying": "NVDA",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 87,
-      "price": 209.5,
-      "realized": 0,
-      "tradeId": "9887364349"
-    },
-    {
-      "date": "2026-07-16",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 22,
-      "price": 73.63,
-      "realized": 0,
-      "tradeId": "9886457662"
-    },
-    {
-      "date": "2026-07-16",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 78,
-      "price": 73.63,
-      "realized": 0,
-      "tradeId": "9886459161"
-    },
-    {
-      "date": "2026-07-16",
-      "symbol": "NVDA  260717P00202500",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1,
-      "price": 0.66,
-      "realized": 0,
-      "tradeId": "9888536015"
     }
   ],
-  "lastSync": "2026-08-16",
+  "lastSync": "2026-08-17",
   "optBase": {
     "A": {
-      "date": "2026-08-15",
+      "date": "2026-08-16",
       "prices": {}
     },
     "B": {
-      "date": "2026-08-16",
+      "date": "2026-08-17",
       "prices": {}
     }
   },
