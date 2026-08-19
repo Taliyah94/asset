@@ -17121,9 +17121,9 @@ if __name__ == "__main__":
                                                             }
                                                         });
                                                         const fr0 = fxAtDate(ymd(ts));
-                                                        const ytCashCNY = fr0 && fr0.cash ? fr0.cash * fx : 0;
+                                                        const ibkrNetCNY = fr0 && fr0.net ? fr0.net * fx : 0;
                                                         const fundGain = (fv - cumFC) + cumRealFC;
-                                                        const usGain = uv + ytCashCNY - cumBuyUC;
+                                                        const usGain = ibkrNetCNY - cumBuyUC;
                                                         const cumBuyCost = cumBuyFC + cumBuyUC;
                                                         const r = cumBuyCost > 0 ? (fundGain + usGain) / cumBuyCost : null;
                                                         fundArr.push(+fv.toFixed(2));
@@ -17303,18 +17303,9 @@ if __name__ == "__main__":
                                                     for (let i = 0; i < n; i++) {
                                                         const ts = parseDate(labels[i]);
                                                         const fr = fxAtDate(labels[i]);
-                                                        const fxCash = fr ? fr.cash : 0;
-                                                        const lastFx = lastFxRowDate();
-                                                        let usVal;
-                                                        if (i === n - 1 || lastFx != null && labels[i] > lastFx) {
-                                                            usVal = usMarketValueFromList(fx)
-                                                        } else {
-                                                            const fxNet = fr ? fr.net : 0;
-                                                            const usIBKR = (fxNet - fxCash) * fx;
-                                                            const usFixed = fixedTqqqValueAt(ts, fx);
-                                                            usVal = usIBKR + usFixed
-                                                        }
-                                                        const cashAmt = baseCashCNYAt(ts) + fxCash * fx;
+                                                        const fxNet = fr ? fr.net : 0;
+                                                        const usVal = fxNet > 0 ? fxNet * fx : usMarketValueFromList(fx);
+                                                        const cashAmt = baseCashCNYAt(ts);
                                                         U.push(+usVal.toFixed(2));
                                                         C.push(+cashAmt.toFixed(2));
                                                         total.push(+(F[i] + usVal + cashAmt).toFixed(2))
