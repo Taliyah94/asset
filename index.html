@@ -17120,11 +17120,12 @@ if __name__ == "__main__":
                                                                 cv += c.currency === "usd" ? a * fx : a
                                                             }
                                                         });
-                                                        const cumHoldCost = cumFC + cumUC;
-                                                        const floatPnl = fv + uv - cumHoldCost;
-                                                        const cumRealized = cumRealFC + cumRealUC;
+                                                        const fr0 = fxAtDate(ymd(ts));
+                                                        const ytCashCNY = fr0 && fr0.cash ? fr0.cash * fx : 0;
+                                                        const fundGain = (fv - cumFC) + cumRealFC;
+                                                        const usGain = uv + ytCashCNY - cumBuyUC;
                                                         const cumBuyCost = cumBuyFC + cumBuyUC;
-                                                        const r = cumBuyCost > 0 ? (floatPnl + cumRealized) / cumBuyCost : null;
+                                                        const r = cumBuyCost > 0 ? (fundGain + usGain) / cumBuyCost : null;
                                                         fundArr.push(+fv.toFixed(2));
                                                         usArr.push(+uv.toFixed(2));
                                                         cashArr.push(+cv.toFixed(2));
