@@ -17313,7 +17313,7 @@ if __name__ == "__main__":
                                                         const fxNet = (fr && fr.date === labels[i] && fr.net > 0) ? fr.net : 0;
                                                         let usVal, cashAmt;
                                                         if (fxNet > 0) {
-                                                            usVal = fxNet * fx;
+                                                            usVal = fxNet * fx + fixedTqqqValueAt(ts, fx);
                                                             cashAmt = baseCashCNYAt(ts)
                                                         } else {
                                                             const yc = yitouCashItem();
