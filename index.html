@@ -17121,7 +17121,14 @@ if __name__ == "__main__":
                                                             }
                                                         });
                                                         const fr0 = fxAtDate(ymd(ts));
-                                                        const ibkrNetCNY = fr0 && fr0.net ? fr0.net * fx : 0;
+                                                        let ibkrNetCNY;
+                                                        if (fr0 && fr0.date === ymd(ts) && fr0.net) {
+                                                            ibkrNetCNY = fr0.net * fx
+                                                        } else {
+                                                            const yc = yitouCashItem();
+                                                            const ytCNY = yc ? (Number(yc.amount) || 0) * (yc.currency === "usd" ? fx : 1) : 0;
+                                                            ibkrNetCNY = usMarketValueFromList(fx) + ytCNY
+                                                        }
                                                         const fundGain = (fv - cumFC) + cumRealFC;
                                                         const usGain = ibkrNetCNY - cumBuyUC;
                                                         const cumBuyCost = cumBuyFC + cumBuyUC;
@@ -17303,9 +17310,23 @@ if __name__ == "__main__":
                                                     for (let i = 0; i < n; i++) {
                                                         const ts = parseDate(labels[i]);
                                                         const fr = fxAtDate(labels[i]);
-                                                        const fxNet = fr ? fr.net : 0;
-                                                        const usVal = fxNet > 0 ? fxNet * fx : usMarketValueFromList(fx);
-                                                        const cashAmt = baseCashCNYAt(ts);
+                                                        const fxNet = (fr && fr.date === labels[i] && fr.net > 0) ? fr.net : 0;
+                                                        let usVal, cashAmt;
+                                                        if (fxNet > 0) {
+                                                            usVal = fxNet * fx;
+                                                            cashAmt = baseCashCNYAt(ts)
+                                                        } else {
+                                                            const yc = yitouCashItem();
+                                                            const ytCNY = yc ? (Number(yc.amount) || 0) * (yc.currency === "usd" ? fx : 1) : 0;
+                                                            usVal = usMarketValueFromList(fx) + ytCNY;
+                                                            let cv = 0;
+                                                            cash.forEach(function(c) {
+                                                                if (isYitouItem(c)) return;
+                                                                var a = calcCashAmount(c);
+                                                                cv += c.currency === "usd" ? a * fx : a
+                                                            });
+                                                            cashAmt = cv
+                                                        }
                                                         U.push(+usVal.toFixed(2));
                                                         C.push(+cashAmt.toFixed(2));
                                                         total.push(+(F[i] + usVal + cashAmt).toFixed(2))
