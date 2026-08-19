@@ -554,6 +554,10 @@
     {
       "date": "2026-08-17",
       "value": 29115.948117085
+    },
+    {
+      "date": "2026-08-18",
+      "value": 28452.468117085
     }
   ],
   "cashDaily": [
@@ -1104,6 +1108,10 @@
     {
       "date": "2026-08-17",
       "value": 21872.328117085
+    },
+    {
+      "date": "2026-08-18",
+      "value": 21872.328117085
     }
   ],
   "holdings": [
@@ -1112,20 +1120,20 @@
       "side": "Long",
       "position": 100.0,
       "costBasisPrice": 76.73687146,
-      "markPrice": 76.4,
-      "positionValue": 7640.0,
+      "markPrice": 72.53,
+      "positionValue": 7253.0,
       "costBasisMoney": 7673.687146,
-      "unrealizedPnl": -33.687146
+      "unrealizedPnl": -420.687146
     },
     {
       "symbol": "ORCL  260821P00141000",
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.61303093,
-      "markPrice": 1.29,
-      "positionValue": -387.0,
+      "markPrice": 2.2116,
+      "positionValue": -663.48,
       "costBasisMoney": -483.909279,
-      "unrealizedPnl": 96.909279
+      "unrealizedPnl": -179.570721
     }
   ],
   "electronicFundTransfers": [
@@ -2040,16 +2048,18 @@
       "tradeId": "9903423406"
     }
   ],
-  "lastSync": "2026-08-18",
+  "lastSync": "2026-08-19",
   "optBase": {
     "A": {
-      "date": "2026-08-17",
-      "prices": {}
-    },
-    "B": {
       "date": "2026-08-18",
       "prices": {
         "ORCL  260821P00141000": 1.29
+      }
+    },
+    "B": {
+      "date": "2026-08-19",
+      "prices": {
+        "ORCL  260821P00141000": 2.2116
       }
     }
   },
