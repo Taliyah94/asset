@@ -16401,12 +16401,6 @@ if __name__ == "__main__":
                                                 var ALPACA_KEY_ID = "PKEUEXIJARHLHWZYLWR6UAOGBS";
                                                 var ALPACA_SECRET = "8QmudbfguaxQnFRq13YU1B5GY94F5AEx3Tz7m66LUFyc";
 
-                                                function beijingNow() {
-                                                    var n = new Date();
-                                                    var u = n.getTime() + n.getTimezoneOffset() * 60000;
-                                                    return new Date(u + 8 * 3600000);
-                                                }
-
                                                 /* 美东时间（America/New_York，自动区分夏令时/冬令时）的当前时分/星期/日期 */
                                                 function etNowParts(d) {
                                                     var dt = d || new Date();
@@ -17071,19 +17065,14 @@ if __name__ == "__main__":
                                                     });
                                                     let dates = Array.from(dateSet).map(s => parseDate(s)).filter(Boolean).sort((a, b) => a - b);
                                                     const fundArr = [],
-                                                        usArr = [],
-                                                        cashArr = [],
                                                         retArr = [],
                                                         labels = [];
                                                     dates.forEach(ts => {
-                                                        let fv = 0,
-                                                            uv = 0;
+                                                        let fv = 0;
                                                         let cumFC = 0,
-                                                            cumUC = 0,
                                                             cumBuyFC = 0,
                                                             cumBuyUC = 0,
-                                                            cumRealFC = 0,
-                                                            cumRealUC = 0;
+                                                            cumRealFC = 0;
                                                         funds.forEach(function(f) {
                                                             var earliest = getEarliestTradeDate(f);
                                                             if (earliest == null || ts < earliest) return;
@@ -17099,27 +17088,7 @@ if __name__ == "__main__":
                                                             cumBuyFC += fst2.totalBuyCost;
                                                             cumRealFC += fst2.realizedPnl
                                                         });
-                                                        us.forEach(function(u) {
-                                                            var earliest = getEarliestTradeDate(u);
-                                                            if (earliest == null || ts < earliest) return;
-                                                            var fst3 = getTradeStatsAt(u, ts);
-                                                            var hist = u._hist || [];
-                                                            var usd = hist.length ? valOnOrBefore(hist, ts, "price") != null ? valOnOrBefore(hist, ts, "price") : hist[0].price : u.price != null ? Number(u.price) : 0;
-                                                            var mult = usUnitMult(u);
-                                                            if (fst3.holdShares !== 0) uv += fst3.holdShares * mult * usd * fx;
-                                                            if (fst3.avgCost > 0) cumUC += fst3.holdShares * mult * fst3.avgCost * fx;
-                                                            cumBuyUC += fst3.totalBuyCost * mult * fx;
-                                                            cumRealUC += fst3.realizedPnl * fx
-                                                        });
                                                         cumBuyUC = usInvestAutoVal != null && !isNaN(usInvestAutoVal) && usInvestAutoVal > 0 ? usInvestAutoVal : usInvestManual != null && !isNaN(usInvestManual) && usInvestManual > 0 ? usInvestManual : cumBuyUC;
-                                                        let cv = 0;
-                                                        cash.forEach(c => {
-                                                            var t = cashEarliestTs(c);
-                                                            if (t != null && t <= ts) {
-                                                                var a = calcCashAmountAt(c, ts);
-                                                                cv += c.currency === "usd" ? a * fx : a
-                                                            }
-                                                        });
                                                         const fr0 = fxAtDate(ymd(ts));
                                                         let ibkrNetCNY;
                                                         if (fr0 && fr0.date === ymd(ts) && fr0.net) {
@@ -17134,8 +17103,6 @@ if __name__ == "__main__":
                                                         const cumBuyCost = cumBuyFC + cumBuyUC;
                                                         const r = cumBuyCost > 0 ? (fundGain + usGain) / cumBuyCost : null;
                                                         fundArr.push(+fv.toFixed(2));
-                                                        usArr.push(+uv.toFixed(2));
-                                                        cashArr.push(+cv.toFixed(2));
                                                         retArr.push(r == null ? null : +r.toFixed(6));
                                                         labels.push(ymd(ts))
                                                     });
@@ -17151,25 +17118,17 @@ if __name__ == "__main__":
                                                     }
                                                     let L = labels.slice(idx0),
                                                         F = fundArr.slice(idx0),
-                                                        U = usArr.slice(idx0),
-                                                        C = cashArr.slice(idx0),
                                                         R = retArr.slice(idx0);
                                                     const maxPts = 900;
                                                     if (L.length > maxPts) {
                                                         const step = Math.ceil(L.length / maxPts);
                                                         L = L.filter((_, i) => i % step === 0 || i === L.length - 1);
                                                         F = F.filter((_, i) => i % step === 0 || i === F.length - 1);
-                                                        U = U.filter((_, i) => i % step === 0 || i === U.length - 1);
-                                                        C = C.filter((_, i) => i % step === 0 || i === C.length - 1);
                                                         R = R.filter((_, i) => i % step === 0 || i === R.length - 1)
                                                     }
-                                                    const total = L.map((_, i) => +(F[i] + U[i] + C[i]).toFixed(2));
                                                     return {
                                                         labels: L,
                                                         F: F,
-                                                        U: U,
-                                                        C: C,
-                                                        total: total,
                                                         ret: R
                                                     }
                                                 }
