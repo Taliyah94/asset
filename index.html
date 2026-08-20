@@ -17123,7 +17123,7 @@ if __name__ == "__main__":
                                                         const fr0 = fxAtDate(ymd(ts));
                                                         let ibkrNetCNY;
                                                         if (fr0 && fr0.date === ymd(ts) && fr0.net) {
-                                                            ibkrNetCNY = fr0.net * fx
+                                                            ibkrNetCNY = fr0.net * fx + fixedTqqqValueAt(ts, fx)
                                                         } else {
                                                             const yc = yitouCashItem();
                                                             const ytCNY = yc ? (Number(yc.amount) || 0) * (yc.currency === "usd" ? fx : 1) : 0;
