@@ -13684,9 +13684,6 @@
                 <div class="label"><span class="li-ic">⏱️</span>自动刷新美股</div>
                 <div class="value" id="setAutoUsVal">关</div><span class="arrow">›</span>
             </div>
-            <div class="setting-row" id="setFetchBtn">
-                <div class="label"><span class="li-ic">📑</span>抓取基金季报</div><span class="arrow">›</span>
-            </div>
             <div class="setting-row">
                 <div class="label"><span class="li-ic">📡</span>数据源</div>
                 <div class="value">
@@ -13890,137 +13887,9 @@
                                                             <button class="ghost sm" id="btnExportData" style="display:none">导出带数据</button>
                                                             <button class="primary" id="btnRefresh" style="display:none">↻ 刷新实时行情</button>
                                                             <button class="ghost sm" id="btnAutoUs" style="display:none">⏱ 自动刷新美股</button>
-                                                            <button class="ghost sm" id="btnFetchHoldings" style="display:none">📑 抓取基金季报</button>
                                                         </div>
                                                     </header>
 
-                                                    <script type="text/python" id="fundHoldingsPySrc">
-                                                        #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-抓取基金季报十大持仓 -> 输出 JSON，用于「资产看板」HTML 的「抓取基金季报」按钮导入。
-用法：
-  1) 直接双击 / 命令行运行本脚本（需联网）
-  2) 脚本会把最新季报写成 fund_holdings.json，并打印到终端
-  3) 把打印出的 JSON 复制，粘进看板弹出的导入框即可
-如需抓取其它基金，改下面的 CODES 列表。
-"""
-import urllib.request, re, json, sys
-
-CODES = ["000043", "270023", "021277", "016532", "016533"]
-# 纳斯达克100ETF联接：东方财富无有效季报，用 QQQ 代理，保持不动
-PROXY = {"016532": True, "016533": True}
-QQQ_PROXY = {"report": "跟踪纳斯达克100", "proxy": True,
-             "items": [{"c": "QQQ", "m": "us", "n": "纳斯达克100ETF", "p": 100}]}
-
-
-def market_of(code):
-    if re.match(r'^[A-Za-z]+$', code):
-        return 'us'
-    if re.match(r'^\d{5}$', code) or re.match(r'^\d{4}[A-Za-z]$', code):
-        return 'hk'
-    if re.match(r'^\d{6}$', code):
-        return 'sh' if code[:2] in ('60', '68', '90') else 'sz'
-    return 'us'
-
-
-def fetch_content(code):
-    url = "https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=%s&topline=11" % code
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://fundf10.eastmoney.com/"})
-    txt = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
-    m = re.search(r'content:"(.*?)"\s*,\s*', txt, re.S)
-    if not m:
-        return None, None
-    content = (m.group(1).replace('\\"', '"').replace("\\'", "'")
-               .replace("\\n", "").replace("\\t", ""))
-    rep = re.search(r'(\d{4})年(\d)季度', txt)
-    report = "%s-%02d-30" % (rep.group(1), int(rep.group(2)) * 3) if rep else ""
-    return content, report
-
-
-def parse(content):
-    from html.parser import HTMLParser
-
-    class T(HTMLParser):
-        def __init__(s):
-            super().__init__()
-            s.rows = []
-            s.tds = []
-            s.intd = False
-            s.buf = ""
-
-        def handle_starttag(s, t, a):
-            if t == 'tr':
-                s.tds = []
-            if t == 'td':
-                s.intd = True
-                s.buf = ""
-
-        def handle_data(s, d):
-            if s.intd:
-                s.buf += d
-
-        def handle_endtag(s, t):
-            if t == 'td':
-                s.tds.append(s.buf.strip())
-                s.intd = False
-            elif t == 'tr':
-                if s.tds:
-                    s.rows.append(s.tds)
-
-    p = T()
-    p.feed(content)
-    items = []
-    for r in p.rows:
-        if len(r) < 7:
-            continue
-        seq, code, name, pct = r[0], r[1], r[2], r[6]
-        if not re.match(r'^\d+$', seq):
-            continue
-        if not code or code in ('--', ''):
-            continue
-        try:
-            ratio = float(pct.replace('%', '').replace(',', ''))
-        except ValueError:
-            continue
-        items.append({"c": code, "n": name, "p": round(ratio, 2), "m": market_of(code)})
-    return items
-
-
-def main():
-    result = {}
-    for code in CODES:
-        if PROXY.get(code):
-            result[code] = dict(QQQ_PROXY)
-            continue
-        try:
-            content, report = fetch_content(code)
-            if content:
-                items = parse(content)
-                if items:
-                    result[code] = {"report": report, "items": items}
-                else:
-                    print("  [空] %s 未解析到持仓" % code, file=sys.stderr)
-            else:
-                print("  [失败] %s 未取到内容" % code, file=sys.stderr)
-        except Exception as e:
-            print("  [异常] %s: %s" % (code, e), file=sys.stderr)
-
-    js = json.dumps(result, ensure_ascii=False, indent=2)
-    print(js)
-    try:
-        with open("fund_holdings.json", "w", encoding="utf-8") as f:
-            f.write(js)
-        print("\n已写入 fund_holdings.json", file=sys.stderr)
-    except Exception as e:
-        print("写文件失败(可忽略，直接复制上方 JSON):", e, file=sys.stderr)
-
-
-if __name__ == "__main__":
-    main()
-</script>
 
                                                     <section class="hero">
                                                         <div class="lbl">总资产</div>
@@ -20107,158 +19976,43 @@ if __name__ == "__main__":
                                                     setStatus(bad ? "fail" : "live", "")
                                                 }
 
-                                                function fetchOneHolding(code) {
-                                                    return new Promise(function(resolve) {
-                                                        var s = document.createElement("script");
-                                                        s.src = "https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=" + encodeURIComponent(code) + "&topline=11&_=" + Date.now();
-                                                        var done = false;
-                                                        var to = setTimeout(function() {
-                                                            if (!done) {
-                                                                done = true;
-                                                                resolve(null)
-                                                            }
-                                                        }, 9e3);
-                                                        s.onload = function() {
-                                                            if (done) return;
-                                                            done = true;
-                                                            clearTimeout(to);
-                                                            try {
-                                                                resolve(window.apidata ? window.apidata.content : null)
-                                                            } catch (e) {
-                                                                resolve(null)
-                                                            }
-                                                        };
-                                                        s.onerror = function() {
-                                                            if (!done) {
-                                                                done = true;
-                                                                clearTimeout(to);
-                                                                resolve(null)
-                                                            }
-                                                        };
-                                                        document.head.appendChild(s)
-                                                    })
-                                                }
-
-                                                function marketOf(code) {
-                                                    if (/^[A-Za-z]+$/.test(code)) return "us";
-                                                    if (/^\d{5}$/.test(code) || /^\d{4}[A-Za-z]$/.test(code)) return "hk";
-                                                    if (/^\d{6}$/.test(code)) return code.slice(0, 2) === "60" || code.slice(0, 2) === "68" || code.slice(0, 2) === "90" ? "sh" : "sz";
-                                                    return "us"
-                                                }
-
-                                                function parseHoldingHtml(content) {
-                                                    if (!content) return null;
-                                                    var rep = null,
-                                                        rm = content.match(/(\d{4})年(\d)季度/);
-                                                    if (rm) rep = rm[1] + "-" + ("0" + parseInt(rm[2], 10) * 3).slice(-2) + "-30";
-                                                    var doc = (new DOMParser).parseFromString(content, "text/html");
-                                                    var trs = doc.querySelectorAll("table tr");
-                                                    var items = [];
-                                                    trs.forEach(function(tr) {
-                                                        var tds = tr.querySelectorAll("td");
-                                                        if (tds.length < 7) return;
-                                                        var seq = tds[0].textContent.trim(),
-                                                            code = tds[1].textContent.trim(),
-                                                            name = tds[2].textContent.trim(),
-                                                            pct = tds[6].textContent.trim();
-                                                        if (!/^\d+$/.test(seq)) return;
-                                                        if (!code || code === "--") return;
-                                                        var ratio = parseFloat(pct.replace(/%/g, "").replace(/,/g, ""));
-                                                        if (isNaN(ratio)) return;
-                                                        items.push({
-                                                            c: code,
-                                                            n: name,
-                                                            p: Math.round(ratio * 100) / 100,
-                                                            m: marketOf(code)
-                                                        })
-                                                    });
-                                                    if (!items.length) return null;
-                                                    return {
-                                                        report: rep,
-                                                        items: items
-                                                    }
-                                                }
-
-                                                function copyText(t) {
+                                                // 启动时从 GitHub 拉取 fund_holdings.json，覆盖内联兜底数据
+                                                // 默认读取同目录 fund_holdings.json（GitHub Pages 同源，无跨域）；
+                                                // 如需 raw 源可改为 https://raw.githubusercontent.com/<user>/<repo>/<branch>/fund_holdings.json
+                                                // 读取失败时沿用内联 FUND_HOLDINGS 兜底数据。
+                                                const FUND_HOLDINGS_URL = "./fund_holdings.json";
+                                                async function loadFundHoldingsFromGithub() {
                                                     try {
-                                                        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t);
-                                                        else throw 0
-                                                    } catch (e) {
-                                                        var ta = document.createElement("textarea");
-                                                        ta.value = t;
-                                                        document.body.appendChild(ta);
-                                                        ta.select();
-                                                        try {
-                                                            document.execCommand("copy")
-                                                        } catch (_) {}
-                                                        document.body.removeChild(ta)
-                                                    }
-                                                }
-                                                async function importHoldings(text) {
-                                                    var obj = JSON.parse(text);
-                                                    var n = 0;
-                                                    Object.keys(obj).forEach(function(code) {
-                                                        if (!FUND_HOLDINGS[code] || FUND_HOLDINGS[code].proxy) return;
-                                                        var v = obj[code];
-                                                        if (v && v.items && v.items.length) {
-                                                            FUND_HOLDINGS[code] = {
-                                                                report: v.report || FUND_HOLDINGS[code].report,
-                                                                items: v.items
-                                                            };
-                                                            n++
-                                                        }
-                                                    });
-                                                    if (n === 0) throw new Error("未匹配到任何已知基金的持仓");
-                                                    window._holdQ = await fetchMktQuotes(collectHoldingSymbols());
-                                                    await collectHoldingKline(funds);
-                                                    var cur = computeCurrent();
-                                                    renderHero(cur);
-                                                    renderCards(cur);
-                                                    renderTables();
-                                                    drawChart()
-                                                }
-                                                async function fetchFundHoldingsManual() {
-                                                    setStatus("loading", "正在尝试抓取基金季报…");
-                                                    var codes = Object.keys(FUND_HOLDINGS).filter(function(c) {
-                                                        return !FUND_HOLDINGS[c].proxy
-                                                    });
-                                                    var got = 0;
-                                                    for (var i = 0; i < codes.length; i++) {
-                                                        var content = await fetchOneHolding(codes[i]);
-                                                        if (content) {
-                                                            var it = parseHoldingHtml(content);
-                                                            if (it && it.items.length) {
-                                                                FUND_HOLDINGS[codes[i]] = {
-                                                                    report: it.report,
-                                                                    items: it.items
+                                                        var r = await fetch(FUND_HOLDINGS_URL, { cache: "no-cache" });
+                                                        if (!r.ok) throw new Error("HTTP " + r.status);
+                                                        var obj = await r.json();
+                                                        var n = 0;
+                                                        Object.keys(obj).forEach(function(code) {
+                                                            if (!FUND_HOLDINGS[code] || FUND_HOLDINGS[code].proxy) return;
+                                                            var v = obj[code];
+                                                            if (v && v.items && v.items.length) {
+                                                                FUND_HOLDINGS[code] = {
+                                                                    report: v.report || FUND_HOLDINGS[code].report,
+                                                                    items: v.items
                                                                 };
-                                                                got++
+                                                                n++
                                                             }
+                                                        });
+                                                        if (n > 0) {
+                                                            window._holdQ = await fetchMktQuotes(collectHoldingSymbols());
+                                                            await collectHoldingKline(funds);
+                                                            var cur = computeCurrent();
+                                                            renderHero(cur);
+                                                            renderCards(cur);
+                                                            renderTables();
+                                                            drawChart()
                                                         }
+                                                        console.log("[fund_holdings] 已从 GitHub 更新 " + n + " 只基金季报");
+                                                        return n
+                                                    } catch (e) {
+                                                        console.warn("[fund_holdings] 读取失败，沿用内联兜底数据：", e);
+                                                        return 0
                                                     }
-                                                    if (got > 0) {
-                                                        window._holdQ = await fetchMktQuotes(collectHoldingSymbols());
-                                                        await collectHoldingKline(funds);
-                                                        var cur = computeCurrent();
-                                                        renderHero(cur);
-                                                        renderCards(cur);
-                                                        renderTables();
-                                                        drawChart();
-                                                        setStatus("live", "已更新 " + got + " 只基金季报");
-                                                        return
-                                                    }
-                                                    var pySrc = document.getElementById("fundHoldingsPySrc");
-                                                    copyText(pySrc ? pySrc.textContent : "");
-                                                    var txt = prompt("浏览器跨域限制，无法自动抓取季报。\n已把抓取脚本复制到剪贴板：\n  ① 本地运行「抓取基金季报.py」（或粘贴运行剪贴板内容）生成 fund_holdings.json\n  ② 把生成的 JSON 粘贴到下方，点确定导入：", "");
-                                                    if (txt && txt.trim()) {
-                                                        try {
-                                                            await importHoldings(txt.trim());
-                                                            setStatus("live", "已导入季报数据并更新预测")
-                                                        } catch (e) {
-                                                            alert("导入失败：" + (e && e.message ? e.message : e));
-                                                            setStatus("fail", "导入失败")
-                                                        }
-                                                    } else setStatus("idle", "已取消抓取")
                                                 }
                                                 $("btnAutoUs").onclick = async () => {
                                                     if (_autoUsTimer) {
@@ -20281,7 +20035,6 @@ if __name__ == "__main__":
                                                     }
                                                 });
                                                 $("btnRefresh").onclick = refresh;
-                                                $("btnFetchHoldings").onclick = fetchFundHoldingsManual;
                                                 const _usAutoOld = document.getElementById("usInvestAuto");
                                                 if (_usAutoOld) _usAutoOld.onclick = () => {
                                                     usInvestManual = null;
@@ -21022,6 +20775,7 @@ if __name__ == "__main__":
                                                             localStorage.setItem("pa_usSrc", "auto");
                                                         } catch (e) {}
                                                     })();
+                                                    loadFundHoldingsFromGithub();
                                                 })();
                                             </script>
 
@@ -22337,10 +22091,6 @@ if __name__ == "__main__":
                                                     });
                                                     var ghSyncDo = document.getElementById("ghSyncDo");
                                                     if (ghSyncDo) ghSyncDo.addEventListener("click", ghSync);
-                                                    var setFetch = document.getElementById("setFetchBtn");
-                                                    if (setFetch) setFetch.addEventListener("click", function() {
-                                                        clickHidden("btnFetchHoldings")
-                                                    });
                                                     var setAutoUs = document.getElementById("setAutoUsBtn");
 
                                                     function syncAutoUs() {
