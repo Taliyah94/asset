@@ -6814,7 +6814,7 @@
                                                     const pctHtml = r => r == null || !isFinite(r) ? '<span class="sub2">—</span>' : '<span class="' + (r >= 0 ? "up" : "down") + '">' + (r >= 0 ? "+" : "") + (r * 100).toFixed(2) + "%</span>";
                                                     const pnlHtml = v => '<span class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "+" : "") + fmt0(v) + "</span>";
                                                     const kv = (l, v) => '<div class="kv"><span class="l">' + l + "</span>" + (v || '<span class="sub2">—</span>') + "</div>";
-                                                    const row2 = (l1, v1, l2, v2) => '<div class="metric"><span class="ml">' + l1 + '</span><span class="mv2 amt">' + v1 + '</span><span class="mv2 pct">' + v2 + "</span></div>";
+                                                    const row2 = (l1, v1, l2, v2) => '<div class="metric"><span class="ml">' + l1 + '</span><span class="mv2 amt">' + (v1 == null ? "—" : v1) + '</span><span class="mv2 pct">' + (v2 == null ? "—" : v2) + "</span></div>";
                                                     const alloc = [{
                                                         name: "基金",
                                                         color: "--fund",
@@ -8344,9 +8344,23 @@
                                                             sws[1].style.background = "rgba(" + downRgb() + ",.85)"
                                                         }
                                                     });
+                                                    /* 日历热力格子（静态占位与 JS 渲染的内联色）随配色切换联动 */
+                                                    document.querySelectorAll('.cal-cell[style*="background"]').forEach(function(el) {
+                                                        const st = el.getAttribute("style") || "";
+                                                        const m = st.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                                                        if (!m) return;
+                                                        const red = +m[1],
+                                                            green = +m[2],
+                                                            blue = +m[3],
+                                                            a = m[4];
+                                                        const redish = red > 190 && green < 120 && blue < 120;
+                                                        const greenish = green > 130 && red < 90 && blue < 100;
+                                                        if (redish) el.setAttribute("style", st.replace(/rgba\([^)]*\)/, "rgba(" + upRgb() + "," + a + ")"));
+                                                        else if (greenish) el.setAttribute("style", st.replace(/rgba\([^)]*\)/, "rgba(" + downRgb() + "," + a + ")"));
+                                                    });
                                                     if (save) { try { localStorage.setItem("assetColorScheme", _schemeName) } catch (e) {} }
                                                 }
-                                                try { const _s = localStorage.getItem("assetColorScheme"); if (_s) applyColorScheme(_s, false) } catch (e) {}
+                                                try { const _s = localStorage.getItem("assetColorScheme"); applyColorScheme(_s && _s in COLOR_SCHEMES ? _s : _schemeName, false) } catch (e) {}
 
                                                 function cellColor(val, maxAbs) {
                                                     if (val == null) return {
@@ -10975,7 +10989,7 @@
                                             </script>
                                             <iframe src="https://__dt_wvjb_queue_message__" style="display: none;"></iframe>
                                             <div data-ai-fab-host="">
-                                                <div data-v-d72f79ca="" class="ai-fab" style="transform: translate3d(1867px, 449px, 0px); transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2147483645;">
+                                                <div data-v-d72f79ca="" class="ai-fab" style="transform: translate3d(calc(100vw - 84px), calc(100vh - 210px), 0px); transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2147483645;">
                                                     <div data-v-d72f79ca="" class="ai-fab-inner">
                                                         <div data-v-d72f79ca="" class="ai-fab-content">
                                                             <div data-v-d72f79ca="" class="close-popup-anchor">
@@ -12180,6 +12194,38 @@
                                                         }
                                                     })
                                                 });
+                                            </script>
+                                            <script>
+                                                /* AI 悬浮按钮视口兜底：组件写死/拖出的位置若超出视口，自动拉回右下安全区 */
+                                                (function() {
+                                                    function fixAiFab() {
+                                                        var host = document.querySelector('[data-ai-fab-host]');
+                                                        var fab = host ? host.querySelector('.ai-fab') : null;
+                                                        if (!fab) return;
+                                                        var vw = window.innerWidth || document.documentElement.clientWidth || 375;
+                                                        var r = fab.getBoundingClientRect();
+                                                        if (!r.width) return;
+                                                        var needFix = r.left < -2 || r.right > vw + 2;
+                                                        if (needFix) {
+                                                            var x = Math.max(0, vw - r.width - 16);
+                                                            var y = Math.max(80, Math.min(r.top, (window.innerHeight || 800) - 220));
+                                                            fab.style.transform = 'translate3d(' + x + 'px, ' + y + 'px, 0px)';
+                                                        }
+                                                    }
+                                                    setTimeout(fixAiFab, 300);
+                                                    setTimeout(fixAiFab, 1200);
+                                                    setTimeout(fixAiFab, 3000);
+                                                    window.addEventListener('resize', function() { setTimeout(fixAiFab, 50) });
+                                                    if (window.MutationObserver) {
+                                                        var t = null;
+                                                        var obs = new MutationObserver(function() {
+                                                            clearTimeout(t);
+                                                            t = setTimeout(fixAiFab, 120)
+                                                        });
+                                                        var host = document.querySelector('[data-ai-fab-host]');
+                                                        if (host) obs.observe(host, { attributes: true, subtree: true, attributeFilter: ['style'] });
+                                                    }
+                                                })();
                                             </script>
 </body>
 
