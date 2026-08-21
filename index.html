@@ -1243,9 +1243,12 @@
             font-size: 13px;
         }
 
-        /* 挂单表横向不溢出，移除无谓的 overflow 滚动层，避免 iOS 纵向触摸滚动被劫持 */
+        /* 挂单表：独立内层纵向滚动容器，不走整页滚动，避免与 fixed 悬浮栏 / sticky 表头反复重新合成导致 iOS 卡顿 */
         .tbl-scroll.pending-scroll {
-            overflow: visible;
+            max-height: 60vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .pending-tbl th {
@@ -2437,6 +2440,34 @@
                     gap: 7px;
                 }
 
+                @media (max-width: 640px) {
+                    .alloc-wrap {
+                        flex-direction: column;
+                        align-items: stretch;
+                        gap: 12px;
+                    }
+                    .alloc-chart {
+                        flex: 1 1 auto;
+                        max-width: none;
+                        width: 100%;
+                        margin: 0 auto;
+                    }
+                    .alloc-chart-canvas svg {
+                        max-width: 100%;
+                    }
+
+                    .wrap {
+                        padding: 14px 8px 50px;
+                    }
+
+                    .panel {
+                        padding: 14px 10px;
+                    }
+                    .alloc-legend {
+                        width: 100%;
+                    }
+                }
+
                 .alloc-leg-item {
                     display: flex;
                     align-items: center;
@@ -2517,9 +2548,31 @@
                     }
 
                     .alloc-chart {
-                        max-width: 340px;
+                        max-width: none;
                         width: 100%;
                         margin: 0 auto;
+                    }
+
+                    .alloc-chart-canvas svg {
+                        max-width: 100%;
+                    }
+
+                    #pageChart {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                    }
+
+                    #allocationSection {
+                        padding-left: 4px;
+                        padding-right: 4px;
+                    }
+
+                    .wrap {
+                        padding: 14px 8px 50px;
+                    }
+
+                    .panel {
+                        padding: 14px 10px;
                     }
 
                     .alloc-legend {
@@ -6397,6 +6450,8 @@
                                                     var box = document.getElementById("allocChart");
                                                     if (!box) return;
                                                     var fx = effFx();
+                                                    var isMobile = window.innerWidth <= 560;
+                                                    var vb = "16 16 328 328";
                                                     var items = [];
                                                     try {
                                                         funds.forEach(function(f) {
@@ -6518,86 +6573,40 @@
                                                         var d = "M" + p0[0].toFixed(2) + "," + p0[1].toFixed(2) + " A" + R + "," + R + " 0 " + large + " 1 " + p1[0].toFixed(2) + "," + p1[1].toFixed(2) + " L" + p2[0].toFixed(2) + "," + p2[1].toFixed(2) + " A" + rin + "," + rin + " 0 " + large + " 0 " + p3[0].toFixed(2) + "," + p3[1].toFixed(2) + " Z";
                                                         sectors += '<path d="' + d + '" fill="' + color + '" stroke="#fff" stroke-width="1.5">' + (it.name ? "<title>" + esc(it.cat) + " · " + esc(isCodeCat && dispCode ? dispCode : it.name) + "  " + (pct * 100).toFixed(1) + "%</title>" : "") + "</path>";
                                                         if (isCat || pct >= .05) {
+                                                            // 大扇区 / 分类：图标 + 百分比 + 名称 居中堆叠在环内（原样式，不动）
                                                             var mp = polar(cx, cy, rm, mid);
-                                                            var angDeg = a1 - a0;
-                                                            var arcLen = 2 * Math.PI * rm * (angDeg / 360);
                                                             var lbl = isCodeCat ? dispCode || "" : it.name || "";
-                                                            var showLabel = true;
                                                             var showIcon = it.icon && (isCat || pct >= .03);
                                                             var iconS = showIcon ? 24 : 0;
                                                             var pctStr = (pct * 100).toFixed(1) + "%";
-                                                            if (showLabel) {
-                                                                var pctH = 12.5,
-                                                                    labelH = 9.5,
-                                                                    gapI = 4,
-                                                                    gap = 2.5;
-                                                                var blkH = (showIcon ? iconS + gapI : 0) + pctH + (labelH + gap);
-                                                                var top = mp[1] - blkH / 2,
-                                                                    y = top;
-                                                                if (showIcon) {
-                                                                    sectors += allocIconSvg(it.icon, mp[0], y + iconS / 2, iconS);
-                                                                    y += iconS + gapI
-                                                                }
-                                                                sectors += '<text x="' + mp[0].toFixed(1) + '" y="' + (y + pctH * .8).toFixed(1) + '" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">' + pctStr + "</text>";
-                                                                y += pctH + gap;
-                                                                sectors += '<text x="' + mp[0].toFixed(1) + '" y="' + (y + labelH * .72).toFixed(1) + '" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">' + esc(lbl) + "</text>"
+                                                            var pctH = 12.5,
+                                                                labelH = 9.5,
+                                                                gapI = 4,
+                                                                gap = 2.5;
+                                                            var blkH = (showIcon ? iconS + gapI : 0) + pctH + (labelH + gap);
+                                                            var top = mp[1] - blkH / 2,
+                                                                y = top;
+                                                            if (showIcon) {
+                                                                sectors += allocIconSvg(it.icon, mp[0], y + iconS / 2, iconS);
+                                                                y += iconS + gapI
                                                             }
+                                                            sectors += '<text x="' + mp[0].toFixed(1) + '" y="' + (y + pctH * .8).toFixed(1) + '" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">' + pctStr + "</text>";
+                                                            y += pctH + gap;
+                                                            sectors += '<text x="' + mp[0].toFixed(1) + '" y="' + (y + labelH * .72).toFixed(1) + '" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">' + esc(lbl) + "</text>"
                                                         } else if (pct >= .03) {
-                                                            var right = Math.cos((mid - 90) * Math.PI / 180) >= 0;
-                                                            var pOuter = polar(cx, cy, R, mid);
-                                                            leaders.push({
-                                                                right: right,
-                                                                ex: pOuter[0],
-                                                                ey: pOuter[1],
-                                                                ly0: pOuter[1],
-                                                                color: color,
-                                                                icon: it.icon,
-                                                                pctStr: (pct * 100).toFixed(1) + "%",
-                                                                lbl: esc(isCodeCat ? dispCode : (it.name || ""))
-                                                            })
+                                                            // 小扇区(3%-5%)：图标放环内，百分比贴着外圆弧
+                                                            var mp2 = polar(cx, cy, rm, mid);
+                                                            var ap2 = polar(cx, cy, R - 14, mid);
+                                                            var pctStr2 = (pct * 100).toFixed(1) + "%";
+                                                            if (it.icon) sectors += allocIconSvg(it.icon, mp2[0], mp2[1], 24);
+                                                            sectors += '<text x="' + ap2[0].toFixed(1) + '" y="' + (ap2[1] + 4.5).toFixed(1) + '" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">' + pctStr2 + "</text>"
                                                         }
                                                         leg += '<div class="alloc-leg-item"><span class="dot" style="background:' + color + '"></span>' + (it.icon ? '<span class="leg-ic">' + itemIconHtml(it.icon) + "</span>" : "") + '<span class="nm">' + esc(it.name) + (it.cat === "基金" && it.code ? ' <span class="code">' + esc(it.code) + "</span>" : "") + (it.cat === "美股" && (it.sub || it.code) ? ' <span class="code">' + esc(it.sub || it.code) + "</span>" : "") + "</span>" + '<span class="pc">' + (pct * 100).toFixed(1) + "%</span>" + '<span class="vl">' + fmt0(it.val) + "</span></div>"
                                                     });
-                                                    // 引线标注：资产模式下 3%-5% 的小扇区拉到饼图外侧，避免拥挤
-                                                    (function() {
-                                                        var groups = { right: [], left: [] };
-                                                        leaders.forEach(function(L) {
-                                                            groups[L.right ? "right" : "left"].push(L)
-                                                        });
-                                                        ["right", "left"].forEach(function(side) {
-                                                            var arr = groups[side];
-                                                            arr.sort(function(a, b) {
-                                                                return a.ly0 - b.ly0
-                                                            });
-                                                            var gap = 26;
-                                                            for (var i = 1; i < arr.length; i++) {
-                                                                if (arr[i].ly0 - arr[i - 1].ly0 < gap) arr[i].ly0 = arr[i - 1].ly0 + gap
-                                                            }
-                                                        });
-                                                        leaders.forEach(function(L) {
-                                                            var dx = 28;
-                                                            var lx = L.ex + (L.right ? dx : -dx);
-                                                            var ly = L.ly0;
-                                                            leaderSvg += '<polyline points="' + L.ex.toFixed(1) + "," + L.ey.toFixed(1) + " " + lx.toFixed(1) + "," + ly.toFixed(1) + '" fill="none" stroke="' + L.color + '" stroke-width="1.3" stroke-linejoin="round"></polyline>';
-                                                            leaderSvg += '<circle cx="' + L.ex.toFixed(1) + '" cy="' + L.ey.toFixed(1) + '" r="2.4" fill="' + L.color + '"></circle>';
-                                                            var anchor = L.right ? "start" : "end";
-                                                            var icS = 24,
-                                                                pad = 6;
-                                                            if (L.icon) {
-                                                                var icX = L.right ? (lx + icS / 2 + pad) : (lx - icS / 2 - pad);
-                                                                leaderSvg += allocIconSvg(L.icon, icX, ly + 2, icS);
-                                                                var tx = L.right ? (lx + icS + pad * 2) : (lx - icS - pad * 2);
-                                                                leaderSvg += '<text x="' + tx.toFixed(1) + '" y="' + (ly - 3).toFixed(1) + '" text-anchor="' + anchor + '" font-size="12.5" font-weight="700" fill="#1c2430">' + L.pctStr + "</text>";
-                                                                leaderSvg += '<text x="' + tx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" text-anchor="' + anchor + '" font-size="9.5" fill="#5b6675">' + L.lbl + "</text>"
-                                                            } else {
-                                                                leaderSvg += '<text x="' + lx.toFixed(1) + '" y="' + (ly - 3).toFixed(1) + '" text-anchor="' + anchor + '" font-size="12.5" font-weight="700" fill="#1c2430">' + L.pctStr + "</text>";
-                                                                leaderSvg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" text-anchor="' + anchor + '" font-size="9.5" fill="#5b6675">' + L.lbl + "</text>"
-                                                            }
-                                                        })
-                                                    })();
+                                                    // 3%-5% 小扇区：图标画在环内、百分比贴着外圆弧，不再用外侧长引线
                                                     var tStr = fmt0(total);
                                                     var tFont = tStr.length > 9 ? 17 : tStr.length > 7 ? 21 : 25;
-                                                    var svg = '<svg viewBox="-90 -50 540 460" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">' + '<circle cx="180" cy="180" r="' + rin + '" fill="#0f172a"/>' + '<text x="180" y="' + (180 + tFont * .35).toFixed(1) + '" text-anchor="middle" font-size="' + tFont + '" font-weight="800" fill="#fff">' + tStr + "</text>" + sectors + topSvg + leaderSvg + "</svg>";
+                                                    var svg = '<svg viewBox="' + vb + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">' + '<circle cx="180" cy="180" r="' + rin + '" fill="#0f172a"/>' + '<text x="180" y="' + (180 + tFont * .35).toFixed(1) + '" text-anchor="middle" font-size="' + tFont + '" font-weight="800" fill="#fff">' + tStr + "</text>" + sectors + topSvg + leaderSvg + "</svg>";
                                                     box.innerHTML = svg;
                                                     var lg = document.getElementById("allocLegend");
                                                     if (lg) lg.innerHTML = leg
@@ -11241,13 +11250,12 @@
                                                     padding-top: 8px;
                                                 }
 
-                                                .floating-bar {
-                                                    position: fixed;
-                                                    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-                                                    left: 50%;
-                                                    transform: translateX(-50%);
-                                                    will-change: transform;
-                                                    background: #ffffff;
+        .floating-bar {
+            position: fixed;
+            bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffffff;
                                                     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.07);
                                                     border: 1px solid rgba(0, 0, 0, 0.04);
                                                     border-radius: 34px;
