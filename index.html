@@ -1243,13 +1243,9 @@
             font-size: 13px;
         }
 
-        /* 挂单表横向不溢出，移除无谓的 overflow 滚动层，避免 iOS 纵向触摸滚动被劫持；并提升为合成层保证滚动流畅 */
+        /* 挂单表横向不溢出，移除无谓的 overflow 滚动层，避免 iOS 纵向触摸滚动被劫持 */
         .tbl-scroll.pending-scroll {
             overflow: visible;
-        }
-        .pending-tbl {
-            transform: translateZ(0);
-            backface-visibility: hidden;
         }
 
         .pending-tbl th {
@@ -2388,13 +2384,14 @@
                 }
 
                 .alloc-chart {
+                    position: relative;
                     flex: 1 1 300px;
                     max-width: 340px;
                     width: 100%;
                     text-align: center;
                 }
 
-                .alloc-chart svg {
+                .alloc-chart-canvas svg {
                     width: 100%;
                     height: auto;
                     max-width: 340px;
@@ -2402,6 +2399,36 @@
                     display: block;
                 }
 
+                .alloc-toggle {
+                    position: absolute;
+                    top: 2px;
+                    right: 2px;
+                    z-index: 3;
+                    display: inline-flex;
+                    gap: 2px;
+                    padding: 2px;
+                    background: #eef2f7;
+                    border: 1px solid var(--line, #e7eaf1);
+                    border-radius: 11px;
+                }
+                .alloc-toggle button {
+                    border: 0;
+                    background: transparent;
+                    color: #64748b;
+                    font-size: 12px;
+                    font-weight: 600;
+                    line-height: 1;
+                    padding: 5px 11px;
+                    border-radius: 9px;
+                    cursor: pointer;
+                    font-family: inherit;
+                    transition: background .15s, color .15s;
+                }
+                .alloc-toggle button.active {
+                    background: #fff;
+                    color: #1c2430;
+                    box-shadow: 0 1px 2px rgba(15,23,42,.12);
+                }
                 .alloc-legend {
                     flex: 1 1 240px;
                     min-width: 0;
@@ -2521,7 +2548,12 @@
             </style>
             <h2>个人净资产分布</h2>
             <div class="alloc-wrap">
-                <div id="allocChart" class="alloc-chart"><svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">
+                <div class="alloc-chart">
+                    <div class="alloc-toggle" id="allocToggle" role="group" aria-label="切换资产 / 分类视图">
+                        <button type="button" data-mode="asset" class="active">资产</button>
+                        <button type="button" data-mode="cat">分类</button>
+                    </div>
+                    <div id="allocChart" class="alloc-chart-canvas"><svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">
                         <circle cx="180" cy="180" r="66" fill="#0f172a"></circle><text x="180" y="185.9" text-anchor="middle" font-size="17" font-weight="800" fill="#fff">¥1,013,786</text>
                         <path d="M180.00,20.00 A160,160 0 0 1 335.45,142.12 L244.12,164.37 A66,66 0 0 0 180.00,114.00 Z" fill="#3b82f6" stroke="#fff" stroke-width="1.5">
                             <title>基金 · 000043 21.2%</title>
@@ -2574,6 +2606,7 @@
                         <rect x="101.4" y="68.5" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
                         <image data-b64="0" x="105.4" y="72.6" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="131.4" y="106.5" text-anchor="end" font-size="12.5" font-weight="700" fill="#fff">3.5%</text>
                     </svg></div>
+                </div>
                 <div id="allocLegend" class="alloc-legend">
                     <div class="alloc-leg-item"><span class="dot" style="background:#3b82f6"></span><span class="leg-ic"><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;&gt;嘉实&lt;/span&gt;';"></span></span><span class="nm">嘉实美国成长股票人民币 <span class="code">000043</span></span><span class="pc">21.2%</span><span class="vl">¥214,878</span></div>
                     <div class="alloc-leg-item"><span class="dot" style="background:#22c55e"></span><span class="leg-ic"><span class="item-ic"><img data-b64="9" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#FF6C00&quot;&gt;IB&lt;/span&gt;';"></span></span><span class="nm">盈透证券</span><span class="pc">19.3%</span><span class="vl">¥195,552</span></div>
@@ -6359,6 +6392,7 @@
                                                     return '<rect x="' + (x - half).toFixed(1) + '" y="' + (y - half).toFixed(1) + '" width="' + S + '" height="' + S + '" rx="' + rx + '" fill="' + bg + '"></rect>' + '<text x="' + x.toFixed(1) + '" y="' + (y + S * .14).toFixed(1) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="#fff">' + esc(txt) + "</text>"
                                                 }
 
+                                                var allocMode = "asset";
                                                 function drawAllocation() {
                                                     var box = document.getElementById("allocChart");
                                                     if (!box) return;
@@ -6407,6 +6441,32 @@
                                                     items.sort(function(a, b) {
                                                         return b.val - a.val
                                                     });
+                                                    var isCat = allocMode === "cat";
+                                                    if (isCat) {
+                                                        var __sum = {};
+                                                        items.forEach(function(it) {
+                                                            __sum[it.cat] = (__sum[it.cat] || 0) + it.val
+                                                        });
+                                                        var __order = ["基金", "美股", "现金"];
+                                                        var __catKindMap = { "基金": "fund", "美股": "us", "现金": "cash" };
+                                                        var __catDefIcon = {
+                                                            "基金": { img: "@b64:0", c: "#E60012", i: "嘉实" },
+                                                            "美股": { img: "@b64:11", c: "#009cdb", i: "CS" },
+                                                            "现金": { img: "@b64:26", c: "#888", i: "Ci" }
+                                                        };
+                                                        items = __order.filter(function(c) {
+                                                            return __sum[c] > 0
+                                                        }).map(function(c) {
+                                                            var ov = (typeof catIcon !== "undefined" && catIcon && catIcon[__catKindMap[c]]) ? catIcon[__catKindMap[c]] : null;
+                                                            return {
+                                                                cat: c,
+                                                                name: c,
+                                                                code: "",
+                                                                val: __sum[c],
+                                                                icon: ov || __catDefIcon[c]
+                                                            }
+                                                        })
+                                                    }
                                                     var total = items.reduce(function(s, it) {
                                                         return s + it.val
                                                     }, 0);
@@ -6431,16 +6491,23 @@
                                                     var ang = 0,
                                                         sectors = "",
                                                         leg = "",
-                                                        topSvg = "";
+                                                        topSvg = "",
+                                                        leaders = [],
+                                                        leaderSvg = "";
                                                     items.forEach(function(it, idx) {
                                                         var pct = it.val / total;
                                                         var a0 = ang,
                                                             a1 = ang + pct * 360;
                                                         ang = a1;
-                                                        var pal = CAT_PAL[it.cat] || FALLBACK_PAL;
-                                                        var ci = (catIdx[it.cat] = (catIdx[it.cat] || 0) + 1) - 1;
-                                                        var color = pal[ci % pal.length];
-                                                        var isCodeCat = it.cat === "基金" || it.cat === "美股";
+                                                        var color;
+                                                        if (isCat) {
+                                                            color = ({"基金":"#3b82f6","美股":"#ef4444","现金":"#22c55e"})[it.cat] || "#94a3b8"
+                                                        } else {
+                                                            var pal = CAT_PAL[it.cat] || FALLBACK_PAL;
+                                                            var ci = (catIdx[it.cat] = (catIdx[it.cat] || 0) + 1) - 1;
+                                                            color = pal[ci % pal.length]
+                                                        }
+                                                        var isCodeCat = !isCat && (it.cat === "基金" || it.cat === "美股");
                                                         var dispCode = isCodeCat ? it.code || it.sub || it.name : "";
                                                         var mid = (a0 + a1) / 2;
                                                         var p0 = polar(cx, cy, R, a0),
@@ -6450,13 +6517,13 @@
                                                         var large = a1 - a0 > 180 ? 1 : 0;
                                                         var d = "M" + p0[0].toFixed(2) + "," + p0[1].toFixed(2) + " A" + R + "," + R + " 0 " + large + " 1 " + p1[0].toFixed(2) + "," + p1[1].toFixed(2) + " L" + p2[0].toFixed(2) + "," + p2[1].toFixed(2) + " A" + rin + "," + rin + " 0 " + large + " 0 " + p3[0].toFixed(2) + "," + p3[1].toFixed(2) + " Z";
                                                         sectors += '<path d="' + d + '" fill="' + color + '" stroke="#fff" stroke-width="1.5">' + (it.name ? "<title>" + esc(it.cat) + " · " + esc(isCodeCat && dispCode ? dispCode : it.name) + "  " + (pct * 100).toFixed(1) + "%</title>" : "") + "</path>";
-                                                        if (pct >= .03) {
+                                                        if (isCat || pct >= .05) {
                                                             var mp = polar(cx, cy, rm, mid);
                                                             var angDeg = a1 - a0;
                                                             var arcLen = 2 * Math.PI * rm * (angDeg / 360);
                                                             var lbl = isCodeCat ? dispCode || "" : it.name || "";
-                                                            var showLabel = pct >= .05;
-                                                            var showIcon = pct >= .03 && it.icon;
+                                                            var showLabel = true;
+                                                            var showIcon = it.icon && (isCat || pct >= .03);
                                                             var iconS = showIcon ? 24 : 0;
                                                             var pctStr = (pct * 100).toFixed(1) + "%";
                                                             if (showLabel) {
@@ -6474,29 +6541,82 @@
                                                                 sectors += '<text x="' + mp[0].toFixed(1) + '" y="' + (y + pctH * .8).toFixed(1) + '" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">' + pctStr + "</text>";
                                                                 y += pctH + gap;
                                                                 sectors += '<text x="' + mp[0].toFixed(1) + '" y="' + (y + labelH * .72).toFixed(1) + '" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">' + esc(lbl) + "</text>"
-                                                            } else {
-                                                                var pctH = 12.5,
-                                                                    gapI = 4;
-                                                                var blkH = (showIcon ? iconS + gapI : 0) + pctH;
-                                                                var top = mp[1] - blkH / 2,
-                                                                    y = top;
-                                                                if (showIcon) {
-                                                                    topSvg += allocIconSvg(it.icon, mp[0], y + iconS / 2, iconS);
-                                                                    y += iconS + gapI
-                                                                }
-                                                                var pctX = showIcon ? mp[0] + iconS / 2 + 6 : mp[0] + 6;
-                                                                topSvg += '<text x="' + pctX.toFixed(1) + '" y="' + (y + pctH * .8).toFixed(1) + '" text-anchor="end" font-size="12.5" font-weight="700" fill="#fff">' + pctStr + "</text>"
                                                             }
+                                                        } else if (pct >= .03) {
+                                                            var right = Math.cos((mid - 90) * Math.PI / 180) >= 0;
+                                                            var pOuter = polar(cx, cy, R, mid);
+                                                            leaders.push({
+                                                                right: right,
+                                                                ex: pOuter[0],
+                                                                ey: pOuter[1],
+                                                                ly0: pOuter[1],
+                                                                color: color,
+                                                                icon: it.icon,
+                                                                pctStr: (pct * 100).toFixed(1) + "%",
+                                                                lbl: esc(isCodeCat ? dispCode : (it.name || ""))
+                                                            })
                                                         }
                                                         leg += '<div class="alloc-leg-item"><span class="dot" style="background:' + color + '"></span>' + (it.icon ? '<span class="leg-ic">' + itemIconHtml(it.icon) + "</span>" : "") + '<span class="nm">' + esc(it.name) + (it.cat === "基金" && it.code ? ' <span class="code">' + esc(it.code) + "</span>" : "") + (it.cat === "美股" && (it.sub || it.code) ? ' <span class="code">' + esc(it.sub || it.code) + "</span>" : "") + "</span>" + '<span class="pc">' + (pct * 100).toFixed(1) + "%</span>" + '<span class="vl">' + fmt0(it.val) + "</span></div>"
                                                     });
+                                                    // 引线标注：资产模式下 3%-5% 的小扇区拉到饼图外侧，避免拥挤
+                                                    (function() {
+                                                        var groups = { right: [], left: [] };
+                                                        leaders.forEach(function(L) {
+                                                            groups[L.right ? "right" : "left"].push(L)
+                                                        });
+                                                        ["right", "left"].forEach(function(side) {
+                                                            var arr = groups[side];
+                                                            arr.sort(function(a, b) {
+                                                                return a.ly0 - b.ly0
+                                                            });
+                                                            var gap = 26;
+                                                            for (var i = 1; i < arr.length; i++) {
+                                                                if (arr[i].ly0 - arr[i - 1].ly0 < gap) arr[i].ly0 = arr[i - 1].ly0 + gap
+                                                            }
+                                                        });
+                                                        leaders.forEach(function(L) {
+                                                            var dx = 28;
+                                                            var lx = L.ex + (L.right ? dx : -dx);
+                                                            var ly = L.ly0;
+                                                            leaderSvg += '<polyline points="' + L.ex.toFixed(1) + "," + L.ey.toFixed(1) + " " + lx.toFixed(1) + "," + ly.toFixed(1) + '" fill="none" stroke="' + L.color + '" stroke-width="1.3" stroke-linejoin="round"></polyline>';
+                                                            leaderSvg += '<circle cx="' + L.ex.toFixed(1) + '" cy="' + L.ey.toFixed(1) + '" r="2.4" fill="' + L.color + '"></circle>';
+                                                            var anchor = L.right ? "start" : "end";
+                                                            var icS = 24,
+                                                                pad = 6;
+                                                            if (L.icon) {
+                                                                var icX = L.right ? (lx + icS / 2 + pad) : (lx - icS / 2 - pad);
+                                                                leaderSvg += allocIconSvg(L.icon, icX, ly + 2, icS);
+                                                                var tx = L.right ? (lx + icS + pad * 2) : (lx - icS - pad * 2);
+                                                                leaderSvg += '<text x="' + tx.toFixed(1) + '" y="' + (ly - 3).toFixed(1) + '" text-anchor="' + anchor + '" font-size="12.5" font-weight="700" fill="#1c2430">' + L.pctStr + "</text>";
+                                                                leaderSvg += '<text x="' + tx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" text-anchor="' + anchor + '" font-size="9.5" fill="#5b6675">' + L.lbl + "</text>"
+                                                            } else {
+                                                                leaderSvg += '<text x="' + lx.toFixed(1) + '" y="' + (ly - 3).toFixed(1) + '" text-anchor="' + anchor + '" font-size="12.5" font-weight="700" fill="#1c2430">' + L.pctStr + "</text>";
+                                                                leaderSvg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" text-anchor="' + anchor + '" font-size="9.5" fill="#5b6675">' + L.lbl + "</text>"
+                                                            }
+                                                        })
+                                                    })();
                                                     var tStr = fmt0(total);
                                                     var tFont = tStr.length > 9 ? 17 : tStr.length > 7 ? 21 : 25;
-                                                    var svg = '<svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">' + '<circle cx="180" cy="180" r="' + rin + '" fill="#0f172a"/>' + '<text x="180" y="' + (180 + tFont * .35).toFixed(1) + '" text-anchor="middle" font-size="' + tFont + '" font-weight="800" fill="#fff">' + tStr + "</text>" + sectors + topSvg + "</svg>";
+                                                    var svg = '<svg viewBox="-90 -50 540 460" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">' + '<circle cx="180" cy="180" r="' + rin + '" fill="#0f172a"/>' + '<text x="180" y="' + (180 + tFont * .35).toFixed(1) + '" text-anchor="middle" font-size="' + tFont + '" font-weight="800" fill="#fff">' + tStr + "</text>" + sectors + topSvg + leaderSvg + "</svg>";
                                                     box.innerHTML = svg;
                                                     var lg = document.getElementById("allocLegend");
                                                     if (lg) lg.innerHTML = leg
                                                 }
+                                                (function() {
+                                                    var tg = document.getElementById("allocToggle");
+                                                    if (tg) {
+                                                        tg.addEventListener("click", function(e) {
+                                                            var btn = e.target.closest ? e.target.closest("button[data-mode]") : null;
+                                                            if (!btn) return;
+                                                            var m = btn.getAttribute("data-mode");
+                                                            if (m === allocMode) return;
+                                                            allocMode = m;
+                                                            var btns = tg.querySelectorAll("button[data-mode]");
+                                                            for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].getAttribute("data-mode") === m);
+                                                            try { drawAllocation() } catch (err) {}
+                                                        })
+                                                    }
+                                                })();
 
                                                 function globalEarliest() {
                                                     var e = null;
