@@ -587,6 +587,31 @@
             margin-top: 2px;
         }
 
+        /* 日/月视图顶部汇总卡（参考富途/老虎：月份标题下大字盈亏+小标签） */
+        .cal-summary {
+            text-align: center;
+            padding: 4px 0 12px;
+            margin-bottom: 2px;
+        }
+        .cal-summary-val {
+            font-size: 26px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: .3px;
+            line-height: 1.15;
+        }
+        .cal-summary-val.up {
+            color: var(--up);
+        }
+        .cal-summary-val.down {
+            color: var(--down);
+        }
+        .cal-summary-label {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
         /* 星期表头 */
         .cal-wk {
             display: grid;
@@ -3556,15 +3581,15 @@
 
                                                     <section class="cards" id="pnlSummary" style="margin:14px 0 18px;">
                                                         <div class="card">
-                                                            <div class="k">当日收益</div>
+                                                            <div class="k">当日</div>
                                                             <div class="vr"><span class="v up">+¥948</span><span class="pct up">+3.42%</span></div>
                                                         </div>
                                                         <div class="card">
-                                                            <div class="k">浮动收益</div>
+                                                            <div class="k">浮动</div>
                                                             <div class="vr"><span class="v up">+¥90,607</span><span class="pct up">+13.92%</span></div>
                                                         </div>
                                                         <div class="card">
-                                                            <div class="k">总收益</div>
+                                                            <div class="k">总计</div>
                                                             <div class="vr"><span class="v down">¥-58,575</span><span class="pct down">-9.00%</span></div>
                                                         </div>
                                                     </section>
@@ -3573,16 +3598,16 @@
                                                         <div class="card">
                                                             <div class="k"><span class="dot" style="background:var(--fund)"></span>基金</div>
                                                             <div class="mv">¥563,553</div>
-                                                            <div class="metric"><span class="ml">当日收益</span><span class="mv2 amt"><span class="up">+¥6,767</span></span><span class="mv2 pct"><span class="up">+1.22%</span></span></div>
-                                                            <div class="metric"><span class="ml">浮动收益</span><span class="mv2 amt"><span class="up">+¥80,353</span></span><span class="mv2 pct"><span class="up">+16.63%</span></span></div>
-                                                            <div class="metric"><span class="ml">总收益</span><span class="mv2 amt"><span class="up">+¥80,353</span></span><span class="mv2 pct"><span class="up">+16.63%</span></span></div>
+                                                            <div class="metric"><span class="ml">当日</span><span class="mv2 amt"><span class="up">+¥6,767</span></span><span class="mv2 pct"><span class="up">+1.22%</span></span></div>
+                                                            <div class="metric"><span class="ml">浮动</span><span class="mv2 amt"><span class="up">+¥80,353</span></span><span class="mv2 pct"><span class="up">+16.63%</span></span></div>
+                                                            <div class="metric"><span class="ml">总计</span><span class="mv2 amt"><span class="up">+¥80,353</span></span><span class="mv2 pct"><span class="up">+16.63%</span></span></div>
                                                         </div>
                                                         <div class="card">
                                                             <div class="k"><span class="dot" style="background:var(--us)"></span>美股</div>
                                                             <div class="mv">¥28,672</div>
-                                                            <div class="metric"><span class="ml">当日收益</span><span class="mv2 amt"><span class="up">+¥948</span></span><span class="mv2 pct"><span class="up">+3.42%</span></span></div>
-                                                            <div class="metric"><span class="ml">浮动收益</span><span class="mv2 amt"><span class="up">+¥10,253</span></span><span class="mv2 pct"><span class="up">+55.67%</span></span></div>
-                                                            <div class="metric"><span class="ml">总收益</span><span class="mv2 amt"><span class="down">¥-138,928</span></span><span class="mv2 pct"><span class="down">-82.89%</span></span></div>
+                                                            <div class="metric"><span class="ml">当日</span><span class="mv2 amt"><span class="up">+¥948</span></span><span class="mv2 pct"><span class="up">+3.42%</span></span></div>
+                                                            <div class="metric"><span class="ml">浮动</span><span class="mv2 amt"><span class="up">+¥10,253</span></span><span class="mv2 pct"><span class="up">+55.67%</span></span></div>
+                                                            <div class="metric"><span class="ml">总计</span><span class="mv2 amt"><span class="down">¥-138,928</span></span><span class="mv2 pct"><span class="down">-82.89%</span></span></div>
                                                         </div>
                                                         <div class="card cash-card">
                                                             <div class="k"><span class="dot" style="background:var(--cash)"></span>现金</div>
@@ -6799,7 +6824,7 @@
                                                         const fundMatched = !!cur.fundTargetMatched;
                                                         const kv = (l, v) => '<div class="kv"><span class="l">' + l + "</span>" + (v || '<span class="sub2">—</span>') + "</div>";
                                                         const pnlHtml = v => '<span class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "+" : "") + fmt0(v) + "</span>";
-                                                        ps.innerHTML = '<div class="card"><div class="k">当日收益</div>' + '<div class="vr"><span class="v ' + dayPnlClass + '">' + (dayPnl >= 0 ? "+" : "") + fmt0(dayPnl) + '</span><span class="pct ' + dayRetCls + '">' + dayRetTxt + "</div>" + "</div>" + '<div class="card"><div class="k">浮动收益</div>' + '<div class="vr"><span class="v ' + pnlClass + '">' + (cur.pnl >= 0 ? "+" : "") + fmt0(cur.pnl) + '</span><span class="pct ' + floatRetCls + '">' + floatRetTxt + "</div></div>" + '<div class="card"><div class="k">总收益</div>' + '<div class="vr"><span class="v ' + totalPnlClass + '">' + (totalPnl >= 0 ? "+" : "") + fmt0(totalPnl) + '</span><span class="pct ' + totalRetCls + '">' + totalRetTxt + "</div>" + "</div>"
+                                                        ps.innerHTML = '<div class="card"><div class="k">当日</div>' + '<div class="vr"><span class="v ' + dayPnlClass + '">' + (dayPnl >= 0 ? "+" : "") + fmt0(dayPnl) + '</span><span class="pct ' + dayRetCls + '">' + dayRetTxt + "</div>" + "</div>" + '<div class="card"><div class="k">浮动</div>' + '<div class="vr"><span class="v ' + pnlClass + '">' + (cur.pnl >= 0 ? "+" : "") + fmt0(cur.pnl) + '</span><span class="pct ' + floatRetCls + '">' + floatRetTxt + "</div></div>" + '<div class="card"><div class="k">总计</div>' + '<div class="vr"><span class="v ' + totalPnlClass + '">' + (totalPnl >= 0 ? "+" : "") + fmt0(totalPnl) + '</span><span class="pct ' + totalRetCls + '">' + totalRetTxt + "</div>" + "</div>"
                                                     }
                                                     renderBasicData(cur)
                                                 }
@@ -6860,7 +6885,7 @@
                                                         const cls = a.name === "现金" ? "card cash-card" : "card";
                                                         html += '<div class="' + cls + '"><div class="k"><span class="dot" style="background:var(' + a.color + ')"></span>' + a.name + "</div>" + '<div class="mv">' + fmt0(a.v) + "</div>";
                                                         if (a.name !== "现金") {
-                                                            html += row2("当日收益", a.dayPnl != null ? pnlHtml(a.dayPnl) : null, "", a.dayRet != null ? pctHtml(a.dayRet) : null) + row2("浮动收益", a.pnl != null ? pnlHtml(a.pnl) : null, "", a.ret != null ? pctHtml(a.ret) : null) + row2("总收益", a.totalPnl != null ? pnlHtml(a.totalPnl) : null, "", a.totalRet != null ? pctHtml(a.totalRet) : null)
+                                                            html += row2("当日", a.dayPnl != null ? pnlHtml(a.dayPnl) : null, "", a.dayRet != null ? pctHtml(a.dayRet) : null) + row2("浮动", a.pnl != null ? pnlHtml(a.pnl) : null, "", a.ret != null ? pctHtml(a.ret) : null) + row2("总计", a.totalPnl != null ? pnlHtml(a.totalPnl) : null, "", a.totalRet != null ? pctHtml(a.totalRet) : null)
                                                         }
                                                         html += "</div>"
                                                     });
@@ -8467,6 +8492,27 @@
                                                     nav.appendChild(title);
                                                     nav.appendChild(nextBtn);
                                                     box.appendChild(nav);
+                                                    /* 顶部月度盈亏汇总 */
+                                                    if (days.length >= 2) {
+                                                        const _f = days[0].total, _l = days[days.length - 1].total;
+                                                        const _mChg = _l - _f;
+                                                        const _mPct = _f > 0 ? _mChg / _f : null;
+                                                        const _sum = document.createElement("div");
+                                                        _sum.className = "cal-summary";
+                                                        const _v = document.createElement("div");
+                                                        _v.className = "cal-summary-val " + (_mChg >= 0 ? "up" : "down");
+                                                        if (useAmt) {
+                                                            _v.textContent = fmtAmtPlain(_mChg)
+                                                        } else {
+                                                            _v.textContent = _mPct != null ? (_mPct >= 0 ? "+" : "") + fmtCalPct2(_mPct) : "—"
+                                                        }
+                                                        const _lab = document.createElement("div");
+                                                        _lab.className = "cal-summary-label";
+                                                        _lab.textContent = m + "月 月度盈亏";
+                                                        _sum.appendChild(_v);
+                                                        _sum.appendChild(_lab);
+                                                        box.appendChild(_sum)
+                                                    }
                                                     const wk = document.createElement("div");
                                                     wk.className = "cal-wk";
                                                     ["日", "一", "二", "三", "四", "五", "六"].forEach(function(w) {
@@ -8546,6 +8592,29 @@
                                                         card.title = o.m + "月\n总资产变化：" + ((o.chg >= 0 ? "+" : "") + fmt0(o.chg)) + (o.chgPct != null ? " (" + (o.chgPct >= 0 ? "+" : "") + (o.chgPct * 100).toFixed(2) + "%)" : "");
                                                         cards.appendChild(card)
                                                     });
+                                                    /* 顶部年度盈亏汇总 */
+                                                    if (arr.length >= 1) {
+                                                        const _firstMD = getMonthDays(y, 1);
+                                                        let _yChg = 0;
+                                                        arr.forEach(function(o) { _yChg += (o.chg || 0) });
+                                                        const _yStart = _firstMD.length ? _firstMD[0].total : 0;
+                                                        const _yPct = _yStart > 0 ? _yChg / _yStart : null;
+                                                        const _sum = document.createElement("div");
+                                                        _sum.className = "cal-summary";
+                                                        const _v = document.createElement("div");
+                                                        _v.className = "cal-summary-val " + (_yChg >= 0 ? "up" : "down");
+                                                        if (useAmt) {
+                                                            _v.textContent = fmtAmtPlain(_yChg)
+                                                        } else {
+                                                            _v.textContent = _yPct != null ? (_yPct >= 0 ? "+" : "") + fmtCalPct2(_yPct) : "—"
+                                                        }
+                                                        const _lab = document.createElement("div");
+                                                        _lab.className = "cal-summary-label";
+                                                        _lab.textContent = y + "年 年度盈亏";
+                                                        _sum.appendChild(_v);
+                                                        _sum.appendChild(_lab);
+                                                        box.appendChild(_sum)
+                                                    }
                                                     box.appendChild(cards)
                                                 }
 
