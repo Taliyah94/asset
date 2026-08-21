@@ -82,6 +82,8 @@
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            max-width: 100%;
         }
 
         .wrap {
@@ -12212,10 +12214,10 @@
                                                             fab.style.transform = 'translate3d(' + x + 'px, ' + y + 'px, 0px)';
                                                         }
                                                     }
-                                                    setTimeout(fixAiFab, 300);
-                                                    setTimeout(fixAiFab, 1200);
-                                                    setTimeout(fixAiFab, 3000);
+                                                    fixAiFab();
+                                                    [60, 150, 300, 600, 1200, 3000].forEach(function(ms) { setTimeout(fixAiFab, ms) });
                                                     window.addEventListener('resize', function() { setTimeout(fixAiFab, 50) });
+                                                    window.addEventListener('orientationchange', function() { setTimeout(fixAiFab, 150) });
                                                     if (window.MutationObserver) {
                                                         var t = null;
                                                         var obs = new MutationObserver(function() {
