@@ -562,6 +562,10 @@
     {
       "date": "2026-08-19",
       "value": 28666.948117085
+    },
+    {
+      "date": "2026-08-20",
+      "value": 28527.878117085
     }
   ],
   "cashDaily": [
@@ -1120,6 +1124,10 @@
     {
       "date": "2026-08-19",
       "value": 21872.328117085
+    },
+    {
+      "date": "2026-08-20",
+      "value": 21872.328117085
     }
   ],
   "holdings": [
@@ -1128,20 +1136,20 @@
       "side": "Long",
       "position": 100.0,
       "costBasisPrice": 76.73687146,
-      "markPrice": 72.06,
-      "positionValue": 7206.0,
+      "markPrice": 70.48,
+      "positionValue": 7048.0,
       "costBasisMoney": 7673.687146,
-      "unrealizedPnl": -467.687146
+      "unrealizedPnl": -625.687146
     },
     {
       "symbol": "ORCL  260821P00141000",
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.61303093,
-      "markPrice": 1.34,
-      "positionValue": -402.0,
+      "markPrice": 1.2769,
+      "positionValue": -383.07,
       "costBasisMoney": -483.909279,
-      "unrealizedPnl": 81.909279
+      "unrealizedPnl": 100.839279
     }
   ],
   "electronicFundTransfers": [
@@ -2010,64 +2018,20 @@
       "price": 0.96,
       "realized": 0,
       "tradeId": "9912760319"
-    },
-    {
-      "date": "2026-07-20",
-      "symbol": "NVDA  260720P00202500",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1,
-      "price": 0.17,
-      "realized": 0,
-      "tradeId": "9906821666"
-    },
-    {
-      "date": "2026-07-20",
-      "symbol": "NVDA  260720P00202500",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1,
-      "price": 0.17,
-      "realized": 0,
-      "tradeId": "9906821748"
-    },
-    {
-      "date": "2026-07-20",
-      "symbol": "NVDA  260720P00202500",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "BUY",
-      "quantity": 2,
-      "price": 0,
-      "realized": 32.64,
-      "tradeId": "9910652502"
-    },
-    {
-      "date": "2026-07-20",
-      "symbol": "CNH.USD",
-      "underlying": "CNH.USD",
-      "cat": "CASH",
-      "buySell": "SELL",
-      "quantity": -0.00636,
-      "price": 0.14739246,
-      "realized": 0,
-      "tradeId": "9903423406"
     }
   ],
-  "lastSync": "2026-08-20",
+  "lastSync": "2026-08-21",
   "optBase": {
     "A": {
-      "date": "2026-08-19",
-      "prices": {
-        "ORCL  260821P00141000": 2.2116
-      }
-    },
-    "B": {
       "date": "2026-08-20",
       "prices": {
         "ORCL  260821P00141000": 1.34
+      }
+    },
+    "B": {
+      "date": "2026-08-21",
+      "prices": {
+        "ORCL  260821P00141000": 1.2769
       }
     }
   },
