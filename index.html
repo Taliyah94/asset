@@ -46,18 +46,21 @@
 
 
     <style>
-        :root {
+:root {
             --bg: #e8f0fc;
             --bg-grad: radial-gradient(1100px 520px at 50% -8%, #d4e4fc 0%, rgba(212, 228, 252, 0) 58%), linear-gradient(180deg, #eaf3fd 0%, #dfeafb 100%);
             --card: #ffffff;
             --line: #e7eaf1;
             --text: #1c2430;
             --muted: #8a94a6;
+            --font-num: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
             --brand: #3b6ef5;
             --brand2: #7b5cf0;
             --brand-soft: #eef2ff;
-            --up: #e23b3b;
-            --down: #16a34a;
+            --up: #16a34a;
+            --down: #e23b3b;
+            --up-soft: rgba(22, 163, 74, .12);
+            --down-soft: rgba(226, 59, 59, .10);
             --fund: #3b6ef5;
             --us: #f59e0b;
             --cash: #14b8a6;
@@ -72,7 +75,7 @@
 
         body {
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
             background: var(--bg-grad);
             background-attachment: fixed;
             color: var(--text);
@@ -109,7 +112,7 @@
 
         .title p {
             margin: 0;
-            color: var(--muted);
+            color: var(--text);
             font-size: 13px;
         }
 
@@ -301,6 +304,71 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .card .vr {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 6px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .card .vr .v {
+            margin-top: 0;
+        }
+
+        .card .vr .pct {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 0 4px;
+            border-radius: 999px;
+        }
+
+        .card .vr .pct.up {
+            background: var(--up-soft);
+        }
+
+        .card .vr .pct.down {
+            background: var(--down-soft);
+        }
+
+        .card .metric {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-top: 7px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .card .metric .ml {
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .card .metric .mv2 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .card .metric .mv2.amt {
+            margin-left: auto;
+        }
+
+        .card .metric .mv2.pct {
+            font-weight: 700;
+            text-align: right;
+            padding: 0 4px;
+            border-radius: 999px;
+        }
+
+        .card .metric .mv2.pct:has(.up) {
+            background: var(--up-soft);
+        }
+
+        .card .metric .mv2.pct:has(.down) {
+            background: var(--down-soft);
+        }
+
         .up {
             color: var(--up);
         }
@@ -326,7 +394,7 @@
 
         .panel .hint {
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             margin: 0 0 12px;
         }
 
@@ -380,7 +448,7 @@
 
         .dt-to {
             margin: 0 4px;
-            color: var(--muted);
+            color: var(--text);
         }
 
         .dt-clear {
@@ -428,7 +496,7 @@
             border-radius: 20px;
             border: 1px solid var(--line);
             background: #fff;
-            color: var(--muted);
+            color: var(--text);
             cursor: pointer;
         }
 
@@ -471,7 +539,7 @@
             justify-content: center;
             cursor: pointer;
             font-size: 15px;
-            color: var(--muted);
+            color: var(--text);
             user-select: none;
             flex-shrink: 0;
         }
@@ -524,7 +592,7 @@
             gap: 3px;
             margin-bottom: 3px;
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
             text-align: center;
             padding: 0 2px;
         }
@@ -704,7 +772,7 @@
             gap: 14px;
             margin-top: 14px;
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
             flex-wrap: wrap;
             justify-content: center;
         }
@@ -724,7 +792,7 @@
             flex-wrap: wrap;
             margin-top: 8px;
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             justify-content: center;
         }
 
@@ -798,7 +866,7 @@
         }
 
         th {
-            color: var(--muted);
+            color: var(--text);
             font-weight: 500;
             font-size: 12px;
             background: #fbfcfe;
@@ -839,7 +907,7 @@
         }
 
         .empty {
-            color: var(--muted);
+            color: var(--text);
             text-align: center;
             padding: 22px;
             font-size: 13px;
@@ -871,7 +939,7 @@
 
         .sub2 {
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
         }
 
         .cell-main {
@@ -881,7 +949,7 @@
 
         .cell-sub {
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
             margin-top: 3px;
             line-height: 1.3;
         }
@@ -947,7 +1015,7 @@
 
         .detail-pager .dp-info {
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
         }
 
         .detail-pager .dp-btn {
@@ -987,7 +1055,7 @@
             gap: 8px 22px;
             padding: 11px 14px;
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
         }
 
         .detail .dtl b {
@@ -1083,7 +1151,7 @@
 
         .pending-filter-pop .pf-empty {
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             padding: 6px;
             text-align: center;
         }
@@ -1150,7 +1218,7 @@
 
         .pending-tbl th {
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             font-weight: 600;
         }
 
@@ -1187,7 +1255,7 @@
 
         .pending-tbl td.cls-num .qty-price {
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
             margin-top: 2px;
             font-variant-numeric: tabular-nums;
         }
@@ -1212,7 +1280,7 @@
 
         .opt-code .opt-strike {
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
             margin-top: 1px;
         }
 
@@ -1237,7 +1305,7 @@
 
         .pf-sum {
             font-size: 13px;
-            color: var(--muted);
+            color: var(--text);
             text-align: right;
         }
 
@@ -1271,7 +1339,7 @@
 
         .fxbox {
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             display: flex;
             align-items: center;
             gap: 6px;
@@ -1322,7 +1390,7 @@
         .field label {
             display: block;
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             margin-bottom: 4px;
         }
 
@@ -1340,13 +1408,13 @@
         .field textarea {
             resize: vertical;
             min-height: 64px;
-            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
             font-size: 12px;
         }
 
         .field .help {
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
             margin-top: 3px;
         }
 
@@ -1359,7 +1427,7 @@
 
         .status {
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
         }
 
         .status .dot {
@@ -1463,7 +1531,7 @@
 
         .foot {
             font-size: 11px;
-            color: var(--muted);
+            color: var(--text);
             margin-top: 8px;
             line-height: 1.7;
         }
@@ -1618,11 +1686,12 @@
 
         @media(max-width:760px) {
 
-            html,
+            html {
+                overflow-x: hidden;
+            }
+
             body {
-                overflow-x: clip;
                 width: 100%;
-                -webkit-overflow-scrolling: touch;
             }
 
             .wrap {
@@ -1636,21 +1705,73 @@
             }
 
             .cards {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            #pnlSummary.cards {
                 grid-template-columns: repeat(3, 1fr);
                 gap: 8px;
             }
 
+            #nxSection .cards {
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 8px;
+            }
+
+            #nxSection .cards .card {
+                padding: 12px 6px;
+            }
+
+            #nxSection .cards .k {
+                font-size: 11px;
+            }
+
+            #nxSection .cards .v {
+                font-size: 18px;
+                margin-top: 4px;
+            }
+
+            #nxSection .cards .nxd {
+                font-size: 10px;
+            }
+
+            #pnlSummary.cards .card {
+                padding: 12px 6px;
+            }
+
+            #pnlSummary.cards .k {
+                font-size: 11px;
+            }
+
+            #pnlSummary.cards .vr {
+                flex-direction: column;
+                align-items: center;
+                gap: 3px;
+                margin-top: 3px;
+            }
+
+            #pnlSummary.cards .vr .v {
+                font-size: clamp(13px, 4.2vw, 18px);
+                line-height: 1.1;
+            }
+
+            #pnlSummary.cards .vr .pct {
+                font-size: 11px;
+                padding: 0 4px;
+            }
+
             .card {
-                padding: 10px 6px;
+                padding: 14px 16px;
             }
 
             .card .k {
-                font-size: 11px;
+                font-size: 12px;
             }
 
             .card .v,
             .card .mv {
-                font-size: 16px;
+                font-size: 20px;
                 margin-top: 4px;
             }
 
@@ -1694,6 +1815,31 @@
             #cards .cash-card .mv {
                 font-size: 18px;
                 margin-top: 0;
+            }
+
+            #cards .metric {
+                flex-wrap: wrap;
+                gap: 2px 8px;
+            }
+
+            #cards .metric .ml {
+                flex: 0 0 auto;
+                font-size: 11px;
+            }
+
+            #cards .metric .mv2.amt {
+                flex: 1 1 auto;
+                margin-left: 0;
+                text-align: right;
+            }
+
+            #cards .metric .mv2.pct {
+                flex: 0 0 auto;
+                text-align: right;
+                min-width: auto;
+                margin-top: 1px;
+                margin-left: auto;
+                display: inline-block;
             }
 
             .hero .val {
@@ -1781,7 +1927,7 @@
             flex-wrap: wrap;
             gap: 10px 24px;
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             margin-bottom: 10px;
             padding: 8px 12px;
             background: #f0f4ff;
@@ -1820,7 +1966,7 @@
         }
 
         .us-trade-detail .trade-table th {
-            color: var(--muted);
+            color: var(--text);
             font-weight: 500;
             font-size: 11px;
             background: #fbfcfe;
@@ -1878,7 +2024,7 @@
         .trade-modal .field label {
             display: block;
             font-size: 12px;
-            color: var(--muted);
+            color: var(--text);
             margin-bottom: 4px;
         }
 
@@ -2007,7 +2153,7 @@
             cursor: pointer;
             background: none;
             border: none;
-            color: var(--muted);
+            color: var(--text);
             padding: 0 4px;
             line-height: 1;
         }
@@ -2117,6 +2263,35 @@
             vertical-align: middle;
         }
 
+        /* ===== 字体升级：iOS 系统字体（SF Pro/苹方）+ 标题粗/正文细字重对比 ===== */
+        .hero .val,
+        .hero .sub,
+        .card .v,
+        .card .mv,
+        .card .vr .v,
+        .card .vr .pct,
+        .card .metric .mv2,
+        .gphd,
+        .nxd,
+        .gauge-svg text {
+            font-family: var(--font-num);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .card .k,
+        .cal-wk,
+        .gph {
+            font-weight: 600;
+        }
+
+        .panel h2 {
+            font-weight: 700;
+        }
+
+        .hero .sub b {
+            font-weight: 600;
+        }
+
         /* ===== 全局入场动画（淡入 + 上移）===== */
         @keyframes fadeUp {
             from {
@@ -2162,7 +2337,6 @@
 
 <body style="-webkit-text-size-adjust: 100%;"><!-- 图表页面（曲线图 / 日历图 / 市场温度，由浮动栏 IIFE 注入） -->
     <section class="page-section page-chart" id="pageChart">
-        <div class="page-head">图表</div>
         <section class="panel" id="allocationSection">
             <style>
                 .alloc-wrap {
@@ -2236,7 +2410,7 @@
                 }
 
                 .alloc-leg-item .vl {
-                    color: var(--muted);
+                    color: var(--text);
                     min-width: 86px;
                     text-align: right;
                     font-variant-numeric: tabular-nums;
@@ -2474,7 +2648,7 @@
                     <div class="cal-cell empty"></div>
                     <div class="cal-cell empty"></div>
                 </div>
-                <div class="cal-legend">颜色代表当日涨跌幅（红涨绿跌）：<span><i class="sw" style="background:rgba(226,59,59,.85)"></i>涨</span><span><i class="sw" style="background:rgba(22,163,74,.85)"></i>跌</span><span style="margin-left:6px">颜色越深幅度越大 · 悬停查看明细</span></div>
+                <div class="cal-legend">颜色代表当日涨跌幅（绿涨红跌）：<span><i class="sw" style="background:rgba(22,163,74,.85)"></i>涨</span><span><i class="sw" style="background:rgba(226,59,59,.85)"></i>跌</span><span style="margin-left:6px">颜色越深幅度越大 · 悬停查看明细</span></div>
             </div>
             <div class="range hidden" id="detailRangeBtns">
                 <button data-r="30" class="active">近1月</button>
@@ -3020,7 +3194,7 @@
                     </thead>
                     <tbody id="fxDetailBody">
                         <tr>
-                            <td colspan="5" style="text-align:center;color:var(--muted)">无法读取 Asset_parsed.json（需通过本地服务器或已发布页面打开，直接双击 file:// 会被 CORS 拦截）</td>
+                            <td colspan="5" style="text-align:center;color:var(--text)">无法读取 Asset_parsed.json（需通过本地服务器或已发布页面打开，直接双击 file:// 会被 CORS 拦截）</td>
                         </tr>
                     </tbody>
                 </table>
@@ -3037,7 +3211,7 @@
                     <h2>纳斯达克100市场温度</h2>
                 </div>
             </div>
-            <div class="cards" style="grid-template-columns:repeat(3,1fr)">
+            <div class="cards">
                 <div class="card">
                     <div class="k"><span class="dot" style="background:var(--us)"></span>纳斯达克100 PE</div>
                     <div class="v" id="nxPE" style="color: rgb(91, 102, 120);">29.1</div>
@@ -3136,7 +3310,6 @@
         </section>
     </section><!-- 设置页面 -->
     <section class="page-section page-settings" id="pageSettings">
-        <div class="page-head">设置</div>
 
         <div class="setting-card">
             <h3>账户</h3>
@@ -3231,6 +3404,10 @@
 
         <div class="setting-card">
             <h3>通用</h3>
+            <div class="setting-row" id="setColorSchemeBtn" style="cursor:pointer;">
+                <div class="label"><span class="li-ic">🎨</span>涨跌配色</div>
+                <div class="value" id="setColorSchemeVal">涨绿跌红</div><span class="arrow">›</span>
+            </div>
             <div class="setting-row danger" id="resetDataBtn">
                 <div class="label"><span class="li-ic">🗑️</span>重置所有数据</div><span class="arrow">›</span>
             </div>
@@ -3374,22 +3551,15 @@
                                                     <section class="cards" id="pnlSummary" style="margin:14px 0 18px;">
                                                         <div class="card">
                                                             <div class="k">当日收益</div>
-                                                            <div class="v up">+¥948</div>
-                                                            <div class="k">当日收益率</div>
-                                                            <div class="v up">+3.42%</div>
-                                                            <div class="k" style="margin-top:6px;opacity:.7">基金08-13（无数据）</div>
+                                                            <div class="vr"><span class="v up">+¥948</span><span class="pct up">+3.42%</span></div>
                                                         </div>
                                                         <div class="card">
                                                             <div class="k">浮动收益</div>
-                                                            <div class="v up">+¥90,607</div>
-                                                            <div class="k">浮动收益率</div>
-                                                            <div class="v up">+13.92%</div>
+                                                            <div class="vr"><span class="v up">+¥90,607</span><span class="pct up">+13.92%</span></div>
                                                         </div>
                                                         <div class="card">
                                                             <div class="k">总收益</div>
-                                                            <div class="v down">¥-58,575</div>
-                                                            <div class="k">总收益率</div>
-                                                            <div class="v down">-9.00%</div>
+                                                            <div class="vr"><span class="v down">¥-58,575</span><span class="pct down">-9.00%</span></div>
                                                         </div>
                                                     </section>
 
@@ -3397,70 +3567,16 @@
                                                         <div class="card">
                                                             <div class="k"><span class="dot" style="background:var(--fund)"></span>基金</div>
                                                             <div class="mv">¥563,553</div>
-                                                            <div class="row2">
-                                                                <div class="cell">
-                                                                    <div class="l">当日收益</div>
-                                                                    <div class="v2"><span class="up">+¥6,767</span></div>
-                                                                </div>
-                                                                <div class="cell">
-                                                                    <div class="l">当日收益率</div>
-                                                                    <div class="v2"><span class="up">+1.22%</span></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row2">
-                                                                <div class="cell">
-                                                                    <div class="l">浮动收益</div>
-                                                                    <div class="v2"><span class="up">+¥80,353</span></div>
-                                                                </div>
-                                                                <div class="cell">
-                                                                    <div class="l">浮动收益率</div>
-                                                                    <div class="v2"><span class="up">+16.63%</span></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row2">
-                                                                <div class="cell">
-                                                                    <div class="l">总收益</div>
-                                                                    <div class="v2"><span class="up">+¥80,353</span></div>
-                                                                </div>
-                                                                <div class="cell">
-                                                                    <div class="l">总收益率</div>
-                                                                    <div class="v2"><span class="up">+16.63%</span></div>
-                                                                </div>
-                                                            </div>
+                                                            <div class="metric"><span class="ml">当日收益</span><span class="mv2 amt"><span class="up">+¥6,767</span></span><span class="mv2 pct"><span class="up">+1.22%</span></span></div>
+                                                            <div class="metric"><span class="ml">浮动收益</span><span class="mv2 amt"><span class="up">+¥80,353</span></span><span class="mv2 pct"><span class="up">+16.63%</span></span></div>
+                                                            <div class="metric"><span class="ml">总收益</span><span class="mv2 amt"><span class="up">+¥80,353</span></span><span class="mv2 pct"><span class="up">+16.63%</span></span></div>
                                                         </div>
                                                         <div class="card">
                                                             <div class="k"><span class="dot" style="background:var(--us)"></span>美股</div>
                                                             <div class="mv">¥28,672</div>
-                                                            <div class="row2">
-                                                                <div class="cell">
-                                                                    <div class="l">当日收益</div>
-                                                                    <div class="v2"><span class="up">+¥948</span></div>
-                                                                </div>
-                                                                <div class="cell">
-                                                                    <div class="l">当日收益率</div>
-                                                                    <div class="v2"><span class="up">+3.42%</span></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row2">
-                                                                <div class="cell">
-                                                                    <div class="l">浮动收益</div>
-                                                                    <div class="v2"><span class="up">+¥10,253</span></div>
-                                                                </div>
-                                                                <div class="cell">
-                                                                    <div class="l">浮动收益率</div>
-                                                                    <div class="v2"><span class="up">+55.67%</span></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row2">
-                                                                <div class="cell">
-                                                                    <div class="l">总收益</div>
-                                                                    <div class="v2"><span class="down">¥-138,928</span></div>
-                                                                </div>
-                                                                <div class="cell">
-                                                                    <div class="l">总收益率</div>
-                                                                    <div class="v2"><span class="down">-82.89%</span></div>
-                                                                </div>
-                                                            </div>
+                                                            <div class="metric"><span class="ml">当日收益</span><span class="mv2 amt"><span class="up">+¥948</span></span><span class="mv2 pct"><span class="up">+3.42%</span></span></div>
+                                                            <div class="metric"><span class="ml">浮动收益</span><span class="mv2 amt"><span class="up">+¥10,253</span></span><span class="mv2 pct"><span class="up">+55.67%</span></span></div>
+                                                            <div class="metric"><span class="ml">总收益</span><span class="mv2 amt"><span class="down">¥-138,928</span></span><span class="mv2 pct"><span class="down">-82.89%</span></span></div>
                                                         </div>
                                                         <div class="card cash-card">
                                                             <div class="k"><span class="dot" style="background:var(--cash)"></span>现金</div>
@@ -3573,7 +3689,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="pending-toolbar">
-                                                    <div class="pf-sum">已实现盈亏：<span id="pendingPnl" style="">—</span><span id="pendingCount" style="margin-left:10px;color:var(--muted)">共 0 笔交易</span></div>
+                                                    <div class="pf-sum">已实现盈亏：<span id="pendingPnl" style="">—</span><span id="pendingCount" style="margin-left:10px;color:var(--text)">共 0 笔交易</span></div>
                                                 </div>
                                                 <div class="tbl-scroll">
                                                     <table class="pending-tbl">
@@ -3630,7 +3746,7 @@
                                                     margin-top: 10px;
                                                     border: 1px solid var(--line);
                                                     background: #f8fafc;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                     border-radius: 8px;
                                                     padding: 6px 0;
                                                     font-size: 12px;
@@ -3668,7 +3784,7 @@
 
                                                 .gbox .gph {
                                                     font-size: 11px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                     margin-top: 4px;
                                                     line-height: 1.5;
                                                 }
@@ -3679,7 +3795,7 @@
                                                     gap: 5px 14px;
                                                     margin-top: 9px;
                                                     font-size: 10px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                     justify-content: center;
                                                 }
 
@@ -3700,7 +3816,7 @@
 
                                                 .gbox .gphd {
                                                     font-size: 10px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                     margin-top: 2px;
                                                 }
 
@@ -3728,7 +3844,7 @@
                                                     display: flex;
                                                     flex-direction: column;
                                                     font-size: 10px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                 }
 
                                                 .gbox .gwp-it b {
@@ -3741,7 +3857,7 @@
                                                 .gbox .gwp-cur {
                                                     margin-top: 9px;
                                                     font-size: 11px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                 }
 
                                                 .gbox .gwp-cur b {
@@ -3758,12 +3874,12 @@
                                                 .gbox .gwp-dt {
                                                     margin-top: 5px;
                                                     font-size: 10px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                 }
 
                                                 .nxd {
                                                     font-size: 10px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                     margin-top: 6px;
                                                 }
 
@@ -6675,10 +6791,9 @@
                                                         const dayRetTxt = dayRet == null || !isFinite(dayRet) ? "—" : (dayRet >= 0 ? "+" : "") + (dayRet * 100).toFixed(2) + "%";
                                                         const dayRetCls = dayRet == null ? "" : dayRet >= 0 ? "up" : "down";
                                                         const fundMatched = !!cur.fundTargetMatched;
-                                                        const dayCaption = "基金" + cur.fundDayDate.slice(5) + (fundMatched ? "" : "（无数据）");
                                                         const kv = (l, v) => '<div class="kv"><span class="l">' + l + "</span>" + (v || '<span class="sub2">—</span>') + "</div>";
                                                         const pnlHtml = v => '<span class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "+" : "") + fmt0(v) + "</span>";
-                                                        ps.innerHTML = '<div class="card"><div class="k">当日收益</div>' + '<div class="v ' + dayPnlClass + '">' + (dayPnl >= 0 ? "+" : "") + fmt0(dayPnl) + "</div>" + '<div class="k">当日收益率</div>' + '<div class="v ' + dayRetCls + '">' + dayRetTxt + "</div>" + (dayCaption ? '<div class="k" style="margin-top:6px;opacity:.7">' + dayCaption + "</div>" : "") + "</div>" + '<div class="card"><div class="k">浮动收益</div>' + '<div class="v ' + pnlClass + '">' + (cur.pnl >= 0 ? "+" : "") + fmt0(cur.pnl) + "</div>" + '<div class="k">浮动收益率</div>' + '<div class="v ' + floatRetCls + '">' + floatRetTxt + "</div></div>" + '<div class="card"><div class="k">总收益</div>' + '<div class="v ' + totalPnlClass + '">' + (totalPnl >= 0 ? "+" : "") + fmt0(totalPnl) + "</div>" + '<div class="k">总收益率</div>' + '<div class="v ' + totalRetCls + '">' + totalRetTxt + "</div>" + "</div>"
+                                                        ps.innerHTML = '<div class="card"><div class="k">当日收益</div>' + '<div class="vr"><span class="v ' + dayPnlClass + '">' + (dayPnl >= 0 ? "+" : "") + fmt0(dayPnl) + '</span><span class="pct ' + dayRetCls + '">' + dayRetTxt + "</div>" + "</div>" + '<div class="card"><div class="k">浮动收益</div>' + '<div class="vr"><span class="v ' + pnlClass + '">' + (cur.pnl >= 0 ? "+" : "") + fmt0(cur.pnl) + '</span><span class="pct ' + floatRetCls + '">' + floatRetTxt + "</div></div>" + '<div class="card"><div class="k">总收益</div>' + '<div class="vr"><span class="v ' + totalPnlClass + '">' + (totalPnl >= 0 ? "+" : "") + fmt0(totalPnl) + '</span><span class="pct ' + totalRetCls + '">' + totalRetTxt + "</div>" + "</div>"
                                                     }
                                                     renderBasicData(cur)
                                                 }
@@ -6699,7 +6814,7 @@
                                                     const pctHtml = r => r == null || !isFinite(r) ? '<span class="sub2">—</span>' : '<span class="' + (r >= 0 ? "up" : "down") + '">' + (r >= 0 ? "+" : "") + (r * 100).toFixed(2) + "%</span>";
                                                     const pnlHtml = v => '<span class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "+" : "") + fmt0(v) + "</span>";
                                                     const kv = (l, v) => '<div class="kv"><span class="l">' + l + "</span>" + (v || '<span class="sub2">—</span>') + "</div>";
-                                                    const row2 = (l1, v1, l2, v2) => '<div class="row2"><div class="cell"><div class="l">' + l1 + '</div><div class="v2">' + v1 + '</div></div><div class="cell"><div class="l">' + l2 + '</div><div class="v2">' + v2 + "</div></div></div>";
+                                                    const row2 = (l1, v1, l2, v2) => '<div class="metric"><span class="ml">' + l1 + '</span><span class="mv2 amt">' + v1 + '</span><span class="mv2 pct">' + v2 + "</span></div>";
                                                     const alloc = [{
                                                         name: "基金",
                                                         color: "--fund",
@@ -6739,7 +6854,7 @@
                                                         const cls = a.name === "现金" ? "card cash-card" : "card";
                                                         html += '<div class="' + cls + '"><div class="k"><span class="dot" style="background:var(' + a.color + ')"></span>' + a.name + "</div>" + '<div class="mv">' + fmt0(a.v) + "</div>";
                                                         if (a.name !== "现金") {
-                                                            html += row2("当日收益", a.dayPnl != null ? pnlHtml(a.dayPnl) : null, "当日收益率", a.dayRet != null ? pctHtml(a.dayRet) : null) + row2("浮动收益", a.pnl != null ? pnlHtml(a.pnl) : null, "浮动收益率", a.ret != null ? pctHtml(a.ret) : null) + row2("总收益", a.totalPnl != null ? pnlHtml(a.totalPnl) : null, "总收益率", a.totalRet != null ? pctHtml(a.totalRet) : null)
+                                                            html += row2("当日收益", a.dayPnl != null ? pnlHtml(a.dayPnl) : null, "", a.dayRet != null ? pctHtml(a.dayRet) : null) + row2("浮动收益", a.pnl != null ? pnlHtml(a.pnl) : null, "", a.ret != null ? pctHtml(a.ret) : null) + row2("总收益", a.totalPnl != null ? pnlHtml(a.totalPnl) : null, "", a.totalRet != null ? pctHtml(a.totalRet) : null)
                                                         }
                                                         html += "</div>"
                                                     });
@@ -8190,6 +8305,49 @@
                                                     return maxAbs
                                                 }
 
+                                                /* 涨跌配色（涨红跌绿 / 涨绿跌红，设置页可切换，localStorage 持久化） */
+                                                var _schemeName = "greenRed";
+                                                var COLOR_SCHEMES = {
+                                                    redGreen: { label: "涨红跌绿", up: "#e23b3b", down: "#16a34a", upSoft: "rgba(226,59,59,.10)", downSoft: "rgba(22,163,74,.12)", upLabel: "红", downLabel: "绿" },
+                                                    greenRed: { label: "涨绿跌红", up: "#16a34a", down: "#e23b3b", upSoft: "rgba(22,163,74,.12)", downSoft: "rgba(226,59,59,.10)", upLabel: "绿", downLabel: "红" }
+                                                };
+
+                                                function getCssVar(n) {
+                                                    return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || ""
+                                                }
+
+                                                function hexToRgbStr(h) {
+                                                    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h || "");
+                                                    return m ? parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) : "226,59,59"
+                                                }
+
+                                                function upRgb() { return hexToRgbStr(getCssVar("--up")) }
+
+                                                function downRgb() { return hexToRgbStr(getCssVar("--down")) }
+
+                                                function applyColorScheme(name, save) {
+                                                    const s = COLOR_SCHEMES[name] || COLOR_SCHEMES.redGreen;
+                                                    _schemeName = name in COLOR_SCHEMES ? name : "redGreen";
+                                                    const r = document.documentElement.style;
+                                                    r.setProperty("--up", s.up);
+                                                    r.setProperty("--down", s.down);
+                                                    r.setProperty("--up-soft", s.upSoft);
+                                                    r.setProperty("--down-soft", s.downSoft);
+                                                    const v = document.getElementById("setColorSchemeVal");
+                                                    if (v) v.textContent = s.label;
+                                                    const cap = s.upLabel + "涨" + s.downLabel + "跌";
+                                                    document.querySelectorAll(".cal-legend").forEach(function(el) {
+                                                        el.innerHTML = el.innerHTML.replace(/（[^）]*涨[^）]*跌[^）]*）/g, "（" + cap + "）");
+                                                        const sws = el.querySelectorAll("i.sw");
+                                                        if (sws.length >= 2) {
+                                                            sws[0].style.background = "rgba(" + upRgb() + ",.85)";
+                                                            sws[1].style.background = "rgba(" + downRgb() + ",.85)"
+                                                        }
+                                                    });
+                                                    if (save) { try { localStorage.setItem("assetColorScheme", _schemeName) } catch (e) {} }
+                                                }
+                                                try { const _s = localStorage.getItem("assetColorScheme"); if (_s) applyColorScheme(_s, false) } catch (e) {}
+
                                                 function cellColor(val, maxAbs) {
                                                     if (val == null) return {
                                                         bg: "#f5f7fa",
@@ -8201,7 +8359,7 @@
                                                     };
                                                     const a = Math.min(1, Math.abs(val) / maxAbs);
                                                     const alpha = (.18 + .82 * Math.pow(a, .55)).toFixed(3);
-                                                    const bg = val > 0 ? "rgba(226,59,59," + alpha + ")" : "rgba(22,163,74," + alpha + ")";
+                                                    const bg = val > 0 ? "rgba(" + upRgb() + "," + alpha + ")" : "rgba(" + downRgb() + "," + alpha + ")";
                                                     const txt = a > .5 ? "#fff" : "#33404f";
                                                     return {
                                                         bg: bg,
@@ -8452,7 +8610,7 @@
                                                         card.appendChild(name);
                                                         const vEl = document.createElement("div");
                                                         vEl.className = "cal-yval";
-                                                        vEl.style.color = yChg >= 0 ? "#dc2626" : "#16a34a";
+                                                        vEl.style.color = yChg >= 0 ? getCssVar("--up") : getCssVar("--down");
                                                         vEl.textContent = useAmt ? fmtAmtPlain(yChg) : fmtCalPct2(yPct);
                                                         card.appendChild(vEl);
                                                         card.title = y + "年\n起始资产：" + fmt0(startAsset) + "\n年末资产：" + fmt0(endAsset) + "\n年度收益：" + (yChg >= 0 ? "+" : "") + fmt0(yChg) + (yPct != null ? " (" + (yPct >= 0 ? "+" : "") + (yPct * 100).toFixed(2) + "%)" : "");
@@ -8516,7 +8674,8 @@
                                                     const legend = document.createElement("div");
                                                     legend.className = "cal-legend";
                                                     const metricName = useAmt ? "当日涨跌额" : "当日涨跌幅";
-                                                    legend.innerHTML = "颜色代表" + metricName + "（红涨绿跌）：" + '<span><i class="sw" style="background:rgba(226,59,59,.85)"></i>涨</span>' + '<span><i class="sw" style="background:rgba(22,163,74,.85)"></i>跌</span>' + '<span style="margin-left:6px">颜色越深幅度越大 · 悬停查看明细</span>';
+                                                    const scheme = COLOR_SCHEMES[_schemeName] || COLOR_SCHEMES.redGreen;
+                                                    legend.innerHTML = "颜色代表" + metricName + "（" + scheme.upLabel + "涨" + scheme.downLabel + "跌）：" + '<span><i class="sw" style="background:rgba(' + upRgb() + ',.85)"></i>涨</span>' + '<span><i class="sw" style="background:rgba(' + downRgb() + ',.85)"></i>跌</span>' + '<span style="margin-left:6px">颜色越深幅度越大 · 悬停查看明细</span>';
                                                     box.appendChild(legend)
                                                 }
 
@@ -8671,12 +8830,12 @@
                                                     const tb = $("fxDetailBody");
                                                     if (!tb) return;
                                                     if (fxRows === null) {
-                                                        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">加载中…</td></tr>';
+                                                        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text)">加载中…</td></tr>';
                                                         return
                                                     }
                                                     const n = fxRows.length;
                                                     if (!n) {
-                                                        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">无数据</td></tr>';
+                                                        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text)">无数据</td></tr>';
                                                         return
                                                     }
                                                     const idxs = [];
@@ -8763,7 +8922,7 @@
                                                         if (viewMode === "fxdetail") renderFxDetail()
                                                     }).catch(function() {
                                                         const tb = $("fxDetailBody");
-                                                        if (tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">无法读取 Asset_parsed.json（需通过本地服务器或已发布页面打开，直接双击 file:// 会被 CORS 拦截）</td></tr>'
+                                                        if (tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text)">无法读取 Asset_parsed.json（需通过本地服务器或已发布页面打开，直接双击 file:// 会被 CORS 拦截）</td></tr>'
                                                     })
                                                 }
 
@@ -9082,7 +9241,7 @@
                                                         uMode = "cache";
                                                         nxMode = "cache";
                                                         paintStatusTags();
-                                                        setStatus("idle", "添加资产后点“刷新实时行情”")
+                                                        setStatus("idle", "")
                                                     } else if (okF === 0 && okU === 0) {
                                                         fMode = "fail";
                                                         uMode = "fail";
@@ -10226,7 +10385,7 @@
                                                     paintStatusTags();
                                                     if (funds.length || us.length) {
                                                         refresh()
-                                                    } else setStatus("idle", "添加资产后点“刷新实时行情”");
+                                                    } else setStatus("idle", "");
                                                     loadFxDetailData();
                                                     syncUsFromJson();
                                                     syncCashFromJson();
@@ -10856,25 +11015,26 @@
 
                                                 .floating-bar {
                                                     position: fixed;
-                                                    bottom: 14px;
+                                                    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
                                                     left: 50%;
                                                     transform: translateX(-50%);
+                                                    will-change: transform;
                                                     background: #ffffff;
-                                                    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+                                                    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.07);
                                                     border: 1px solid rgba(0, 0, 0, 0.04);
-                                                    border-radius: 30px;
-                                                    padding: 6px;
+                                                    border-radius: 34px;
+                                                    padding: 9px;
                                                     display: flex;
-                                                    gap: 2px;
+                                                    gap: 3px;
                                                     z-index: 99999;
                                                 }
 
                                                 .floating-bar button {
-                                                    padding: 9px 18px;
-                                                    border-radius: 22px;
+                                                    padding: 12px 22px;
+                                                    border-radius: 26px;
                                                     border: 0;
                                                     background: transparent;
-                                                    font-size: 13px;
+                                                    font-size: 14px;
                                                     font-weight: 600;
                                                     color: #5f5f5f;
                                                     cursor: pointer;
@@ -10903,31 +11063,31 @@
                                                 }
 
                                                 .floating-bar button[data-page] {
-                                                    padding: 9px 11px;
+                                                    padding: 12px 15px;
                                                     gap: 0;
                                                 }
 
                                                 .floating-bar button[data-page] .ic {
-                                                    width: 20px;
-                                                    height: 20px;
+                                                    width: 24px;
+                                                    height: 24px;
                                                 }
 
                                                 .float-sep {
                                                     width: 1px;
-                                                    height: 22px;
+                                                    height: 26px;
                                                     background: rgba(0, 0, 0, 0.10);
-                                                    margin: 0 4px;
+                                                    margin: 0 5px;
                                                     flex: none;
                                                 }
 
                                                 .float-refresh {
-                                                    padding: 9px 11px !important;
+                                                    padding: 12px 15px !important;
                                                     color: #1a73e8;
                                                 }
 
                                                 .float-refresh .ic {
-                                                    width: 18px;
-                                                    height: 18px;
+                                                    width: 22px;
+                                                    height: 22px;
                                                 }
 
                                                 .float-refresh.spin .ic {
@@ -11047,7 +11207,7 @@
                                                     font-size: 26px;
                                                     line-height: 1;
                                                     cursor: pointer;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                     padding: 0 6px;
                                                     flex: 0 0 auto;
                                                 }
@@ -11173,7 +11333,7 @@
                                                     padding: 10px 18px;
                                                     border-top: 1px solid var(--line);
                                                     font-size: 11px;
-                                                    color: var(--muted);
+                                                    color: var(--text);
                                                     text-align: center;
                                                 }
 
@@ -11576,6 +11736,10 @@
                                                     if (setAutoUs) setAutoUs.addEventListener("click", function() {
                                                         clickHidden("btnAutoUs");
                                                         setTimeout(syncAutoUs, 0)
+                                                    });
+                                                    var setColorSchemeBtn = document.getElementById("setColorSchemeBtn");
+                                                    if (setColorSchemeBtn) setColorSchemeBtn.addEventListener("click", function() {
+                                                        applyColorScheme(_schemeName === "redGreen" ? "greenRed" : "redGreen", true)
                                                     });
                                                     ["fund", "us", "cash", "pending"].forEach(function(k) {
                                                         var cap = k.charAt(0).toUpperCase() + k.slice(1);
