@@ -1243,6 +1243,15 @@
             font-size: 13px;
         }
 
+        /* 挂单表横向不溢出，移除无谓的 overflow 滚动层，避免 iOS 纵向触摸滚动被劫持；并提升为合成层保证滚动流畅 */
+        .tbl-scroll.pending-scroll {
+            overflow: visible;
+        }
+        .pending-tbl {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
         .pending-tbl th {
             font-size: 12px;
             color: var(--text);
@@ -1254,8 +1263,7 @@
             padding: 8px 4px;
             text-align: center;
             vertical-align: top;
-            border-bottom: none;
-            box-shadow: inset 0 -1px 0 0 var(--line);
+            border-bottom: 1px solid var(--line);
         }
 
         .pending-tbl td.cls-name {
@@ -3365,11 +3373,10 @@
                 <div class="label"><span class="li-ic">⏱️</span>自动刷新美股</div>
                 <div class="value" id="setAutoUsVal">关</div><span class="arrow">›</span>
             </div>
-            <div class="setting-row">
+            <div class="setting-row collapsible collapsed" id="setSrcBtn">
                 <div class="label"><span class="li-ic">📡</span>数据源</div>
-                <div class="value">
-                    <div class="src-legend" style="font-size:12px;color:var(--muted,#888);margin-top:4px;line-height:1.8;text-align:left;padding-left:33%;">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权：盘中取 Alpaca</div>
-                </div>
+                <span class="arrow">›</span>
+                <div class="src-detail">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权：盘中取 Alpaca</div>
             </div>
             <div class="setting-row" id="setIconBrowserBtn">
                 <div class="label"><span class="li-ic">🎨</span>图标浏览</div><span class="arrow">›</span>
@@ -3564,7 +3571,7 @@
                                                 <div class="wrap">
                                                     <header class="top">
                                                         <div class="actions">
-                                                            <span id="status" class="status live"><span id="statusTags" class="status-tags"><span class="fx-tag fx-live"><span class="fdot"></span>基金</span><span class="fx-tag fx-live"><span class="fdot"></span>盘外</span><span class="fx-tag fx-live"><span class="fdot"></span>市场温度</span></span><span id="statusMsg" class="status-msg" style="display: none;"></span><span id="fxStatus" class="fx-tag fx-live"><span class="fdot"></span>汇率</span></span>
+                                                            <span id="status" class="status live"><span id="statusTags" class="status-tags"><span class="fx-tag fx-live"><span class="fdot"></span>基金</span><span class="fx-tag fx-live"><span class="fdot"></span>盘外</span><span class="fx-tag fx-live"><span class="fdot"></span>市场温度</span></span><span id="fxStatus" class="fx-tag fx-live"><span class="fdot"></span>汇率</span><span id="statusMsg" class="status-msg" style="display: none;"></span></span>
                                                             <button class="ghost sm" id="btnExport" style="display:none">导出</button>
                                                             <button class="ghost sm" id="btnExportData" style="display:none">导出带数据</button>
                                                             <button class="primary" id="btnRefresh" style="display:none">↻ 刷新实时行情</button>
@@ -3722,7 +3729,7 @@
                                                 <div class="pending-toolbar">
                                                     <div class="pf-sum">已实现盈亏：<span id="pendingPnl" style="">—</span><span id="pendingCount" style="margin-left:10px;color:var(--text)">共 0 笔交易</span></div>
                                                 </div>
-                                                <div class="tbl-scroll">
+                                                <div class="tbl-scroll pending-scroll">
                                                     <table class="pending-tbl">
                                                         <colgroup>
                                                             <col style="width:20%">
@@ -9736,19 +9743,31 @@
                                                         return 0
                                                     }
                                                 }
-                                                $("btnAutoUs").onclick = async () => {
-                                                    if (_autoUsTimer) {
-                                                        clearInterval(_autoUsTimer);
-                                                        _autoUsTimer = null;
+                                                function setAutoUsState(on) {
+                                                    var ba = document.getElementById("btnAutoUs");
+                                                    var fr = document.getElementById("floatRefresh");
+                                                    var sv = document.getElementById("setAutoUsVal");
+                                                    var sb = document.getElementById("setAutoUsBtn");
+                                                    if (on) {
+                                                        _autoUsOn = true;
+                                                        if (ba) ba.classList.add("on");
+                                                        if (fr) { fr.classList.add("auto"); fr.classList.remove("off"); }
+                                                        refreshUsOnly();
+                                                        if (!_autoUsTimer) _autoUsTimer = setInterval(refreshUsOnly, AUTO_US_MS);
+                                                        setStatus("live", "已开启自动刷新美股");
+                                                    } else {
                                                         _autoUsOn = false;
-                                                        $("btnAutoUs").classList.remove("on");
+                                                        if (_autoUsTimer) { clearInterval(_autoUsTimer); _autoUsTimer = null; }
+                                                        if (ba) ba.classList.remove("on");
+                                                        if (fr) { fr.classList.remove("auto"); fr.classList.add("off"); }
                                                         setStatus("live", "已停止自动刷新美股");
-                                                        return
                                                     }
-                                                    _autoUsOn = true;
-                                                    $("btnAutoUs").classList.add("on");
-                                                    await refreshUsOnly();
-                                                    _autoUsTimer = setInterval(refreshUsOnly, AUTO_US_MS)
+                                                    if (sv) sv.textContent = on ? "开" : "关";
+                                                    if (sb) sb.classList.toggle("on", !!on);
+                                                    if (typeof syncAutoUs === "function") syncAutoUs();
+                                                }
+                                                $("btnAutoUs").onclick = async () => {
+                                                    setAutoUsState(!_autoUsOn);
                                                 };
                                                 window.addEventListener("beforeunload", () => {
                                                     if (_autoUsTimer) {
@@ -11174,6 +11193,14 @@
                                                     color: #1a73e8;
                                                 }
 
+                                                .float-refresh.auto {
+                                                    color: #1a73e8;
+                                                }
+
+                                                .float-refresh.off {
+                                                    color: #b8c0cc;
+                                                }
+
                                                 .float-refresh .ic {
                                                     width: 22px;
                                                     height: 22px;
@@ -11687,6 +11714,30 @@
                                                     font-weight: 300;
                                                 }
 
+                                                /* 数据源折叠行：默认收起，点击展开 */
+                                                #setSrcBtn {
+                                                    flex-wrap: wrap;
+                                                }
+                                                #setSrcBtn .src-detail {
+                                                    flex-basis: 100%;
+                                                    display: none;
+                                                    width: 100%;
+                                                    font-size: 12px;
+                                                    color: var(--muted, #888);
+                                                    line-height: 1.8;
+                                                    text-align: left;
+                                                    padding: 8px 2px 2px;
+                                                }
+                                                #setSrcBtn:not(.collapsed) .src-detail {
+                                                    display: block;
+                                                }
+                                                #setSrcBtn .arrow {
+                                                    transition: transform .15s ease;
+                                                }
+                                                #setSrcBtn:not(.collapsed) .arrow {
+                                                    transform: rotate(90deg);
+                                                }
+
                                                 .setting-row.danger .label {
                                                     color: #d24545;
                                                 }
@@ -11781,12 +11832,23 @@
                                                         showPage(b.dataset.page)
                                                     });
                                                     var floatRefresh = document.getElementById("floatRefresh");
+                                                    var _frLastClick = 0;
                                                     if (floatRefresh) floatRefresh.addEventListener("click", function() {
-                                                        if (typeof refresh === "function") refresh();
-                                                        floatRefresh.classList.remove("spin");
-                                                        void floatRefresh.offsetWidth;
-                                                        floatRefresh.classList.add("spin")
+                                                        var fr = floatRefresh;
+                                                        fr.classList.remove("spin");
+                                                        void fr.offsetWidth;
+                                                        fr.classList.add("spin");
+                                                        var now = Date.now();
+                                                        if (now - _frLastClick < 800) {
+                                                            _frLastClick = 0;
+                                                            setAutoUsState(!_autoUsOn); // 双击：切换固定刷新（自动刷新美股）
+                                                        } else {
+                                                            _frLastClick = now;
+                                                            if (typeof refresh === "function") refresh(); // 单击：手动刷新一次
+                                                        }
                                                     });
+                                                    // 默认开启自动刷新美股（固定刷新），刷新按钮保持蓝色
+                                                    setAutoUsState(true);
 
                                                     function clickHidden(id) {
                                                         var b = document.getElementById(id);
@@ -11851,6 +11913,12 @@
                                                             h.parentElement.classList.toggle("collapsed")
                                                         })
                                                     });
+                                                    var setSrcBtn = document.getElementById("setSrcBtn");
+                                                    if (setSrcBtn) {
+                                                        setSrcBtn.addEventListener("click", function() {
+                                                            setSrcBtn.classList.toggle("collapsed")
+                                                        })
+                                                    }
 
                                                     function sumForexCnh(j) {
                                                         var fx = j && Array.isArray(j.forexTrades) ? j.forexTrades : [];
