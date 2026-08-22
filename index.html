@@ -4942,6 +4942,11 @@
                                                     return p[1] + "-" + p[2]
                                                 }
 
+                                                function ymdCompact(s) {
+                                                    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                                                    return s.replace(/-/g, "")
+                                                }
+
                                                 function parseDate(s) {
                                                     const t = Date.parse(s);
                                                     return isNaN(t) ? null : t
@@ -9044,7 +9049,7 @@
                                                         const chg = prevTot ? (tot - prevTot) / prevTot * 100 : null;
                                                         const up = chg == null ? "" : chg >= 0 ? "up" : "down";
                                                         const last = i === n - 1;
-                                                        html += '<tr class="' + (last ? "last" : "") + '">' + "<td>" + s.labels[i] + "</td>" + '<td class="num">' + fmt0(fund) + "</td>" + '<td class="num">' + fmt0(us) + "</td>" + '<td class="num">' + fmt0(cash) + "</td>" + '<td class="num"><b>' + fmt0(tot) + "</b></td>" + '<td class="num ' + up + '">' + (chg == null ? "—" : (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%") + "</td>" + "</tr>"
+                                                        html += '<tr class="' + (last ? "last" : "") + '">' + "<td>" + ymdCompact(s.labels[i]) + "</td>" + '<td class="num">' + fmt0(fund) + "</td>" + '<td class="num">' + fmt0(us) + "</td>" + '<td class="num">' + fmt0(cash) + "</td>" + '<td class="num"><b>' + fmt0(tot) + "</b></td>" + '<td class="num ' + up + '">' + (chg == null ? "—" : (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%") + "</td>" + "</tr>"
                                                     }
                                                     tb.innerHTML = html;
                                                     const pager = $("detailPager");
@@ -9103,7 +9108,7 @@
                                                         const chg = prevNet != null && prevNet !== 0 ? (row.net - prevNet) / prevNet * 100 : null;
                                                         const up = chg == null ? "" : chg >= 0 ? "up" : "down";
                                                         const pos = row.net - row.cash;
-                                                        html += "<tr>" + "<td>" + row.date + "</td>" + '<td class="num">' + fmtUSD(row.net) + "</td>" + '<td class="num">' + fmtUSD(row.cash) + "</td>" + '<td class="num">' + fmtUSD(pos) + "</td>" + '<td class="num ' + up + '">' + (chg == null ? "—" : (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%") + "</td>" + "</tr>"
+                                                        html += "<tr>" + "<td>" + ymdCompact(row.date) + "</td>" + '<td class="num">' + fmtUSD(row.net) + "</td>" + '<td class="num">' + fmtUSD(row.cash) + "</td>" + '<td class="num">' + fmtUSD(pos) + "</td>" + '<td class="num ' + up + '">' + (chg == null ? "—" : (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%") + "</td>" + "</tr>"
                                                     }
                                                     tb.innerHTML = html;
                                                     const pager = $("fxDetailPager");
