@@ -2605,6 +2605,25 @@
                 align-self: stretch;
                 width: 100%;
             }
+
+            /* 小屏下日明细/IBKR 表格缩小字号和 padding，避免横向溢出 */
+            .debug {
+                font-size: 10px;
+            }
+
+            .debug th,
+            .debug td {
+                padding: 5px 2px;
+                white-space: nowrap;
+            }
+
+            .debug th:first-child,
+            .debug td:first-child {
+                width: 17%;
+                max-width: 60px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
         }
     </style>
     <link rel="manifest" href="manifest.webmanifest">
