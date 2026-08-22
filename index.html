@@ -1243,12 +1243,9 @@
             font-size: 13px;
         }
 
-        /* 挂单表：独立内层纵向滚动容器，不走整页滚动，避免与 fixed 悬浮栏 / sticky 表头反复重新合成导致 iOS 卡顿 */
+        /* 挂单表：每页 10 行，走整页滚动，不再使用内层滚动容器 */
         .tbl-scroll.pending-scroll {
-            max-height: 60vh;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
+            overflow: visible;
         }
 
         .pending-tbl th {
@@ -2369,313 +2366,269 @@
                 transform: none;
             }
         }
+
+        /* 个人净资产分布：hero 右上角饼图按钮 + 全屏覆盖层 */
+        .hero-alloc-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            z-index: 2;
+            width: 38px;
+            height: 38px;
+            border: 0;
+            border-radius: 11px;
+            background: #fff;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+            transition: background .15s;
+        }
+
+        .hero-alloc-btn:active {
+            background: #f0f2f8;
+        }
+
+        .hero-alloc-btn svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .alloc-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: #f5f7fb;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: none;
+        }
+
+        .alloc-overlay.open {
+            display: block;
+        }
+
+        .alloc-overlay-head {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            background: #fff;
+            border-bottom: 1px solid var(--line, #e7eaf1);
+        }
+
+        .alloc-back {
+            border: 0;
+            background: #eef2f7;
+            color: #1c2430;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .alloc-back:active {
+            background: #e2e8f0;
+        }
+
+        .alloc-overlay-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .alloc-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 16px;
+            padding: 8px 16px 40px;
+        }
+
+        .alloc-chart {
+            position: relative;
+            flex: 1 1 300px;
+            max-width: 340px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .alloc-chart-canvas svg {
+            width: 100%;
+            height: auto;
+            max-width: 340px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .alloc-toggle {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            z-index: 3;
+            display: inline-flex;
+            gap: 2px;
+            padding: 2px;
+            background: #eef2f7;
+            border: 1px solid var(--line, #e7eaf1);
+            border-radius: 11px;
+        }
+
+        .alloc-toggle button {
+            border: 0;
+            background: transparent;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            padding: 5px 11px;
+            border-radius: 9px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .15s, color .15s;
+        }
+
+        .alloc-toggle button.active {
+            background: #fff;
+            color: #1c2430;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .12);
+        }
+
+        .alloc-legend {
+            flex: 1 1 240px;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .alloc-leg-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            border-bottom: 1px dashed var(--line);
+            padding-bottom: 7px;
+        }
+
+        .alloc-leg-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .alloc-leg-item .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            flex: none;
+        }
+
+        .alloc-leg-item .nm {
+            flex: 1;
+            min-width: 0;
+            color: var(--text);
+            white-space: normal;
+            overflow: visible;
+            word-break: break-word;
+        }
+
+        .alloc-leg-item .pc {
+            font-weight: 700;
+            color: var(--text);
+            min-width: 50px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .alloc-leg-item .vl {
+            color: var(--text);
+            min-width: 86px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .alloc-leg-item .code {
+            color: #9aa4b2;
+            font-size: 11px;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            margin-left: 2px;
+        }
+
+        .alloc-leg-item .leg-ic {
+            display: inline-flex;
+            flex-shrink: 0;
+        }
+
+        .alloc-leg-item .leg-ic .item-ic {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            box-shadow: none;
+        }
+
+        .alloc-empty {
+            padding: 30px;
+            text-align: center;
+            color: #aab;
+            font-size: 13px;
+        }
+
+        @media (max-width: 560px) {
+            .alloc-wrap {
+                flex-direction: column;
+                align-items: center;
+                gap: 14px;
+            }
+
+            .alloc-chart {
+                max-width: none;
+                width: 100%;
+                margin: 0 auto;
+            }
+
+            .alloc-chart-canvas svg {
+                max-width: 100%;
+            }
+
+            .alloc-legend {
+                align-self: stretch;
+                width: 100%;
+            }
+        }
     </style>
     <link rel="manifest" href="manifest.webmanifest">
 </head>
 
 <body style="-webkit-text-size-adjust: 100%;"><!-- 图表页面（曲线图 / 日历图 / 市场温度，由浮动栏 IIFE 注入） -->
-    <section class="page-section page-chart" id="pageChart">
-        <section class="panel" id="allocationSection">
-            <style>
-                .alloc-wrap {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 18px;
-                    align-items: center;
-                    justify-content: center;
-                    margin-top: 8px;
-                }
-
-                .alloc-chart {
-                    position: relative;
-                    flex: 1 1 300px;
-                    max-width: 340px;
-                    width: 100%;
-                    text-align: center;
-                }
-
-                .alloc-chart-canvas svg {
-                    width: 100%;
-                    height: auto;
-                    max-width: 340px;
-                    margin: 0 auto;
-                    display: block;
-                }
-
-                .alloc-toggle {
-                    position: absolute;
-                    top: 2px;
-                    right: 2px;
-                    z-index: 3;
-                    display: inline-flex;
-                    gap: 2px;
-                    padding: 2px;
-                    background: #eef2f7;
-                    border: 1px solid var(--line, #e7eaf1);
-                    border-radius: 11px;
-                }
-                .alloc-toggle button {
-                    border: 0;
-                    background: transparent;
-                    color: #64748b;
-                    font-size: 12px;
-                    font-weight: 600;
-                    line-height: 1;
-                    padding: 5px 11px;
-                    border-radius: 9px;
-                    cursor: pointer;
-                    font-family: inherit;
-                    transition: background .15s, color .15s;
-                }
-                .alloc-toggle button.active {
-                    background: #fff;
-                    color: #1c2430;
-                    box-shadow: 0 1px 2px rgba(15,23,42,.12);
-                }
-                .alloc-legend {
-                    flex: 1 1 240px;
-                    min-width: 0;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 7px;
-                }
-
-                @media (max-width: 640px) {
-                    .alloc-wrap {
-                        flex-direction: column;
-                        align-items: stretch;
-                        gap: 12px;
-                    }
-                    .alloc-chart {
-                        flex: 1 1 auto;
-                        max-width: none;
-                        width: 100%;
-                        margin: 0 auto;
-                    }
-                    .alloc-chart-canvas svg {
-                        max-width: 100%;
-                    }
-
-                    .wrap {
-                        padding: 14px 8px 50px;
-                    }
-
-                    .panel {
-                        padding: 14px 10px;
-                    }
-                    .alloc-legend {
-                        width: 100%;
-                    }
-                }
-
-                .alloc-leg-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-size: 12.5px;
-                    border-bottom: 1px dashed var(--line);
-                    padding-bottom: 7px;
-                }
-
-                .alloc-leg-item:last-child {
-                    border-bottom: none;
-                    padding-bottom: 0;
-                }
-
-                .alloc-leg-item .dot {
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 3px;
-                    flex: none;
-                }
-
-                .alloc-leg-item .nm {
-                    flex: 1;
-                    min-width: 0;
-                    color: var(--text);
-                    white-space: normal;
-                    overflow: visible;
-                    word-break: break-word;
-                }
-
-                .alloc-leg-item .pc {
-                    font-weight: 700;
-                    color: var(--text);
-                    min-width: 50px;
-                    text-align: right;
-                    font-variant-numeric: tabular-nums;
-                }
-
-                .alloc-leg-item .vl {
-                    color: var(--text);
-                    min-width: 86px;
-                    text-align: right;
-                    font-variant-numeric: tabular-nums;
-                }
-
-                .alloc-leg-item .code {
-                    color: #9aa4b2;
-                    font-size: 11px;
-                    font-weight: 500;
-                    font-variant-numeric: tabular-nums;
-                    margin-left: 2px;
-                }
-
-                .alloc-leg-item .leg-ic {
-                    display: inline-flex;
-                    flex-shrink: 0;
-                }
-
-                .alloc-leg-item .leg-ic .item-ic {
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 6px;
-                    box-shadow: none;
-                }
-
-                .alloc-empty {
-                    padding: 30px;
-                    text-align: center;
-                    color: #aab;
-                    font-size: 13px;
-                }
-
-                @media (max-width:560px) {
-                    .alloc-wrap {
-                        flex-direction: column;
-                        align-items: center;
-                        gap: 14px;
-                    }
-
-                    .alloc-chart {
-                        max-width: none;
-                        width: 100%;
-                        margin: 0 auto;
-                    }
-
-                    .alloc-chart-canvas svg {
-                        max-width: 100%;
-                    }
-
-                    #pageChart {
-                        padding-left: 6px;
-                        padding-right: 6px;
-                    }
-
-                    #allocationSection {
-                        padding-left: 4px;
-                        padding-right: 4px;
-                    }
-
-                    .wrap {
-                        padding: 14px 8px 50px;
-                    }
-
-                    .panel {
-                        padding: 14px 10px;
-                    }
-
-                    .alloc-legend {
-                        align-self: stretch;
-                        width: 100%;
-                    }
-
-                    /* 每日明细表：固定列宽，手机上 6 列不溢出、不裁切右边 */
-                    .debug {
-                        table-layout: fixed;
-                        font-size: 10px;
-                        width: 100%;
-                    }
-
-                    .debug th,
-                    .debug td {
-                        padding: 5px 3px;
-                        white-space: nowrap;
-                    }
-
-                    .debug th:first-child,
-                    .debug td:first-child {
-                        width: 21%;
-                    }
-                }
-            </style>
-            <h2>个人净资产分布</h2>
-            <div class="alloc-wrap">
-                <div class="alloc-chart">
-                    <div class="alloc-toggle" id="allocToggle" role="group" aria-label="切换资产 / 分类视图">
-                        <button type="button" data-mode="asset" class="active">资产</button>
-                        <button type="button" data-mode="cat">分类</button>
-                    </div>
-                    <div id="allocChart" class="alloc-chart-canvas"><svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">
-                        <circle cx="180" cy="180" r="66" fill="#0f172a"></circle><text x="180" y="185.9" text-anchor="middle" font-size="17" font-weight="800" fill="#fff">¥1,013,786</text>
-                        <path d="M180.00,20.00 A160,160 0 0 1 335.45,142.12 L244.12,164.37 A66,66 0 0 0 180.00,114.00 Z" fill="#3b82f6" stroke="#fff" stroke-width="1.5">
-                            <title>基金 · 000043 21.2%</title>
-                        </path>
-                        <rect x="237.8" y="64.9" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
-                        <image data-b64="0" x="241.9" y="69.0" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="249.8" y="102.9" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">21.2%</text><text x="249.8" y="114.7" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">000043</text>
-                        <path d="M335.45,142.12 A160,160 0 0 1 270.06,312.25 L217.15,234.55 A66,66 0 0 0 244.12,164.37 Z" fill="#22c55e" stroke="#fff" stroke-width="1.5">
-                            <title>现金 · 盈透证券 19.3%</title>
-                        </path>
-                        <rect x="273.5" y="194.3" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
-                        <image data-b64="9" x="277.6" y="198.4" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="285.5" y="232.3" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">19.3%</text><text x="285.5" y="244.1" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">盈透证券</text>
-                        <path d="M270.06,312.25 A160,160 0 0 1 89.60,312.01 L142.71,234.45 A66,66 0 0 0 217.15,234.55 Z" fill="#2563eb" stroke="#fff" stroke-width="1.5">
-                            <title>基金 · 270023 19.1%</title>
-                        </path>
-                        <rect x="167.9" y="266.7" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
-                        <image data-b64="1" x="171.9" y="270.8" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="179.9" y="304.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">19.1%</text><text x="179.9" y="316.6" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">270023</text>
-                        <path d="M89.60,312.01 A160,160 0 0 1 22.04,205.46 L114.84,190.50 A66,66 0 0 0 142.71,234.45 Z" fill="#16a34a" stroke="#fff" stroke-width="1.5">
-                            <title>现金 · 公积金 12.9%</title>
-                        </path>
-                        <rect x="72.6" y="214.3" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
-                        <image data-b64="7" x="76.6" y="218.3" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="84.6" y="252.3" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">12.9%</text><text x="84.6" y="264.1" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">公积金</text>
-                        <path d="M22.04,205.46 A160,160 0 0 1 45.77,92.93 L124.63,144.08 A66,66 0 0 0 114.84,190.50 Z" fill="#1d4ed8" stroke="#fff" stroke-width="1.5">
-                            <title>基金 · 021277 11.7%</title>
-                        </path>
-                        <rect x="57.4" y="130.4" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
-                        <image data-b64="1" x="61.5" y="134.5" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="69.4" y="168.4" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">11.7%</text><text x="69.4" y="180.3" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">021277</text>
-                        <path d="M45.77,92.93 A160,160 0 0 1 71.96,61.98 L135.44,131.32 A66,66 0 0 0 124.63,144.08 Z" fill="#15803d" stroke="#fff" stroke-width="1.5">
-                            <title>现金 · 工资 4.0%</title>
-                        </path>
-                        <path d="M71.96,61.98 A160,160 0 0 1 100.48,41.16 L147.20,122.73 A66,66 0 0 0 135.44,131.32 Z" fill="#60a5fa" stroke="#fff" stroke-width="1.5">
-                            <title>基金 · 016533 3.5%</title>
-                        </path>
-                        <path d="M100.48,41.16 A160,160 0 0 1 126.13,29.34 L157.78,117.85 A66,66 0 0 0 147.20,122.73 Z" fill="#ef4444" stroke="#fff" stroke-width="1.5">
-                            <title>美股 · TQQQ 2.8%</title>
-                        </path>
-                        <path d="M126.13,29.34 A160,160 0 0 1 152.95,22.30 L168.84,114.95 A66,66 0 0 0 157.78,117.85 Z" fill="#4ade80" stroke="#fff" stroke-width="1.5">
-                            <title>现金 · 建设银行 2.8%</title>
-                        </path>
-                        <path d="M152.95,22.30 A160,160 0 0 1 171.63,20.22 L176.55,114.09 A66,66 0 0 0 168.84,114.95 Z" fill="#10b981" stroke="#fff" stroke-width="1.5">
-                            <title>现金 · 汇丰中国 1.9%</title>
-                        </path>
-                        <path d="M171.63,20.22 A160,160 0 0 1 178.99,20.00 L179.58,114.00 A66,66 0 0 0 176.55,114.09 Z" fill="#34d399" stroke="#fff" stroke-width="1.5">
-                            <title>现金 · 汇丰美国 0.7%</title>
-                        </path>
-                        <path d="M178.99,20.00 A160,160 0 0 1 180.00,20.00 L180.00,114.00 A66,66 0 0 0 179.58,114.00 Z" fill="#0ea5e9" stroke="#fff" stroke-width="1.5">
-                            <title>基金 · 016532 0.1%</title>
-                        </path>
-                        <rect x="81.8" y="86.7" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
-                        <image data-b64="8" x="85.8" y="90.8" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="111.8" y="124.7" text-anchor="end" font-size="12.5" font-weight="700" fill="#fff">4.0%</text>
-                        <rect x="101.4" y="68.5" width="24" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,.12)" stroke-width="0.5"></rect>
-                        <image data-b64="0" x="105.4" y="72.6" width="15.8" height="15.8" preserveAspectRatio="xMidYMid meet"></image><text x="131.4" y="106.5" text-anchor="end" font-size="12.5" font-weight="700" fill="#fff">3.5%</text>
-                    </svg></div>
+    <!-- 个人净资产分布：覆盖层（由 hero 饼图按钮打开，返回按钮关闭） -->
+    <div id="allocOverlay" class="alloc-overlay" aria-hidden="true">
+        <div class="alloc-overlay-head">
+            <button id="allocBackBtn" class="alloc-back" type="button" aria-label="返回">‹ 返回</button>
+            <div class="alloc-overlay-title">个人净资产分布</div>
+        </div>
+        <div class="alloc-wrap">
+            <div class="alloc-chart">
+                <div class="alloc-toggle" id="allocToggle" role="group" aria-label="切换资产 / 分类视图">
+                    <button type="button" data-mode="asset" class="active">资产</button>
+                    <button type="button" data-mode="cat">分类</button>
                 </div>
-                <div id="allocLegend" class="alloc-legend">
-                    <div class="alloc-leg-item"><span class="dot" style="background:#3b82f6"></span><span class="leg-ic"><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;&gt;嘉实&lt;/span&gt;';"></span></span><span class="nm">嘉实美国成长股票人民币 <span class="code">000043</span></span><span class="pc">21.2%</span><span class="vl">¥214,878</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#22c55e"></span><span class="leg-ic"><span class="item-ic"><img data-b64="9" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#FF6C00&quot;&gt;IB&lt;/span&gt;';"></span></span><span class="nm">盈透证券</span><span class="pc">19.3%</span><span class="vl">¥195,552</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#2563eb"></span><span class="leg-ic"><span class="item-ic"><img data-b64="1" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#C8102E&quot;&gt;广发&lt;/span&gt;';"></span></span><span class="nm">广发全球精选股票(QDII)人民币A <span class="code">270023</span></span><span class="pc">19.1%</span><span class="vl">¥193,346</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#16a34a"></span><span class="leg-ic"><span class="item-ic"><img data-b64="7" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;广发&lt;/span&gt;';"></span></span><span class="nm">公积金</span><span class="pc">12.9%</span><span class="vl">¥130,777</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#1d4ed8"></span><span class="leg-ic"><span class="item-ic"><img data-b64="1" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#C8102E&quot;&gt;广发&lt;/span&gt;';"></span></span><span class="nm">广发全球精选股票(QDII)人民币C <span class="code">021277</span></span><span class="pc">11.7%</span><span class="vl">¥118,629</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#15803d"></span><span class="leg-ic"><span class="item-ic"><img data-b64="8" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;农业&lt;/span&gt;';"></span></span><span class="nm">工资</span><span class="pc">4.0%</span><span class="vl">¥41,000</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#60a5fa"></span><span class="leg-ic"><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;&gt;嘉实&lt;/span&gt;';"></span></span><span class="nm">嘉实纳斯达克100ETF发起联接(QDII)C人民币 <span class="code">016533</span></span><span class="pc">3.5%</span><span class="vl">¥35,683</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#ef4444"></span><span class="leg-ic"><span class="item-ic"><img data-b64="3" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;Pr&lt;/span&gt;';"></span></span><span class="nm">纳斯达克100三倍做多 <span class="code">TQQQ</span></span><span class="pc">2.8%</span><span class="vl">¥28,512</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#4ade80"></span><span class="leg-ic"><span class="item-ic"><img data-b64="6" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;建设&lt;/span&gt;';"></span></span><span class="nm">建设银行</span><span class="pc">2.8%</span><span class="vl">¥28,000</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#10b981"></span><span class="leg-ic"><span class="item-ic"><img data-b64="5" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;HS&lt;/span&gt;';"></span></span><span class="nm">汇丰中国</span><span class="pc">1.9%</span><span class="vl">¥18,959</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#34d399"></span><span class="leg-ic"><span class="item-ic"><img data-b64="5" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;HS&lt;/span&gt;';"></span></span><span class="nm">汇丰美国</span><span class="pc">0.7%</span><span class="vl">¥7,433</span></div>
-                    <div class="alloc-leg-item"><span class="dot" style="background:#0ea5e9"></span><span class="leg-ic"><span class="item-ic"><img data-b64="0" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#E60012&quot;&gt;嘉实&lt;/span&gt;';"></span></span><span class="nm">嘉实纳斯达克100ETF发起联接(QDII)A人民币 <span class="code">016532</span></span><span class="pc">0.1%</span><span class="vl">¥1,016</span></div>
-                </div>
+                <div id="allocChart" class="alloc-chart-canvas"></div>
             </div>
-        </section>
+            <div id="allocLegend" class="alloc-legend"></div>
+        </div>
+    </div>
+    <section class="page-section page-chart" id="pageChart">
         <section class="panel" id="chartSection">
             <h2>个人总资产图表</h2>
             <div class="view-toggle" id="viewToggle">
@@ -3352,7 +3305,7 @@
                     <button class="nx-detail-btn" type="button" data-target="gboxVXN">详情 ▾</button>
                 </div>
                 <div class="card">
-                    <div class="k"><span class="dot" style="background:#0ea5e9"></span>纳斯达克每日动态PE</div>
+                    <div class="k"><span class="dot" style="background:#0ea5e9"></span>纳斯达克100 FP</div>
                     <div class="v" id="nxDynPE" style="color: rgb(91, 102, 120);">22.8</div>
                     <div class="nxd" id="nxDynPEdate">截至 2026-08-14</div>
                 </div>
@@ -3667,6 +3620,7 @@
 
 
                                                     <section class="hero">
+                                                        <button id="heroAllocBtn" class="hero-alloc-btn" type="button" aria-label="个人净资产分布"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:28px;height:28px;display:block;flex:none;"><circle cx="12" cy="12" r="10" fill="#4361ee"/><path d="M12 2a10 10 0 0 1 10 10h-10V2z" fill="#5b7bff"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></button>
                                                         <div class="lbl">总资产</div>
                                                         <div class="val" id="heroTotal">¥1,013,945.41</div>
                                                         <div class="pred-line" id="heroPredict">预测资产：¥1,031,377.77 <span>+¥17,432</span></div>
@@ -5718,6 +5672,11 @@
                                                             if (it.m !== "jp") set[(it.m || "us") + it.c] = 1
                                                         })
                                                     });
+                                                    // 把直接持有的美股也加入腾讯行情订阅（us 列表里的持仓）
+                                                    (us || []).forEach(function(u) {
+                                                        var sym = String(u.symbol || "").toUpperCase();
+                                                        if (sym) set["us" + sym] = 1
+                                                    });
                                                     return Object.keys(set)
                                                 }
 
@@ -6323,7 +6282,11 @@
                                                         var mult = usUnitMult(u);
                                                         var hist = u._hist || [];
                                                         var usd = hist.length ? valOnOrBefore(hist, todayTs(), "price") != null ? valOnOrBefore(hist, todayTs(), "price") : hist[0].price : u.price != null ? Number(u.price) : 0;
-                                                        if (u._usdCn != null && !isOptionSymbol(u.symbol)) usd = u._usdCn;
+                                                        // 美股当日价优先用腾讯(gtimg)实时价：先取 _holdQ（与饼图一致），再退回 _usdCn，最后 Alpaca
+                                                        var symUp = String(u.symbol || "").toUpperCase();
+                                                        var qqUp = window._holdQ && symUp ? window._holdQ["us" + symUp] : null;
+                                                        if (qqUp && qqUp.price > 0) usd = qqUp.price;
+                                                        else if (u._usdCn != null && !isOptionSymbol(u.symbol)) usd = u._usdCn;
                                                         usVal += holdSh * mult * usd * fx;
                                                         if (st.avgCost > 0) usCost += holdSh * mult * st.avgCost * fx;
                                                         var realizedPnlCny = st.realizedPnl * fx;
@@ -6468,7 +6431,10 @@
                                                         });
                                                         us.forEach(function(u) {
                                                             var st = getTradeStats(u);
-                                                            var price = u.price != null && u.price > 0 ? u.price : u._usd || 0;
+                                                            // 美股市值优先用腾讯(gtimg)实时价，拿不到再退回 Alpaca 价
+                                                            var sym = String(u.symbol || "").toUpperCase();
+                                                            var qq = window._holdQ && sym ? window._holdQ["us" + sym] : null;
+                                                            var price = (qq && qq.price > 0) ? qq.price : (u.price != null && u.price > 0 ? u.price : u._usd || 0);
                                                             if (st.holdShares === 0 || price <= 0) return;
                                                             var val = st.holdShares * usUnitMult(u) * price * fx;
                                                             if (val <= 0) return;
@@ -6625,6 +6591,27 @@
                                                             try { drawAllocation() } catch (err) {}
                                                         })
                                                     }
+                                                })();
+
+                                                // 个人净资产分布覆盖层：hero 饼图按钮打开 / 返回按钮关闭
+                                                (function() {
+                                                    var btn = document.getElementById("heroAllocBtn");
+                                                    var overlay = document.getElementById("allocOverlay");
+                                                    var back = document.getElementById("allocBackBtn");
+                                                    if (!btn || !overlay) return;
+                                                    function openAlloc() {
+                                                        overlay.classList.add("open");
+                                                        overlay.setAttribute("aria-hidden", "false");
+                                                        document.body.style.overflow = "hidden";
+                                                        try { drawAllocation() } catch (err) {}
+                                                    }
+                                                    function closeAlloc() {
+                                                        overlay.classList.remove("open");
+                                                        overlay.setAttribute("aria-hidden", "true");
+                                                        document.body.style.overflow = "";
+                                                    }
+                                                    btn.addEventListener("click", openAlloc);
+                                                    if (back) back.addEventListener("click", closeAlloc);
                                                 })();
 
                                                 function globalEarliest() {
@@ -6872,7 +6859,9 @@
                                                     us.forEach(function(u) {
                                                         var st = getTradeStatsAt(u, todayTs());
                                                         if (!st || st.holdShares === 0) return;
-                                                        var price = u.price != null && u.price > 0 ? u.price : u._usd || 0;
+                                                        var sym = String(u.symbol || "").toUpperCase();
+                                                        var qq = window._holdQ && sym ? window._holdQ["us" + sym] : null;
+                                                        var price = (qq && qq.price > 0) ? qq.price : (u.price != null && u.price > 0 ? u.price : u._usd || 0);
                                                         if (!(price > 0)) return;
                                                         v += st.holdShares * usUnitMult(u) * price * fx
                                                     });
@@ -7333,7 +7322,7 @@
                                                     if (pcEl) {
                                                         pcEl.textContent = "共 " + rows.length + " 笔交易"
                                                     }
-                                                    var PENDING_PAGE_SIZE = 15;
+                                                    var PENDING_PAGE_SIZE = 10;
                                                     var pendingPages = Math.max(1, Math.ceil(rows.length / PENDING_PAGE_SIZE));
                                                     if (pendingPage > pendingPages) pendingPage = pendingPages;
                                                     if (pendingPage < 1) pendingPage = 1;
@@ -11900,8 +11889,6 @@
                                                     var settings = document.getElementById("pageSettings");
                                                     var chartSection = document.getElementById("chartSection");
                                                     var nxSection = document.getElementById("nxSection");
-                                                    var allocSection = document.getElementById("allocationSection");
-                                                    if (allocSection) chart.appendChild(allocSection);
                                                     if (chartSection) chart.appendChild(chartSection);
                                                     if (nxSection) chart.appendChild(nxSection);
                                                     var iconBrowser = document.getElementById("iconBrowserBg");
