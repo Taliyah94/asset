@@ -5357,9 +5357,10 @@
                                                             "Accept": "application/json"
                                                         };
                                                         var url = "https://data.alpaca.markets/v1beta1/options/snapshots?symbols=" + norm.join(",");
-                                                        fetch(url, {
-                                                            headers: hd
-                                                        }).then(function(r) {
+                                                        Promise.race([
+                                                            fetch(url, { headers: hd }),
+                                                            new Promise(function(_, rej) { setTimeout(function() { rej(new Error("timeout")) }, 8000) })
+                                                        ]).then(function(r) {
                                                             if (!r.ok) return null;
                                                             return r.json()
                                                         }).then(function(js) {
@@ -6064,22 +6065,24 @@
                                                             };
                                                             return null
                                                         }
+                                                        function getJsonTimed(url, ms) {
+                                                            return Promise.race([
+                                                                fetch(url, { headers: hd }),
+                                                                new Promise(function(_, rej) { setTimeout(function() { rej(new Error("to")); }, ms); })
+                                                            ]).catch(function() { return null; });
+                                                        }
                                                         Promise.all(symList.map(function(sym) {
                                                             return (async function() {
                                                                 try {
                                                                     var iex = null,
                                                                         ovn = null;
                                                                     try {
-                                                                        var r1 = await fetch("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=iex", {
-                                                                            headers: hd
-                                                                        });
-                                                                        if (r1.ok) iex = await r1.json()
+                                                                        var r1 = await getJsonTimed("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=iex", 8000);
+                                                                        if (r1 && r1.ok) iex = await r1.json()
                                                                     } catch (e) {}
                                                                     try {
-                                                                        var r2 = await fetch("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=overnight", {
-                                                                            headers: hd
-                                                                        });
-                                                                        if (r2.ok) ovn = await r2.json()
+                                                                        var r2 = await getJsonTimed("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=overnight", 8000);
+                                                                        if (r2 && r2.ok) ovn = await r2.json()
                                                                     } catch (e) {}
                                                                     var ti = iex && iex.latestTrade && iex.latestTrade.t,
                                                                         to = ovn && ovn.latestTrade && ovn.latestTrade.t;
@@ -6091,10 +6094,8 @@
                                                                     var pr = pick(best);
                                                                     if (!isUsRegularSession()) {
                                                                         try {
-                                                                            var rb = await fetch("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/bars?timeframe=1Min&limit=1&extended_hours=true", {
-                                                                                headers: hd
-                                                                            });
-                                                                            if (rb.ok) {
+                                                                            var rb = await getJsonTimed("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/bars?timeframe=1Min&limit=1&extended_hours=true", 8000);
+                                                                            if (rb && rb.ok) {
                                                                                 var bj = await rb.json();
                                                                                 if (bj && bj.bars && bj.bars.length) {
                                                                                     var bar = bj.bars[bj.bars.length - 1];
@@ -6147,8 +6148,8 @@
                                                 }
                                                 async function fetchFx() {
                                                     try {
-                                                        const r = await fetch("https://open.er-api.com/v6/latest/USD");
-                                                        if (r.ok) {
+                                                const r = await Promise.race([fetch("https://open.er-api.com/v6/latest/USD"), new Promise(function(_, rej) { setTimeout(function() { rej(new Error("to")); }, 8000); })]).catch(function() { return null; });
+                                                if (r && r.ok) {
                                                             const d = await r.json();
                                                             if (d && d.rates && d.rates.CNY) {
                                                                 let date = null;
@@ -9124,12 +9125,7 @@
                                                 }
 
                                                 function loadFxDetailData() {
-                                                    fetch("Asset_parsed.json", {
-                                                        cache: "no-store"
-                                                    }).then(function(r) {
-                                                        if (!r.ok) throw new Error("HTTP " + r.status);
-                                                        return r.json()
-                                                    }).then(function(j) {
+                                                    loadAssetJson().then(function(j) {
                                                         const net = j && Array.isArray(j.totalNetValueDaily) ? j.totalNetValueDaily : [];
                                                         const cash = j && Array.isArray(j.cashDaily) ? j.cashDaily : [];
                                                         const map = {};
@@ -9186,11 +9182,7 @@
                                                 }
                                                 async function syncUsFromJson() {
                                                     try {
-                                                        var r = await fetch("Asset_parsed.json", {
-                                                            cache: "no-store"
-                                                        });
-                                                        if (!r.ok) throw new Error("HTTP " + r.status);
-                                                        var j = await r.json();
+                                                        var j = await loadAssetJson();
                                                         OPT_BASE = j.optBase || {
                                                             A: {
                                                                 prices: {}
@@ -9246,11 +9238,7 @@
                                                 }
                                                 async function syncCashFromJson() {
                                                     try {
-                                                        var r = await fetch("Asset_parsed.json", {
-                                                            cache: "no-store"
-                                                        });
-                                                        if (!r.ok) throw new Error("HTTP " + r.status);
-                                                        var j = await r.json();
+                                                        var j = await loadAssetJson();
                                                         var net = j && Array.isArray(j.totalNetValueDaily) ? j.totalNetValueDaily : [];
                                                         var cashDaily = j && Array.isArray(j.cashDaily) ? j.cashDaily : [];
                                                         var map = {};
@@ -9319,15 +9307,33 @@
                                                 }
                                                 async function syncTradesFromJson() {
                                                     try {
-                                                        var r = await fetch("Asset_parsed.json", {
-                                                            cache: "no-store"
-                                                        });
-                                                        if (!r.ok) throw new Error("HTTP " + r.status);
-                                                        var j = await r.json();
+                                                        var j = await loadAssetJson();
                                                         if (!j || !Array.isArray(j.trades)) return;
                                                         TRADES = j.trades.slice();
                                                         renderPending()
                                                     } catch (e) {}
+                                                }
+                                                // 全局：Asset_parsed.json 内存缓存 + 浏览器/etag 缓存（取代各处 no-store 重复下载）
+                                                var _assetJsonCache = null;
+                                                var _assetJsonPromise = null;
+                                                function loadAssetJson(force) {
+                                                    if (!force && _assetJsonCache) return Promise.resolve(_assetJsonCache);
+                                                    if (!force && _assetJsonPromise) return _assetJsonPromise;
+                                                    _assetJsonPromise = fetch("Asset_parsed.json")
+                                                        .then(function(r) {
+                                                            if (!r.ok) throw new Error("HTTP " + r.status);
+                                                            return r.json();
+                                                        })
+                                                        .then(function(d) {
+                                                            _assetJsonCache = d;
+                                                            _assetJsonPromise = null;
+                                                            return d;
+                                                        })
+                                                        .catch(function(e) {
+                                                            _assetJsonPromise = null;
+                                                            throw e;
+                                                        })
+                                                    return _assetJsonPromise;
                                                 }
                                                 async function refresh() {
                                                     setStatus("loading", "");
@@ -9336,7 +9342,13 @@
                                                     });
                                                     let okF = 0,
                                                         failF = 0;
-                                                    for (const f of funds) {
+                                                    const symList = [...new Set(us.map(u => u.symbol).filter(Boolean))];
+                                                    // C: 并行点火所有无依赖的外部请求，与基金段并发执行
+                                                    const _pUsQuotes  = fetchUsQuotes(symList);
+                                                    const _pUsHistory = fetchUsHistory(symList);
+                                                    const _pFx        = fetchFx();
+                                                    const _pHoldQ     = fetchMktQuotes(collectHoldingSymbols());
+                                                    await Promise.all(funds.map(async (f) => {
                                                         f._ok = undefined;
                                                         const r = await fetchFundSeries(f.code);
                                                         if (r && r.list && r.list.length) {
@@ -9366,10 +9378,9 @@
                                                             f._ok = false;
                                                             failF++
                                                         }
-                                                    }
-                                                    const symList = [...new Set(us.map(u => u.symbol).filter(Boolean))];
-                                                    const usRes = await fetchUsQuotes(symList);
-                                                    const usHist = await fetchUsHistory(symList);
+                                                    }));
+                                                    const usRes = await _pUsQuotes;
+                                                    const usHist = await _pUsHistory;
                                                     let okU = 0,
                                                         failU = 0;
                                                     const _yTs = parseDate(ymd(todayTs() - 864e5));
@@ -9436,7 +9447,7 @@
                                                     cnOk = _srcOk("__cn_");
                                                     alpOk = _srcOk("__alp_");
                                                     let fxUpdated = false;
-                                                    const fr = await fetchFx();
+                                                    const fr = await _pFx;
                                                     if (fr && !isNaN(fr.rate)) {
                                                         fxRate = fr.rate;
                                                         fxUpdated = true;
@@ -9454,8 +9465,7 @@
                                                     } catch (e) {}
                                                     updateFxInput();
                                                     renderFxSetting();
-                                                    const _holdSyms = collectHoldingSymbols();
-                                                    window._holdQ = await fetchMktQuotes(_holdSyms);
+                                                    window._holdQ = await _pHoldQ;
                                                     await collectHoldingKline(funds);
                                                     save();
                                                     const cur = computeCurrent();
@@ -9790,8 +9800,8 @@
                                                     }
                                                     setStatus("loading", "");
                                                     const symList = [...new Set(us.map(u => u.symbol).filter(Boolean))];
-                                                    const usRes = await fetchUsQuotes(symList);
-                                                    const usHist = await fetchUsHistory(symList);
+                                                    const usRes = await _pUsQuotes;
+                                                    const usHist = await _pUsHistory;
                                                     let okU = 0,
                                                         failU = 0;
                                                     const _yTs = parseDate(ymd(todayTs() - 864e5));
@@ -12068,12 +12078,7 @@
                                                         }
                                                         return Math.round(sum * 100) / 100
                                                     }(function loadUsInvestAuto() {
-                                                        fetch("Asset_parsed.json", {
-                                                            cache: "no-store"
-                                                        }).then(function(r) {
-                                                            if (!r.ok) throw new Error("HTTP " + r.status);
-                                                            return r.json()
-                                                        }).then(function(j) {
+                                                        loadAssetJson().then(function(j) {
                                                             usInvestAutoVal = sumForexCnh(j);
                                                             var cur = computeCurrent();
                                                             renderHero(cur);

@@ -15,10 +15,12 @@
  *     立即清除已经污染的旧数据。
  *  5. 保留 skipWaiting + clients.claim，让新 Service Worker 立即接管。
  */
-const CACHE = 'asset-dash-v2';
+const CACHE = 'asset-dash-v3';
 
 /** 需要「始终拉最新」的资源：网络优先，缓存仅作离线兜底 */
-const NETWORK_FIRST = ['.json', '/'];
+const NETWORK_FIRST = ['/'];
+/** 动态数据 .json：SWR（stale-while-revalidate）——二次打开秒出，后台静默更新 */
+const STALE_WHILE_REVALIDATE = ['.json'];
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
@@ -48,10 +50,32 @@ self.addEventListener('fetch', function (e) {
 
   var url = e.request.url;
   var isPage = url.indexOf('/index.html') !== -1 ||
-               url.replace(/\/+$/, '') === self.location.origin.replace(/\/+$/, '');
+               url.replace(//+$/, '') === self.location.origin.replace(//+$/, '');
   var needsFresh = NETWORK_FIRST.some(function (s) {
     return url.indexOf(s) !== -1;
   }) || isPage;
+
+  var isJson = STALE_WHILE_REVALIDATE.some(function (s) {
+    return url.indexOf(s) !== -1;
+  });
+
+  if (isJson) {
+    // SWR：命中缓存立即返回，后台静默更新 → 二次打开秒出
+    // 代价：本次可能看到上一版数据，下次刷新才更新（可接受，且避免“卖了永久显示”）
+    e.respondWith(
+      caches.match(e.request).then(function (cached) {
+        var network = fetch(e.request).then(function (resp) {
+          if (resp && resp.status === 200 && resp.type !== 'opaque') {
+            var cp = resp.clone();
+            caches.open(CACHE).then(function (c) { c.put(e.request, cp); });
+          }
+          return resp;
+        }).catch(function () { return cached; });
+        return cached || network;
+      })
+    );
+    return;
+  }
 
   if (needsFresh) {
     // 网络优先：先请求服务器，成功则更新缓存；失败才回退缓存
