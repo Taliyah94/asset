@@ -2040,62 +2040,16 @@
       "price": 0.77,
       "realized": 0,
       "tradeId": "9926187529"
-    },
-    {
-      "date": "2026-07-22",
-      "symbol": "MSFT",
-      "underlying": "MSFT",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 11,
-      "price": 389.24,
-      "realized": 0,
-      "tradeId": "9920851968"
-    },
-    {
-      "date": "2026-07-22",
-      "symbol": "MSFT",
-      "underlying": "MSFT",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 37,
-      "price": 389.24,
-      "realized": 0,
-      "tradeId": "9920852062"
-    },
-    {
-      "date": "2026-07-22",
-      "symbol": "NVDA",
-      "underlying": "NVDA",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -87,
-      "price": 212.01,
-      "realized": 217.35,
-      "tradeId": "9920801034"
-    },
-    {
-      "date": "2026-07-22",
-      "symbol": "NVDA  260722P00202500",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "BUY",
-      "quantity": 2,
-      "price": 0,
-      "realized": 190.59,
-      "tradeId": "9924075644"
     }
   ],
-  "lastSync": "2026-08-22",
+  "lastSync": "2026-08-23",
   "optBase": {
     "A": {
-      "date": "2026-08-21",
-      "prices": {
-        "ORCL  260821P00141000": 1.2769
-      }
+      "date": "2026-08-22",
+      "prices": {}
     },
     "B": {
-      "date": "2026-08-22",
+      "date": "2026-08-23",
       "prices": {}
     }
   },
