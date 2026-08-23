@@ -3434,7 +3434,7 @@
             <div class="setting-row collapsible collapsed" id="setSrcBtn">
                 <div class="label"><span class="li-ic">📡</span>数据源</div>
                 <span class="arrow">›</span>
-                <div class="src-detail">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权：盘中取 Alpaca</div>
+                <div class="src-detail">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权（按美东时间）：盘中 9:30–16:00 取 Alpaca 实时；周五收盘 16:00–周六 0:00 取 Alpaca；周六 0:00–周一开盘前及工作日盘前/盘后，盈透录入日期≥T-1 则取盈透（卡内显示日期如 08-22），否则取 Alpaca（卡内显示"实时"）</div>
             </div>
             <div class="setting-row" id="setIconBrowserBtn">
                 <div class="label"><span class="li-ic">🎨</span>图标浏览</div><span class="arrow">›</span>
@@ -5404,7 +5404,19 @@
                                                             return x.symbol === sym
                                                         }) : null
                                                     }
-                                                    if (u && u._ibkrMarkDate && u._ibkrMarkDate === ymd(todayTs())) return "ibkr";
+                                                    // 美东分界：周五收盘(16:00)~周六0点 强制 Alpaca；周六0点~周一开盘前 及 其余非盘中时段 按 T-1 盈透记录判断
+                                                    var p = null;
+                                                    try { p = etNowCached(); } catch (e) { p = null; }
+                                                    if (p) {
+                                                        if (p.wd === "Fri" && p.h >= 16) return "close";   // 周五收盘(16:00 ET)~周六0点：强制 Alpaca
+                                                        if (u && u._ibkrMarkDate) {
+                                                            var _etYest = ymdAddDays(p.ymd, -1);      // 美东昨天
+                                                            if (u._ibkrMarkDate >= _etYest) return "ibkr";  // 盈透记录为昨天(或更新) → 盈透
+                                                        }
+                                                        return "close"
+                                                    }
+                                                    // 兜底：取不到美东时间时，有盈透记录即走 ibkr
+                                                    if (u && u._ibkrMarkDate) return "ibkr";
                                                     return "close"
                                                 }
 
@@ -6016,6 +6028,27 @@
                                                     return mi2 >= 21 * 60 + 30 || mi2 < 4 * 60;
                                                 }
 
+                                                /* 美股周末间隙：美东 周五盘后收盘(20:00 ET) 之后 → 周日夜盘开盘(20:00 ET) 之前
+                                                   此窗口内美股休市，用 Bybit NAS100 永续合约作为 QQQ/TQQQ 当日预测数据源 */
+                                                function inUsWeekendGap() {
+                                                    var p = null;
+                                                    try { p = etNowCached(); } catch (e) { p = null; }
+                                                    if (p) {
+                                                        var wd = p.wd, mi = p.h * 60 + p.m;
+                                                        if (wd === "Fri") return mi >= 20 * 60;
+                                                        if (wd === "Sat") return true;
+                                                        if (wd === "Sun") return mi < 20 * 60;
+                                                        return false;
+                                                    }
+                                                    var b = beijingNow();
+                                                    var wd = b.getDay();
+                                                    var mi = b.getHours() * 60 + b.getMinutes();
+                                                    if (wd === 6) return mi >= 8 * 60;
+                                                    if (wd === 0) return true;
+                                                    if (wd === 1) return mi < 8 * 60;
+                                                    return false;
+                                                }
+
                                                 function autoUsSrc() {
                                                     return isUsRegularSession() ? "gtimg" : "alpaca";
                                                 }
@@ -6146,6 +6179,30 @@
                                                     }));
                                                     return out
                                                 }
+                                                /* Bybit NAS100 永续合约行情：周末间隙的 QQQ/TQQQ 当日预测数据源（7x24 交易）
+                                                   返回 { pct(百分比, 24h涨跌幅), price, time }；失败返回 null */
+                                                async function fetchBybitNas100() {
+                                                    try {
+                                                        var r = await Promise.race([
+                                                            fetch("https://api.bybit.com/v5/market/tickers?category=linear&symbol=NAS100"),
+                                                            new Promise(function (_, rej) { setTimeout(function () { rej(new Error("to")); }, 8000); })
+                                                        ]);
+                                                        if (!r || !r.ok) return null;
+                                                        var d = await r.json();
+                                                        if (!d || d.retCode !== 0 || !d.result || !d.result.list || !d.result.list.length) return null;
+                                                        var it = d.result.list[0];
+                                                        var pct = parseFloat(it.price24hPcnt);
+                                                        if (isNaN(pct)) return null;
+                                                        return {
+                                                            pct: pct * 100,
+                                                            price: parseFloat(it.lastPrice),
+                                                            time: it.updatedTime ? new Date(Number(it.updatedTime)).toISOString() : ""
+                                                        };
+                                                    } catch (e) {
+                                                        return null;
+                                                    }
+                                                }
+
                                                 async function fetchFx() {
                                                     try {
                                                 const r = await Promise.race([fetch("https://open.er-api.com/v6/latest/USD"), new Promise(function(_, rej) { setTimeout(function() { rej(new Error("to")); }, 8000); })]).catch(function() { return null; });
@@ -6333,9 +6390,11 @@
                                                             var _obA = OPT_BASE && OPT_BASE.A && OPT_BASE.A.prices ? OPT_BASE.A.prices[u.symbol] : null;
                                                             var _obB = OPT_BASE && OPT_BASE.B && OPT_BASE.B.prices ? OPT_BASE.B.prices[u.symbol] : null;
                                                             var _obase = isUsRegularSession() ? (_obB != null ? _obB : _obA) : (_obA != null ? _obA : _obB);
-                                                            if (u._alpacaPrice != null && _obase > 0 && isFinite(_obase)) {
-                                                                dRet = (u._alpacaPrice - _obase) / _obase;
-                                                                dPnl = holdSh * mult * (u._alpacaPrice - _obase) * fx;
+                                                            // 期权当日涨跌幅用 Alpaca 读取的报价（live/close 为 Alpaca 价；ibkr 不拉 Alpaca 时回退 u.price）
+                                                            var _optAlp = u.price != null ? u.price : (u._alpacaPrice != null ? u._alpacaPrice : null);
+                                                            if (_optAlp != null && _obase > 0 && isFinite(_obase)) {
+                                                                dRet = (_optAlp - _obase) / _obase;
+                                                                dPnl = holdSh * mult * (_optAlp - _obase) * fx;
                                                                 dPrev = holdSh * mult * _obase * fx;
                                                                 usPrevVal += dPrev
                                                             } else {
@@ -6357,6 +6416,16 @@
                                                         }
                                                         u._dayPredictUs = _usPred;
                                                         u._dayPredictUsPct = _usPredPct;
+                                                        // 周末间隙：用 Bybit NAS100 24h 涨跌幅作为 QQQ/TQQQ 当日预测
+                                                        var _nas = window._nas100Predict;
+                                                        if (_nas && typeof _nas.pct === "number" && !isOptionSymbol(u.symbol) && (symUp === "QQQ" || symUp === "TQQQ")) {
+                                                            var _m3 = symUp === "TQQQ" ? 3 : 1;
+                                                            u._dayPredictUsPct = _nas.pct * _m3;
+                                                            u._dayPredictUs = holdSh * mult * usd * (_nas.pct * _m3 / 100) * fx;
+                                                            u._dayPredictSource = "bybit";
+                                                        } else if (u._dayPredictSource === "bybit") {
+                                                            u._dayPredictSource = null;
+                                                        }
                                                         if (_usPred != null) usPredictPnl += _usPred;
                                                         u._realizedPnl = realizedPnlCny
                                                     });
@@ -7478,7 +7547,10 @@
                                                             var usPredPctTxt = u._dayPredictUsPct == null ? "—" : u._dayPredictUsPct.toFixed(2) + "%";
                                                             var usPredCls = u._dayPredictUs == null ? "" : u._dayPredictUs >= 0 ? "up" : "down";
                                                             var usAlpPriceTxt = u._alpacaPrice == null ? "—" : u._alpacaPrice.toFixed(2);
-                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ▸</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td class="time-cell">${uo?`<span class="time-bar tb-option" title="IBKR markPrice 快照日">${esc(ymdShort(u._markDate)||"—")}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}">${esc(ymdShort(u._dayTime)||"—")}</span>`}</td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td><td class="${usPredCls}"><div class="cell-main">${usPredTxt}</div><div class="cell-sub ${usPredCls}">${usPredPctTxt}</div><div class="cell-sub alp-price">${usAlpPriceTxt}</div></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="8"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
+                                                            var usSrcTxt = u._dayPredictSource === "bybit" ? "Bybit·预测" : usAlpPriceTxt;
+                                                            var _optMode = isOptionSymbol(u.symbol) ? optionAlpacaMode(u) : null;
+                                                            var _isIbkr = _optMode === "ibkr";
+                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ▸</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td class="time-cell">${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}">${esc(ymdShort(u._dayTime)||"—")}</span>`}</td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td><td class="${usPredCls}"><div class="cell-main">${usPredTxt}</div><div class="cell-sub ${usPredCls}">${usPredPctTxt}</div><div class="cell-sub alp-price">${usSrcTxt}</div></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="8"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
                                                         }).join("")
                                                     }
                                                     var tc = $("tbCash");
@@ -7492,6 +7564,7 @@
                                                             var amtCls = amt >= 0 ? "" : "down";
                                                             var amtMain = isUsd ? fmtUSD(amt) : fmt0(amt);
                                                             var amtSub = isUsd ? "≈" + fmt0(cny) : "";
+                                                            if (c.accruedInterest) amtSub += " · 含应计利息 " + (c.accruedInterest >= 0 ? "+" : "") + fmt0(c.accruedInterest);
                                                             var amtHtml = '<div class="cell-main">' + amtMain + "</div>" + (amtSub ? '<div class="cell-sub">' + amtSub + "</div>" : "");
                                                             var txs = c.transactions || [];
                                                             var totalIn = 0,
@@ -7836,6 +7909,8 @@
                                                         var a = Number(t.amount) || 0;
                                                         total += t.type === "in" ? a : -a
                                                     });
+                                                    // 盈透应计利息（来自 IBKR 每日快照 interestAccruals）并入现金
+                                                    total += Number(c.accruedInterest) || 0;
                                                     return total
                                                 }
 
@@ -9296,6 +9371,8 @@
                                                                 amount: amt
                                                             })
                                                         }
+                                                        item.accruedInterest = Number(j.ibkrAccruedInterest) || 0;
+                                                        item.accruedDate = date;
                                                         item.amount = calcCashAmount(item);
                                                         save();
                                                         renderTables();
@@ -9348,6 +9425,7 @@
                                                     const _pUsHistory = fetchUsHistory(symList);
                                                     const _pFx        = fetchFx();
                                                     const _pHoldQ     = fetchMktQuotes(collectHoldingSymbols());
+                                                    const _pBybit = inUsWeekendGap() ? fetchBybitNas100().catch(function () { return null; }) : Promise.resolve(null);
                                                     await Promise.all(funds.map(async (f) => {
                                                         f._ok = undefined;
                                                         const r = await fetchFundSeries(f.code);
@@ -9380,6 +9458,7 @@
                                                         }
                                                     }));
                                                     const usRes = await _pUsQuotes;
+                                                    window._nas100Predict = await _pBybit;
                                                     const usHist = await _pUsHistory;
                                                     let okU = 0,
                                                         failU = 0;

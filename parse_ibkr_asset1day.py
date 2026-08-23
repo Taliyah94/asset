@@ -10,6 +10,8 @@ parse_ibkr_asset1day.py — 盈透证券(IBKR)每日资产快照同步脚本
 
   totalNetValueDaily[]   开户至今每日总净值   {date:'YYYY-MM-DD', value:Number}
   cashDaily[]            开户至今每日现金(USD) {date:'YYYY-MM-DD', value:Number}
+  ibkrAccruedInterest   盈透现金应计利息（取自最新报表日 interestAccruals），
+                        前端据此并入「盈透现金」；每日同步自动刷新，免手工改。
   holdings[]             当前持仓（symbol/position/costBasisPrice/markPrice ...）
 
 其余字段（account / electronicFundTransfers / forexTrades）与原 365day 解析脚本
@@ -201,7 +203,9 @@ def request_flex_xml(token, query_id, max_wait=540, interval=20, send_retries=5)
 
 # ----------------------------- 解析 -----------------------------
 def parse_equity(equity_root):
-    """从 EquitySummaryInBase 解析每日总净值/现金。返回 dict: date -> {total, cash}"""
+    """从 EquitySummaryInBase 解析每日总净值/现金/应计利息。
+    返回 dict: date -> {total, cash, accruedInterest}
+      accruedInterest 取自 interestAccruals（盈透现金应计利息，如持仓过夜利息）。"""
     out = {}
     for e in equity_root.findall(".//EquitySummaryInBase/"
                                  "EquitySummaryByReportDateInBase"):
@@ -211,6 +215,7 @@ def parse_equity(equity_root):
         out[ymd(rd)] = {
             "total": fnum(e.get("total")),
             "cash": fnum(e.get("cash")),
+            "accruedInterest": fnum(e.get("interestAccruals")),
         }
     return out
 
@@ -378,6 +383,20 @@ def do_parse_and_write(xml_txt, result, json_path):
     result["cashDaily"] = cash
     print(f"[merge] 每日总净值 {len(total)} 天 / 现金 {len(cash)} 天；"
           f"本次新增/更新 {len(eq_map)} 天")
+
+    # ---- 应计利息：取最新报表日的 interestAccruals，写入顶层 ibkrAccruedInterest ----
+    # 前端 loadAssetJson 会把该值并入「盈透现金」（calcCashAmount），每日同步即自动更新，
+    # 免去了每次导出 XML 后手工改 JSON 的维护。若当日报表未含该字段则沿用旧值。
+    if eq_map:
+        eq_latest = max(eq_map.keys())
+        ai_val = eq_map[eq_latest].get("accruedInterest")
+        if ai_val is not None:
+            result["ibkrAccruedInterest"] = ai_val
+            print(f"[accrued] 应计利息 {ai_val}（报表日 {eq_latest}）"
+                  f"-> 写入 ibkrAccruedInterest")
+        else:
+            print(f"[accrued] 报表日 {eq_latest} 无 interestAccruals，"
+                  f"沿用旧值 {result.get('ibkrAccruedInterest')}")
 
     # ---- 当前持仓：覆盖式更新 ----
     holdings, latest = parse_holdings(root)
