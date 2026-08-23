@@ -9,9 +9,11 @@ parse_ibkr_asset1day.py — 盈透证券(IBKR)每日资产快照同步脚本
 解析出当日的总净值 / 现金 / 持仓，并将其 **追加/覆盖** 写入仓库根的 Asset_parsed.json：
 
   totalNetValueDaily[]   开户至今每日总净值   {date:'YYYY-MM-DD', value:Number}
-  cashDaily[]            开户至今每日现金(USD) {date:'YYYY-MM-DD', value:Number}
-  ibkrAccruedInterest   盈透现金应计利息（取自最新报表日 interestAccruals），
-                        前端据此并入「盈透现金」；每日同步自动刷新，免手工改。
+  cashDaily[]            开户至今每日现金(USD) {date:'YYYY-MM-DD', value:Number,
+                         accrued?:Number}     # accrued=该日应计利息（取自 interestAccruals），
+                                              # 仅报表覆盖到的日期才有；缺则为无（不记）
+  ibkrAccruedInterest   盈透现金应计利息（= 最新有数据报表日的 interestAccruals），
+                        前端卡片据此并入「盈透现金」；每日同步自动刷新，免手工改。
   holdings[]             当前持仓（symbol/position/costBasisPrice/markPrice ...）
 
 其余字段（account / electronicFundTransfers / forexTrades）与原 365day 解析脚本
@@ -318,21 +320,36 @@ def merge_trades(existing, new, cutoff):
 # ----------------------------- 合并 -----------------------------
 def merge_daily(existing, new_map):
     """
-    existing: list[{date,value}]  ->  按 date 去重覆盖 new_map(date->{total,cash})
+    existing: list[{date,value,accrued?}]  ->  按 date 去重覆盖 new_map(date->{total,cash,accruedInterest})
     返回 (totalNetValueDaily, cashDaily) 两个 list，按 date 升序。
+    cashDaily 每项额外带 accrued（该日应计利息），仅报表覆盖到的日期才有；
+    历史无 accrued 的日期保留原值（缺省不记），新报表提供的日期覆盖写入。
     """
     tot_map, cash_map = {}, {}
     for row in (existing.get("totalNetValueDaily") or []):
         tot_map[row["date"]] = row["value"]
     for row in (existing.get("cashDaily") or []):
-        cash_map[row["date"]] = row["value"]
+        cash_map[row["date"]] = {
+            "value": row["value"],
+            "accrued": row.get("accrued"),
+        }
     for d, v in new_map.items():
         if v.get("total") is not None:
             tot_map[d] = v["total"]
         if v.get("cash") is not None:
-            cash_map[d] = v["cash"]
+            cur = cash_map.get(d) or {"value": None, "accrued": None}
+            cur["value"] = v["cash"]
+            if v.get("accruedInterest") is not None:
+                cur["accrued"] = v["accruedInterest"]
+            cash_map[d] = cur
     total = [{"date": d, "value": tot_map[d]} for d in sorted(tot_map)]
-    cash = [{"date": d, "value": cash_map[d]} for d in sorted(cash_map)]
+    cash = []
+    for d in sorted(cash_map):
+        c = cash_map[d]
+        e = {"date": d, "value": c["value"]}
+        if c["accrued"] is not None:
+            e["accrued"] = c["accrued"]
+        cash.append(e)
     return total, cash
 
 

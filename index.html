@@ -7564,8 +7564,16 @@
                                                             var amtCls = amt >= 0 ? "" : "down";
                                                             var amtMain = isUsd ? fmtUSD(amt) : fmt0(amt);
                                                             var amtSub = isUsd ? "≈" + fmt0(cny) : "";
-                                                            if (c.accruedInterest) amtSub += " · 含应计利息 " + (c.accruedInterest >= 0 ? "+" : "") + fmt0(c.accruedInterest);
-                                                            var amtHtml = '<div class="cell-main">' + amtMain + "</div>" + (amtSub ? '<div class="cell-sub">' + amtSub + "</div>" : "");
+                                                            // 应计利息单独成行（不与「≈人民币」同行），保留两位小数值
+                                                            var amtAccrued = "";
+                                                            var amtAccruedCls = "";
+                                                            if (c.accruedInterest) {
+                                                                amtAccrued = "含应计利息 " + (c.accruedInterest >= 0 ? "+" : "") + c.accruedInterest.toFixed(2);
+                                                                amtAccruedCls = c.accruedInterest < 0 ? "down" : "";
+                                                            }
+                                                            var amtHtml = '<div class="cell-main">' + amtMain + "</div>"
+                                                                + (amtSub ? '<div class="cell-sub">' + amtSub + "</div>" : "")
+                                                                + (amtAccrued ? '<div class="cell-sub ' + amtAccruedCls + '">' + amtAccrued + "</div>" : "");
                                                             var txs = c.transactions || [];
                                                             var totalIn = 0,
                                                                 totalOut = 0;
@@ -9217,7 +9225,7 @@
                                                                 const e = map[o.date] || (map[o.date] = {
                                                                     date: o.date
                                                                 });
-                                                                e.cash = Number(o.value) || 0
+                                                                e.cash = (Number(o.value) || 0) + (Number(o.accrued) || 0)
                                                             }
                                                         });
                                                         fxRows = Object.keys(map).sort().map(function(k) {
