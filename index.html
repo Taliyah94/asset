@@ -12481,7 +12481,9 @@
                                                             setAutoUsState(!_autoUsOn); // 双击：切换固定刷新（自动刷新美股）
                                                         } else {
                                                             _frLastClick = now;
-                                                            if (typeof refresh === "function") refresh(); // 单击：手动刷新一次
+                                                            if (typeof refresh === "function") refresh(); // 单击：手动刷新一次（资产页）
+                                                            // 同时刷新市场实时行情（Bybit KZ + 腾讯），否则市场列表点了没反应
+                                                            if (typeof fetchMarketData === "function") { try { fetchMarketData(); } catch (e) {} }
                                                         }
                                                     });
                                                     // 默认开启自动刷新美股（固定刷新），刷新按钮保持蓝色
@@ -13446,18 +13448,51 @@
                                                             var code = acc.getAttribute("data-fund-code");
                                                             var f = fsMap[code];
                                                             var nav = null;
+                                                            var holdSh = 0;
                                                             if (f) {
                                                                 if (f._list && f._list.length) {
                                                                     try { nav = valOnOrBefore(f._list, todayTs(), "nav"); } catch (e) {}
                                                                 }
                                                                 if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
-                                                                var holdSh = 0;
                                                                 try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {}
                                                                 if (nav != null && holdSh) {
-                                                                    base = holdSh * nav; // 当前市值(T-2 净值基准)；当日盈亏由下方 predPct 叠加，不再回退到前一日
+                                                                    base = holdSh * nav; // 当前市值(T-2 净值基准)
                                                                 }
                                                             }
-                                                            var valNow = base * (1 + predPct / 100);
+                                                            // 单价：由东财净值推算的当日估算单价（绿涨红跌）
+                                                            // 规则：盘中(美东 9:30-16:00)直接用东财净值 × (1 + 加权涨跌幅)，不叠加当日预测；
+                                                            //   盘外(美东非盘中)才考虑基金持仓“当日预测”是否有数据（与列表“当日预测”列同源判断）。
+                                                            //   - 无当日预测(-)：单价 = 东财价格 × (1 + 加权盈亏率)
+                                                            //   - 有当日预测：  单价 = 东财价格 × (1 + 当日预测盈亏率) × (1 + 加权盈亏率)
+                                                            // 其中“加权盈亏率”= predPct（持仓加权当日涨跌），“当日预测盈亏率”= f._dayPredictPct
+                                                            var dayPred = null;
+                                                            // 盘中(美东 9:30-16:00)：直接用东财净值×(1+加权涨跌幅)，无需当日预测
+                                                            var _inUsSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
+                                                            if (!_inUsSession) {
+                                                                // 盘外：才考虑基金持仓“当日预测”是否有数据
+                                                                try {
+                                                                    if (f && f._dayPredictPct != null && isFinite(f._dayPredictPct) &&
+                                                                        typeof fundNeedsPredict === "function" && fundNeedsPredict(f, fundDisclosureDay()) &&
+                                                                        window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code]) {
+                                                                        dayPred = f._dayPredictPct;
+                                                                    }
+                                                                } catch (e) {}
+                                                            }
+                                                            var unitPrice = nav;
+                                                            if (nav != null && isFinite(nav)) {
+                                                                if (dayPred == null) {
+                                                                    unitPrice = nav * (1 + predPct / 100);
+                                                                } else {
+                                                                    unitPrice = nav * (1 + dayPred / 100) * (1 + predPct / 100);
+                                                                }
+                                                            }
+                                                            // 市值 = 单价 × 持有份额（与列表“单价”口径完全一致）；无净值/无份额时回退录入市值并按 predPct 预估
+                                                            var valNow;
+                                                            if (nav != null && isFinite(nav) && holdSh > 0) {
+                                                                valNow = unitPrice * holdSh;
+                                                            } else {
+                                                                valNow = base * (1 + predPct / 100);
+                                                            }
                                                             var valEl = sumEl.querySelector(".fas-val");
                                                             var amtEl = sumEl.querySelector(".fas-amt");
                                                             var chgEl = sumEl.querySelector(".fas-chg");
@@ -13488,33 +13523,6 @@
                                                             // 写入 data-mv/data-pnl，使市值/盈亏排序与美股统一参与（无需回退）
                                                             sumEl.setAttribute("data-mv", Math.round(isFinite(valNow) ? valNow : 0));
                                                             sumEl.setAttribute("data-pnl", Math.round(isFinite(amt) ? amt : 0));
-                                                            // 单价：由东财净值推算的当日估算单价（绿涨红跌）
-                                                            // 规则：盘中(美东 9:30-16:00)直接用东财净值 × (1 + 加权涨跌幅)，不叠加当日预测；
-                                                            //   盘外(美东非盘中)才考虑基金持仓“当日预测”是否有数据（与列表“当日预测”列同源判断）。
-                                                            //   - 无当日预测(-)：单价 = 东财价格 × (1 + 加权盈亏率)
-                                                            //   - 有当日预测：  单价 = 东财价格 × (1 + 当日预测盈亏率) × (1 + 加权盈亏率)
-                                                            // 其中“加权盈亏率”= predPct（持仓加权当日涨跌），“当日预测盈亏率”= f._dayPredictPct
-                                                            var dayPred = null;
-                                                            // 盘中(美东 9:30-16:00)：直接用东财净值×(1+加权涨跌幅)，无需当日预测
-                                                            var _inUsSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
-                                                            if (!_inUsSession) {
-                                                                // 盘外：才考虑基金持仓“当日预测”是否有数据
-                                                                try {
-                                                                    if (f && f._dayPredictPct != null && isFinite(f._dayPredictPct) &&
-                                                                        typeof fundNeedsPredict === "function" && fundNeedsPredict(f, fundDisclosureDay()) &&
-                                                                        window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code]) {
-                                                                        dayPred = f._dayPredictPct;
-                                                                    }
-                                                                } catch (e) {}
-                                                            }
-                                                            var unitPrice = nav;
-                                                            if (nav != null && isFinite(nav)) {
-                                                                if (dayPred == null) {
-                                                                    unitPrice = nav * (1 + predPct / 100);
-                                                                } else {
-                                                                    unitPrice = nav * (1 + dayPred / 100) * (1 + predPct / 100);
-                                                                }
-                                                            }
                                                             // 绿涨红跌：相对东财净值的偏离决定配色
                                                             var navCls = (nav != null && isFinite(nav))
                                                                 ? (unitPrice > nav ? "up" : (unitPrice < nav ? "down" : ""))
