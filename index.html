@@ -5213,40 +5213,70 @@
                                                             done = true;
                                                             resolve(d)
                                                         };
-                                                        const fundFallback = async () => {
+                                                        // fallback：用 <script> 加载腾讯 jj 接口（变量名 v_jj{code} 带 code，天然隔离，无竞态）。
+                                                        // 注意：浏览器里 fetch 跨域到 qt.gtimg.cn 会被 CORS 拦截，故必须用 script 注入而非 fetch。
+                                                        const fundFallback = () => {
                                                             try {
-                                                                const r = await fetch("https://qt.gtimg.cn/q=jj" + code);
-                                                                const buf = await r.arrayBuffer();
-                                                                const txt = new TextDecoder("gbk").decode(buf);
-                                                                const m = txt.match(new RegExp("v_jj" + code + '="([^"]*)"'));
-                                                                if (m) {
-                                                                    const p = m[1].split("~");
-                                                                    const nav = parseFloat(p[5]);
-                                                                    const dt = (p[8] || "").trim();
-                                                                    const t = parseDate(dt) || todayTs();
-                                                                    if (!isNaN(nav)) {
-                                                                        finish({
-                                                                            name: (p[1] || "").trim(),
-                                                                            list: [{
-                                                                                t: t,
-                                                                                nav: nav
-                                                                            }]
-                                                                        });
-                                                                        return
-                                                                    }
-                                                                }
-                                                            } catch (e) {}
-                                                            finish(null)
+                                                                const s2 = document.createElement("script");
+                                                                const to2 = setTimeout(() => {
+                                                                    try { s2.remove() } catch (e) {}
+                                                                    finish(null)
+                                                                }, 8e3);
+                                                                s2.onload = () => {
+                                                                    clearTimeout(to2);
+                                                                    try {
+                                                                        const raw = window["v_jj" + code];
+                                                                        if (typeof raw === "string") {
+                                                                            const p = raw.split("~");
+                                                                            const nav = parseFloat(p[5]);
+                                                                            const dt = (p[8] || "").trim();
+                                                                            const t = parseDate(dt) || todayTs();
+                                                                            if (!isNaN(nav)) {
+                                                                                try { s2.remove() } catch (e) {}
+                                                                                finish({
+                                                                                    name: (p[1] || "").trim(),
+                                                                                    list: [{ t: t, nav: nav }]
+                                                                                });
+                                                                                return
+                                                                            }
+                                                                        }
+                                                                    } catch (e) {}
+                                                                    try { s2.remove() } catch (e) {}
+                                                                    finish(null)
+                                                                };
+                                                                s2.onerror = () => {
+                                                                    clearTimeout(to2);
+                                                                    try { s2.remove() } catch (e) {}
+                                                                    finish(null)
+                                                                };
+                                                                s2.src = "https://qt.gtimg.cn/q=jj" + code + "&_=" + Date.now();
+                                                                document.head.appendChild(s2)
+                                                            } catch (e) {
+                                                                finish(null)
+                                                            }
                                                         };
-                                                        const s = document.createElement("script");
+                                                        // 主路径：<script> JSONP 加载东财净值脚本（写入全局变量 window.Data_netWorthTrend）。
+                                                        // 该全局变量会被并发脚本互相覆盖，因此调用方必须用串行（concurrency=1）抓取，
+                                                        // 保证任意时刻只有一个脚本在 head，全局变量不会被覆盖。
                                                         const url = "https://fund.eastmoney.com/pingzhongdata/" + code + ".js?_=" + Date.now();
-                                                        const to = setTimeout(fundFallback, 8e3);
+                                                        const to = setTimeout(() => {
+                                                            try { s.remove() } catch (e) {}
+                                                            window.Data_netWorthTrend = undefined;
+                                                            window.fS_name = undefined;
+                                                            fundFallback()
+                                                        }, 8e3);
+                                                        const s = document.createElement("script");
                                                         window.Data_netWorthTrend = undefined;
                                                         window.fS_name = undefined;
                                                         s.onload = () => {
                                                             try {
                                                                 const trend = window.Data_netWorthTrend,
                                                                     name = window.fS_name || window.Data_fundName || "";
+                                                                // 立即清理全局变量，避免污染后续请求
+                                                                try { s.remove() } catch (e) {}
+                                                                window.Data_netWorthTrend = undefined;
+                                                                window.fS_name = undefined;
+                                                                window.Data_fundName = undefined;
                                                                 if (trend && Array.isArray(trend) && trend.length) {
                                                                     const list = trend.map(o => ({
                                                                         t: o.x,
@@ -5254,10 +5284,7 @@
                                                                     })).filter(o => !isNaN(o.nav)).sort((a, b) => a.t - b.t);
                                                                     if (list.length) {
                                                                         clearTimeout(to);
-                                                                        finish({
-                                                                            name: name,
-                                                                            list: list
-                                                                        });
+                                                                        finish({ name: name, list: list });
                                                                         return
                                                                     }
                                                                 }
@@ -5267,6 +5294,8 @@
                                                         };
                                                         s.onerror = () => {
                                                             clearTimeout(to);
+                                                            try { s.remove() } catch (e) {}
+                                                            window.Data_netWorthTrend = undefined;
                                                             fundFallback()
                                                         };
                                                         s.src = url;
@@ -9600,7 +9629,9 @@
                                                     const _pFx        = fetchFx();
                                                     const _pHoldQ     = fetchMktQuotes(collectHoldingSymbols());
                                                     const _pBybit = inUsWeekendGap() ? fetchBybitNas100().catch(function () { return null; }) : Promise.resolve(null);
-                                                    // 限并发抓取基金净值（每批最多 3 只），避免一次性大量请求被限流/不返回
+                                                    // 基金净值必须串行抓取（concurrency=1）：东财 pingzhongdata 脚本把净值写入
+                                                    // 同一个全局变量 window.Data_netWorthTrend，浏览器里该 var 声明无法被拦截/隔离，
+                                                    // 并发多只时后加载的脚本会覆盖先到的值，导致部分基金稳定读不到。串行可彻底消除竞态。
                                                     await mapPool(funds, async (f) => {
                                                         f._ok = undefined;
                                                         const r = await fetchFundSeries(f.code);
@@ -9632,7 +9663,7 @@
                                                             failF++
                                                         }
                                                         return f
-                                                    }, 3);
+                                                    }, 1);
                                                     const usRes = await _pUsQuotes;
                                                     window._nas100Predict = await _pBybit;
                                                     const usHist = await _pUsHistory;
