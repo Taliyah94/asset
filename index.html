@@ -3542,6 +3542,10 @@
                     <div class="label"><span class="li-ic">💱</span>美元人民币汇率</div>
                     <div class="value" id="fxSetVal">1$≈¥6.7570 <span style="color:#1aa84b;font-weight:600;">2026-08-14</span></div>
                 </div>
+                <div class="setting-row">
+                    <div class="label"><span class="li-ic">💱</span>美元港币汇率</div>
+                    <div class="value" id="fxHkdVal">1$≈HK$7.8000 <span style="color:#1aa84b;font-weight:600;">实时</span></div>
+                </div>
             </div>
         </div>
 
@@ -4641,6 +4645,9 @@
                                                 if (!fxRate || isNaN(fxRate)) fxRate = 7;
                                                 let fxManual = localStorage.getItem("pa_fxman");
                                                 fxManual = fxManual == null || fxManual === "" ? null : Number(fxManual);
+                                                // 美元港币汇率：只读，复用与美元人民币相同的实时源(open.er-api)，不手动录入
+                                                let fxHkdLive = null; // 实时值，来自 fetchFx().hkd
+                                                let fxHkd = 7.8; // 兜底默认值(联系汇率≈7.75~7.85)
                                                 let usInvestManual = localStorage.getItem("pa_usinv");
                                                 usInvestManual = usInvestManual == null || usInvestManual === "" ? null : Number(usInvestManual);
                                                 var usInvestAutoVal = null;
@@ -4905,12 +4912,18 @@
                                                     localStorage.setItem("pa_cash", JSON.stringify(cash));
                                                     localStorage.setItem("pa_fx", String(fxRate));
                                                     localStorage.setItem("pa_fxman", fxManual == null ? "" : String(fxManual));
-                                                    localStorage.setItem("pa_usinv", usInvestManual == null ? "" : String(usInvestManual))
+                                                    localStorage.setItem("pa_usinv", usInvestManual == null ? "" : String(usInvestManual));
                                                 }
 
                                                 function effFx() {
                                                     const m = fxManual != null && !isNaN(fxManual) && fxManual > 0 ? fxManual : fxRate;
                                                     return m && !isNaN(m) && m > 0 ? m : 7
+                                                }
+
+                                                // 美元港币汇率（只读，实时源优先，兜底 7.8）
+                                                function effHkd() {
+                                                    const v = fxHkdLive != null && !isNaN(fxHkdLive) && fxHkdLive > 0 ? fxHkdLive : fxHkd;
+                                                    return v && !isNaN(v) && v > 0 ? v : 7.8
                                                 }
 
                                                 function fmt(n, dec = 2) {
@@ -5323,74 +5336,92 @@
                                                             resolve(result);
                                                             return
                                                         }
-                                                        const q = symList.map(x => "us" + x).join(",");
-                                                        let done = false,
-                                                            to = null;
-                                                        const parseQt = txt => {
-                                                            const res = {};
-                                                            symList.forEach(sym => {
-                                                                const m = txt.match(new RegExp("v_us" + sym + '="([^"]*)"'));
-                                                                if (m) {
-                                                                    const p = m[1].split("~");
-                                                                    const price = parseFloat(p[3]),
-                                                                        prevClose = parseFloat(p[4]);
-                                                                    const time = (p[31] || "").trim(),
-                                                                        name = (p[1] || "").trim();
-                                                                    if (!isNaN(price)) res[sym] = {
-                                                                        price: price,
-                                                                        prevClose: prevClose,
-                                                                        time: time,
-                                                                        name: name
+                                                        // 分批：单批最多 MKT_QUOTE_CHUNK 个代码，避免一次性拼太长导致不返回
+                                                        const chunks = [];
+                                                        let _src = symList.slice();
+                                                        while (_src.length) chunks.push(_src.splice(0, MKT_QUOTE_CHUNK));
+
+                                                        function fetchChunk(list) {
+                                                            return new Promise(res => {
+                                                                const q = list.map(x => "us" + x).join(",");
+                                                                let done = false,
+                                                                    to = null;
+                                                                const parseQt = txt => {
+                                                                    const r2 = {};
+                                                                    list.forEach(sym => {
+                                                                        const m = txt.match(new RegExp("v_us" + sym + '="([^"]*)"'));
+                                                                        if (m) {
+                                                                            const p = m[1].split("~");
+                                                                            const price = parseFloat(p[3]),
+                                                                                prevClose = parseFloat(p[4]);
+                                                                            const time = (p[31] || "").trim(),
+                                                                                name = (p[1] || "").trim();
+                                                                            if (!isNaN(price)) r2[sym] = {
+                                                                                price: price,
+                                                                                prevClose: prevClose,
+                                                                                time: time,
+                                                                                name: name
+                                                                            }
+                                                                        }
+                                                                    });
+                                                                    return r2
+                                                                };
+                                                                const finish = r => {
+                                                                    if (done) return;
+                                                                    done = true;
+                                                                    if (to) clearTimeout(to);
+                                                                    res(r)
+                                                                };
+                                                                const usFallback = async () => {
+                                                                    try {
+                                                                        const r = await fetch("https://qt.gtimg.cn/q=" + q);
+                                                                        const buf = await r.arrayBuffer();
+                                                                        const txt = new TextDecoder("gbk").decode(buf);
+                                                                        finish(parseQt(txt))
+                                                                    } catch (e) {
+                                                                        finish({})
                                                                     }
-                                                                }
-                                                            });
-                                                            return res
-                                                        };
-                                                        const finish = r => {
-                                                            if (done) return;
-                                                            done = true;
-                                                            if (to) clearTimeout(to);
-                                                            resolve(r)
-                                                        };
-                                                        const usFallback = async () => {
-                                                            try {
-                                                                const r = await fetch("https://qt.gtimg.cn/q=" + q);
-                                                                const buf = await r.arrayBuffer();
-                                                                const txt = new TextDecoder("gbk").decode(buf);
-                                                                finish(parseQt(txt))
-                                                            } catch (e) {
-                                                                finish(result)
+                                                                };
+                                                                const sc = document.createElement("script");
+                                                                sc.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
+                                                                to = setTimeout(usFallback, 8e3);
+                                                                sc.onload = () => {
+                                                                    if (done) return;
+                                                                    done = true;
+                                                                    clearTimeout(to);
+                                                                    list.forEach(sym => {
+                                                                        const raw = window["v_us" + sym];
+                                                                        if (typeof raw === "string") {
+                                                                            const p = raw.split("~");
+                                                                            const price = parseFloat(p[3]),
+                                                                                prevClose = parseFloat(p[4]);
+                                                                            const time = (p[31] || "").trim(),
+                                                                                name = (p[1] || "").trim();
+                                                                            if (!isNaN(price)) result[sym] = {
+                                                                                price: price,
+                                                                                prevClose: prevClose,
+                                                                                time: time,
+                                                                                name: name
+                                                                            }
+                                                                        }
+                                                                    });
+                                                                    res({})
+                                                                };
+                                                                sc.onerror = () => {
+                                                                    if (!done) usFallback()
+                                                                };
+                                                                document.head.appendChild(sc)
+                                                            })
+                                                        }
+                                                        (function next(i) {
+                                                            if (i >= chunks.length) {
+                                                                resolve(result);
+                                                                return
                                                             }
-                                                        };
-                                                        const sc = document.createElement("script");
-                                                        sc.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
-                                                        to = setTimeout(usFallback, 8e3);
-                                                        sc.onload = () => {
-                                                            if (done) return;
-                                                            done = true;
-                                                            clearTimeout(to);
-                                                            symList.forEach(sym => {
-                                                                const raw = window["v_us" + sym];
-                                                                if (typeof raw === "string") {
-                                                                    const p = raw.split("~");
-                                                                    const price = parseFloat(p[3]),
-                                                                        prevClose = parseFloat(p[4]);
-                                                                    const time = (p[31] || "").trim(),
-                                                                        name = (p[1] || "").trim();
-                                                                    if (!isNaN(price)) result[sym] = {
-                                                                        price: price,
-                                                                        prevClose: prevClose,
-                                                                        time: time,
-                                                                        name: name
-                                                                    }
-                                                                }
-                                                            });
-                                                            resolve(result)
-                                                        };
-                                                        sc.onerror = () => {
-                                                            if (!done) usFallback()
-                                                        };
-                                                        document.head.appendChild(sc)
+                                                            fetchChunk(chunks[i]).then(() => {
+                                                                setTimeout(() => next(i + 1), 60)
+                                                            }).catch(() => next(i + 1))
+                                                        })(0)
                                                     })
                                                 }
 
@@ -5774,16 +5805,19 @@
                                                     return Object.keys(set)
                                                 }
 
-                                                function fetchMktQuotes(fullList) {
+                                                // 单次腾讯行情请求的代码数上限：避免一次性拼太长导致接口不返回
+                                                var MKT_QUOTE_CHUNK = 40;
+
+                                                function fetchMktQuotesChunk(syms) {
                                                     return new Promise(function(resolve) {
                                                         var result = {};
-                                                        if (!fullList || !fullList.length) {
+                                                        if (!syms.length) {
                                                             resolve(result);
                                                             return
                                                         }
-                                                        var q = fullList.join(",");
+                                                        var q = syms.join(",");
                                                         var parseQt = function(txt) {
-                                                            fullList.forEach(function(fs) {
+                                                            syms.forEach(function(fs) {
                                                                 var m = txt.match(new RegExp("v_" + fs + '="([^"]*)"'));
                                                                 if (m) {
                                                                     var p = m[1].split("~");
@@ -5826,7 +5860,7 @@
                                                             if (done) return;
                                                             done = true;
                                                             clearTimeout(to);
-                                                            fullList.forEach(function(fs) {
+                                                            syms.forEach(function(fs) {
                                                                 var raw = window["v_" + fs];
                                                                 if (typeof raw === "string") {
                                                                     var p = raw.split("~");
@@ -5844,6 +5878,72 @@
                                                             if (!done) fallback()
                                                         };
                                                         document.head.appendChild(s)
+                                                    })
+                                                }
+
+                                                // 分批抓取市场行情：把长列表切成每批 MKT_QUOTE_CHUNK 个，逐批串行合并
+                                                function fetchMktQuotes(fullList) {
+                                                    return new Promise(function(resolve) {
+                                                        var result = {};
+                                                        if (!fullList || !fullList.length) {
+                                                            resolve(result);
+                                                            return
+                                                        }
+                                                        var chunks = [];
+                                                        for (var i = 0; i < fullList.length; i += MKT_QUOTE_CHUNK) {
+                                                            chunks.push(fullList.slice(i, i + MKT_QUOTE_CHUNK))
+                                                        }
+                                                        (function next(idx) {
+                                                            if (idx >= chunks.length) {
+                                                                resolve(result);
+                                                                return
+                                                            }
+                                                            fetchMktQuotesChunk(chunks[idx]).then(function(part) {
+                                                                for (var k in part) {
+                                                                    if (Object.prototype.hasOwnProperty.call(part, k)) result[k] = part[k]
+                                                                }
+                                                                // 批次间留极短间隔，避免瞬时请求风暴触发限流
+                                                                setTimeout(function() {
+                                                                    next(idx + 1)
+                                                                }, 60)
+                                                            }).catch(function() {
+                                                                next(idx + 1)
+                                                            })
+                                                        })(0)
+                                                    })
+                                                }
+
+                                                // 通用并发池：对 items 依次执行 worker，但同一时刻最多 concurrency 个在跑。
+                                                // 用于限制基金净值 / K 线等外部请求数量，避免一次性并发过多被限流或不返回。
+                                                function mapPool(items, worker, concurrency) {
+                                                    concurrency = Math.max(1, concurrency || 3);
+                                                    var out = new Array(items.length);
+                                                    var idx = 0;
+                                                    var active = 0;
+                                                    var running = [];
+                                                    return new Promise(function(resolveAll) {
+                                                        function pump() {
+                                                            if (idx >= items.length && active === 0) {
+                                                                resolveAll(out);
+                                                                return
+                                                            }
+                                                            while (idx < items.length && active < concurrency) {
+                                                                var cur = idx++;
+                                                                active++;
+                                                                var p = Promise.resolve().then(function() {
+                                                                    return worker(items[cur], cur)
+                                                                }).then(function(v) {
+                                                                    out[cur] = v
+                                                                }).catch(function() {
+                                                                    out[cur] = undefined
+                                                                }).then(function() {
+                                                                    active--;
+                                                                    pump()
+                                                                });
+                                                                running.push(p)
+                                                            }
+                                                        }
+                                                        pump()
                                                     })
                                                 }
 
@@ -5956,6 +6056,7 @@
                                                 }
                                                 async function collectHoldingKline(funds) {
                                                     if (!window._holdKline) window._holdKline = {};
+                                                    if (!window._holdKlineCache) window._holdKlineCache = {};
                                                     var need = {};
                                                     var discDay = fundDisclosureDay();
                                                     (funds || []).forEach(function(f) {
@@ -5973,13 +6074,18 @@
                                                         })
                                                     });
                                                     var syms = Object.keys(need);
-                                                    await Promise.all(syms.map(async function(sym) {
-                                                        var bars = await fetchKline(sym);
+                                                    // 限并发抓取 K 线（最多 4 个同时进行），并复用 session 缓存避免重复请求
+                                                    await mapPool(syms, async function(sym) {
+                                                        var bars = window._holdKlineCache[sym];
+                                                        if (!bars) {
+                                                            bars = await fetchKline(sym);
+                                                            window._holdKlineCache[sym] = bars
+                                                        }
                                                         Object.keys(need[sym]).forEach(function(td) {
                                                             var c = klineChangeOn(bars, td);
                                                             if (c != null && isFinite(c)) window._holdKline[sym + "|" + td] = c
                                                         })
-                                                    }))
+                                                    }, 4)
                                                 }
 
                                                 function holdingChg(it, predictDay) {
@@ -6241,7 +6347,7 @@
                                                 async function fetchBybitNas100() {
                                                     try {
                                                         var r = await Promise.race([
-                                                            fetch("https://api.bybit.com/v5/market/tickers?category=linear&symbol=NAS100"),
+                                                            fetch("https://api.bybit.kz/v5/market/tickers?category=linear&symbol=QQQUSDT"),
                                                             new Promise(function (_, rej) { setTimeout(function () { rej(new Error("to")); }, 8000); })
                                                         ]);
                                                         if (!r || !r.ok) return null;
@@ -6269,8 +6375,11 @@
                                                                 let date = null;
                                                                 const src = d.time_last_update_unix ? d.time_last_update_unix * 1e3 : d.time_last_update_utc ? Date.parse(d.time_last_update_utc) : null;
                                                                 if (src && !isNaN(src)) date = ymd(src);
+                                                                // 同一数据源(open.er-api)一次性返回全部货币对，USD-HKD 直接取 rates.HKD，只读不手动录入
+                                                                const hkd = (d.rates.HKD && !isNaN(Number(d.rates.HKD))) ? Number(d.rates.HKD) : null;
                                                                 return {
                                                                     rate: Number(d.rates.CNY),
+                                                                    hkd: hkd,
                                                                     date: date
                                                                 }
                                                             }
@@ -9491,7 +9600,8 @@
                                                     const _pFx        = fetchFx();
                                                     const _pHoldQ     = fetchMktQuotes(collectHoldingSymbols());
                                                     const _pBybit = inUsWeekendGap() ? fetchBybitNas100().catch(function () { return null; }) : Promise.resolve(null);
-                                                    await Promise.all(funds.map(async (f) => {
+                                                    // 限并发抓取基金净值（每批最多 3 只），避免一次性大量请求被限流/不返回
+                                                    await mapPool(funds, async (f) => {
                                                         f._ok = undefined;
                                                         const r = await fetchFundSeries(f.code);
                                                         if (r && r.list && r.list.length) {
@@ -9521,7 +9631,8 @@
                                                             f._ok = false;
                                                             failF++
                                                         }
-                                                    }));
+                                                        return f
+                                                    }, 3);
                                                     const usRes = await _pUsQuotes;
                                                     window._nas100Predict = await _pBybit;
                                                     const usHist = await _pUsHistory;
@@ -9597,7 +9708,12 @@
                                                         fxUpdated = true;
                                                         fxLastOk = true;
                                                         fxMode = "live";
-                                                        if (fr.date) fxLastDate = fr.date
+                                                        if (fr.date) fxLastDate = fr.date;
+                                                        // 同一数据源同时返回 USD-HKD，只读写入
+                                                        if (fr.hkd != null && !isNaN(fr.hkd) && fr.hkd > 0) {
+                                                            fxHkdLive = fr.hkd;
+                                                            if (typeof window.__renderFxHkd === "function") window.__renderFxHkd()
+                                                        }
                                                     } else {
                                                         fxUpdated = false;
                                                         fxLastOk = false;
@@ -9791,6 +9907,17 @@
                                                     const i = $("fxInput");
                                                     if (i) i.value = (fxManual != null ? fxManual : fxRate).toFixed(4)
                                                 }
+
+                                                // 美元港币汇率：只读展示，复用实时源(fxHkdLive)，刷新时同步到 #fxHkdVal
+                                                window.__renderFxHkd = function() {
+                                                    const el = document.getElementById("fxHkdVal");
+                                                    if (!el) return;
+                                                    const v = effHkd();
+                                                    let html = "1$≈HK$" + (!isNaN(v) ? Number(v).toFixed(4) : "—");
+                                                    html += ' <span style="color:#1aa84b;font-weight:600;">实时</span>';
+                                                    el.innerHTML = html;
+                                                };
+                                                window.__renderFxHkd();
 
                                                 function renderFxSetting() {
                                                     const el = document.getElementById("fxSetVal");
@@ -12332,74 +12459,100 @@
                                                     // 例如：智谱(港股 hk02513)↔ZHIPU、AMD(usAMD)↔AMDSTOCK、GOOG(usGOOG)↔GOOGL
                                                     // 新增对应关系时在此数组加一行即可（自动生成双向映射）
                                                     var SYM_MAP = [
-                                                        { tc: "02513", tq: "hk02513", bb: "ZHIPU" },   // 智谱(港股)
+                                                        // hk:true 表示「港股 special」：Bybit 美元计价，需 ×USD-HKD 显示港币金额；涨跌幅用腾讯港股基准(币种一致)
+                                                        { tc: "02513", tq: "hk02513", bb: "ZHIPU", hk: true },   // 智谱(港股)
                                                         { tc: "AMD",   tq: "usAMD",   bb: "AMDSTOCK" }, // AMD
-                                                        { tc: "GOOG",  tq: "usGOOG",  bb: "GOOGL" }    // Google
+                                                        { tc: "GOOG",  tq: "usGOOGL",  bb: "GOOGL" }    // Google（腾讯财经 usGOOGL=谷歌-A）
                                                     ];
-                                                    var T_TO_B = {}, B_TO_TQ = {};
+                                                    var T_TO_B = {}, B_TO_TQ = {}, BB_IS_HK = {};
                                                     SYM_MAP.forEach(function(p) {
                                                         var tc = String(p.tc).toUpperCase();   // 裸腾讯代码(用户输入)
-                                                        var tq = String(p.tq).toUpperCase();   // 腾讯查询代码(带前缀)
+                                                        var tq = String(p.tq);                  // 腾讯查询代码(带前缀，保持小写：腾讯接口认小写 hk/us/sh/sz 前缀)
                                                         var bb = String(p.bb).toUpperCase();   // Bybit 代码
-                                                        T_TO_B[tc] = bb; T_TO_B[bb] = bb; T_TO_B[tq] = bb; // 任意输入 -> Bybit 代码
-                                                        B_TO_TQ[tc] = tq; B_TO_TQ[bb] = tq; B_TO_TQ[tq] = tq; // 任意输入 -> 腾讯查询代码
+                                                        T_TO_B[tc] = bb; T_TO_B[bb] = bb; T_TO_B[tq.toUpperCase()] = bb; // 任意输入 -> Bybit 代码
+                                                        B_TO_TQ[tc] = tq; B_TO_TQ[bb] = tq; B_TO_TQ[tq.toUpperCase()] = tq; // 任意输入 -> 腾讯查询代码(小写)
+                                                        if (p.hk) BB_IS_HK[bb] = true; // Bybit 代码 -> 是否港股 special
                                                     });
+                                                    // 是否为港股 special（如智谱）：Bybit 美元价需 ×USD-HKD 显示港币
+                                                    function isHkSpecial(sym) {
+                                                        // 先归一化到 Bybit 代码(裸腾讯代码如 02513 / 港股 hk02513 也能识别)
+                                                        var s = bybitCodeOf(sym);
+                                                        return !!BB_IS_HK[s];
+                                                    }
                                                     // 归一到 Bybit 代码（用于 Bybit 行情请求）。输入可为裸腾讯代码或 Bybit 代码
                                                     function bybitCodeOf(sym) {
                                                         var s = String(sym || "").toUpperCase().replace(/USDT$/, "");
                                                         return T_TO_B[s] || s;
                                                     }
-                                                    // 归一到腾讯查询代码（用于腾讯行情请求）。未映射的美股默认 us+代码
+                                                    // 归一到腾讯查询代码（用于腾讯行情请求）。
+                                                    // 腾讯接口对大小写敏感且按市场区分：
+                                                    //   美股: us + 大写代码(如 usNVDA)；港股: hk + 小写代码(如 hk00700)；A股: sh/sz + 小写代码(如 sh600519)
                                                     function tencentQueryOf(sym) {
                                                         var s = String(sym || "").toUpperCase().replace(/USDT$/, "");
-                                                        return B_TO_TQ[s] || ("US" + s);
+                                                        if (B_TO_TQ[s]) return B_TO_TQ[s];
+                                                        if (s.indexOf("US") === 0) return "us" + s.substring(2);       // 美股: us + 大写代码
+                                                        if (s.indexOf("HK") === 0) return "hk" + s.substring(2);       // 港股: hk + 小写代码
+                                                        if (s.indexOf("SH") === 0 || s.indexOf("SZ") === 0) return s.substring(0, 2).toLowerCase() + s.substring(2); // A股
+                                                        return "us" + s; // 默认当美股
                                                     }
 
+                                                    // 腾讯行情：港股 hk、A股 sh/sz、美股 us 均可(注意大小写与格式)。
+                                                    // 返回 { price: p[3]腾讯现价, prevClose: p[4]腾讯昨收 }。
+                                                    // 盘中：直接用腾讯现价 + 腾讯自带涨跌幅(现价-昨收)/昨收；盘外：Bybit 实时价 vs 腾讯现价(周五收盘)基准。
                                                     function fetchTencentClose(syms) {
                                                         return new Promise(function(resolve) {
                                                             var out = {};
                                                             if (!syms || !syms.length) { resolve(out); return; }
-                                                            var keys = syms.map(function(s) { return tencentQueryOf(s); });
-                                                            var q = keys.join(",");
-                                                            var parse = function(txt) {
-                                                                keys.forEach(function(k) {
-                                                                    var m = txt.match(new RegExp("v_" + k + '="([^"]*)"'));
-                                                                    if (m) {
-                                                                        var p = m[1].split("~");
-                                                                        var pc = parseFloat(p[3]); // p[3]=腾讯收盘价/现价
-                                                                        if (!isNaN(pc) && pc > 0) out[k.toUpperCase()] = pc;
-                                                                    }
-                                                                });
-                                                                return out;
-                                                            };
-                                                            var done = false, to = null;
-                                                            var finish = function(r) { if (done) return; done = true; if (to) clearTimeout(to); resolve(r); };
-                                                            var fallback = function() {
-                                                                try {
-                                                                    fetch("https://qt.gtimg.cn/q=" + q).then(function(rr) { return rr.arrayBuffer(); })
-                                                                        .then(function(buf) { finish(parse(new TextDecoder("gbk").decode(buf))); })
-                                                                        .catch(function() { finish(out); });
-                                                                } catch (e) { finish(out); }
-                                                            };
-                                                            try {
-                                                                var s = document.createElement("script");
-                                                                s.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
-                                                                to = setTimeout(fallback, 8000);
-                                                                s.onload = function() {
-                                                                    if (done) return; done = true; clearTimeout(to);
-                                                                    keys.forEach(function(k) {
-                                                                        var raw = window["v_" + k];
-                                                                        if (typeof raw === "string") {
-                                                                            var p = raw.split("~");
-                                                                            var pc = parseFloat(p[3]);
-                                                                            if (!isNaN(pc) && pc > 0) out[k.toUpperCase()] = pc;
+                                                            var keys = syms.map(function(s) { return tencentQueryOf(s); }); // 已是小写(腾讯要求)
+                                                            // 分批：单批最多 MKT_QUOTE_CHUNK 个，避免一次性拼太长导致不返回
+                                                            var chunks = [];
+                                                            for (var i = 0; i < keys.length; i += MKT_QUOTE_CHUNK) chunks.push(keys.slice(i, i + MKT_QUOTE_CHUNK));
+                                                            (function next(idx) {
+                                                                if (idx >= chunks.length) { resolve(out); return; }
+                                                                var ck = chunks[idx];
+                                                                var q = ck.join(",");
+                                                                var parse = function(txt) {
+                                                                    ck.forEach(function(k) {
+                                                                        var m = txt.match(new RegExp("v_" + k + '="([^"]*)"'));
+                                                                        if (m) {
+                                                                            var p = m[1].split("~");
+                                                                            var tPrice = parseFloat(p[3]);    // p[3]=腾讯现价
+                                                                            var tPrev = parseFloat(p[4]);    // p[4]=腾讯昨收
+                                                                            if (!isNaN(tPrice) && tPrice > 0) out[k] = { price: tPrice, prevClose: tPrev };
                                                                         }
                                                                     });
-                                                                    resolve(out);
+                                                                    return out;
                                                                 };
-                                                                s.onerror = function() { if (!done) fallback(); };
-                                                                document.head.appendChild(s);
-                                                            } catch (e) { finish(out); }
+                                                                var done = false, to = null;
+                                                                var finish = function() { if (done) return; done = true; if (to) clearTimeout(to); };
+                                                                var fallback = function() {
+                                                                    try {
+                                                                        fetch("https://qt.gtimg.cn/q=" + q).then(function(rr) { return rr.arrayBuffer(); })
+                                                                            .then(function(buf) { finish(); parse(new TextDecoder("gbk").decode(buf)); next(idx + 1); })
+                                                                            .catch(function() { finish(); next(idx + 1); });
+                                                                    } catch (e) { finish(); next(idx + 1); }
+                                                                };
+                                                                try {
+                                                                    var s = document.createElement("script");
+                                                                    s.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
+                                                                    to = setTimeout(fallback, 8000);
+                                                                    s.onload = function() {
+                                                                        if (done) return; done = true; clearTimeout(to);
+                                                                        ck.forEach(function(k) {
+                                                                            var raw = window["v_" + k];
+                                                                            if (typeof raw === "string") {
+                                                                                var p = raw.split("~");
+                                                                                var tPrice = parseFloat(p[3]);    // p[3]=腾讯现价
+                                                                                var tPrev = parseFloat(p[4]);    // p[4]=腾讯昨收
+                                                                                if (!isNaN(tPrice) && tPrice > 0) out[k] = { price: tPrice, prevClose: tPrev };
+                                                                            }
+                                                                        });
+                                                                        setTimeout(function() { next(idx + 1); }, 60);
+                                                                    };
+                                                                    s.onerror = function() { if (!done) { done = true; clearTimeout(to); } next(idx + 1); };
+                                                                    document.head.appendChild(s);
+                                                                } catch (e) { finish(); next(idx + 1); }
+                                                            })(0);
                                                         });
                                                     }
 
@@ -12531,7 +12684,7 @@
                                                         updateMvpnlToggleBtn();
                                                     }
 
-                                                    function renderMarketList(data, tencentMap) {
+                                                    function renderMarketList(data, tencentMap, alpacaMap) {
                                                         var loadingEl = document.getElementById("marketLoading");
                                                         var errEl = document.getElementById("marketError");
                                                         if (loadingEl) loadingEl.style.display = "none";
@@ -12573,23 +12726,73 @@
                                                             var name = sym;
                                                             var price = "--";
                                                             var pct = null;
+                                                            var _srcTag = null; // 实际使用的涨跌基准数据源标签(用于兜底标注)
                                                             if (item) {
                                                                 name = item.baseCoin || sym;
                                                                 // 金额用 indexPrice
                                                                 var idx = parseFloat(item.indexPrice);
                                                                 var p = isNaN(idx) ? parseFloat(item.lastPrice) : idx;
                                                                 if (!isNaN(p)) price = p >= 1 ? p.toFixed(2) : p.toFixed(4);
-                                                                if (item._isStock && !item._useBybit) {
-                                                                    var base = tencentMap ? tencentMap[tencentQueryOf(sym)] : null;
-                                                                    if (base && base > 0 && !isNaN(p)) pct = (p - base) / base * 100;
+                                                                if (item._isStock) {
+                                                                    if (isHkSpecial(sym)) {
+                                                                        // 港股 special（如智谱）：Bybit 读出美元价，×USD-HKD 换算成港币金额；涨跌幅与别的美股一样算(Bybit港币价 vs 腾讯港股基准p[3])
+                                                                        var tqSym = tencentQueryOf(sym);
+                                                                        var tq = tencentMap ? tencentMap[tqSym] : null;
+                                                                        var hkd = effHkd();
+                                                                        var phkd = (!isNaN(p) && hkd > 0) ? p * hkd : NaN; // Bybit 美元价 ×HKD = 港币价
+                                                                        if (tq && tq.price > 0 && !isNaN(phkd)) {
+                                                                            // 与别的美股盘外逻辑一致：(Bybit港币价 - 腾讯港股p[3]) / 腾讯港股p[3]
+                                                                            pct = (phkd - tq.price) / tq.price * 100;
+                                                                            _srcTag = "bybit"; // 现价来自 Bybit(美元换算港币)
+                                                                        } else {
+                                                                            var ch24h = parseFloat(item._ch24);
+                                                                            if (!isNaN(ch24h)) pct = ch24h * 100;
+                                                                            _srcTag = "bybit";
+                                                                        }
+                                                                        if (!isNaN(phkd)) price = "HK$" + phkd.toFixed(2);
+                                                                    }
+                                                                    // 以下为普通美股/ETF（港股 special 已在上方单独处理并 continue 式跳过）
+                                                                    if (!isHkSpecial(sym)) {
+                                                                    // 美股/ETF：
+                                                                    //  盘中(!_useBybit)：纯腾讯——现价用腾讯 p[3]，涨跌幅用腾讯自带(现价-昨收)/昨收，不碰 Bybit
+                                                                    //  盘外(_useBybit)：Bybit 实时价 vs 腾讯现价(周五收盘)基准
+                                                                    var tqSym = tencentQueryOf(sym);
+                                                                    var tq = tencentMap ? tencentMap[tqSym] : null;
+                                                                    if (tq && tq.price > 0) {
+                                                                        if (!item._useBybit) {
+                                                                            // 盘中：完全用腾讯现价 + 腾讯自带涨跌幅
+                                                                            var tp4 = tq.prevClose;
+                                                                            if (tp4 > 0 && !isNaN(p)) { /* p 仍为 Bybit，下面用腾讯覆盖 */ }
+                                                                            p = tq.price;
+                                                                            price = p >= 1 ? p.toFixed(2) : p.toFixed(4);
+                                                                            if (tp4 > 0) pct = (p - tp4) / tp4 * 100;
+                                                                            _srcTag = "tencent"; // 现价来自腾讯
+                                                                        } else {
+                                                                            // 盘外：Bybit 实时价 vs 腾讯现价(周五收盘)基准
+                                                                            if (!isNaN(p)) pct = (p - tq.price) / tq.price * 100;
+                                                                            _srcTag = "bybit"; // 现价来自 Bybit
+                                                                        }
+                                                                    } else {
+                                                                        // 腾讯缺失：回退 Bybit 24h / Alpaca 前收
+                                                                        var ch24 = parseFloat(item._ch24);
+                                                                        if (!isNaN(ch24)) { pct = ch24 * 100; _srcTag = "bybit"; }
+                                                                        else if (alpacaMap) {
+                                                                            var ap = alpacaMap[sym];
+                                                                            if (ap && ap > 0 && !isNaN(p)) { pct = (p - ap) / ap * 100; _srcTag = "alpaca"; }
+                                                                        }
+                                                                    }
+                                                                    } // end !isHkSpecial
                                                                 } else {
-                                                                    var ch24 = parseFloat(item._ch24);
-                                                                    if (!isNaN(ch24)) pct = ch24 * 100;
+                                                                    // 加密(非美股)：Bybit 24h 涨跌
+                                                                    var ch24c = parseFloat(item._ch24);
+                                                                    if (!isNaN(ch24c)) { pct = ch24c * 100; _srcTag = "bybit"; }
                                                                 }
                                                             }
                                                             var srcLabelMap = { bybit: "Bybit", tencent: "腾讯财经", alpaca: "Alpaca" };
                                                             var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca" };
-                                                            var srcKey = item ? (item._src || (item._isStock ? "tencent" : "bybit")) : "bybit";
+                                                            // 涨跌基准实际数据源：回退时按 _srcTag 标注(bybit/alpaca)，否则用主源
+                                                            var effSrc = _srcTag || (item ? (item._src || (item._isStock ? "tencent" : "bybit")) : "bybit");
+                                                            var srcKey = effSrc;
                                                             var srcLabel = srcLabelMap[srcKey] || srcKey;
                                                             var srcCls = srcClsMap[srcKey] || "s-none";
                                                             // 美股持仓：实时市值(人民币)与预测盈亏金额
@@ -12682,7 +12885,8 @@
                                                                 items.slice(0, 10).forEach(function(it, i) {
                                                                     var pct = Number(it.p) || 0;
                                                                     var mkt = it.m || "us";
-                                                                    var symKey = (mkt === "us") ? (it.c || "").toUpperCase() : "";
+                                                                    // 美股(us) 与 港股special(如智谱) 都进实时请求(Bybit 美元计价)
+                                                                    var symKey = ((mkt === "us") || isHkSpecial(it.c)) ? (it.c || "").toUpperCase() : "";
                                                                     if (symKey && usCodes.indexOf(symKey) < 0) usCodes.push(symKey);
                                                                     body += '<div class="fund-hd-item" ' + (symKey ? 'data-fh-sym="' + symKey + '"' : '') + '>'
                                                                         + '<div class="fund-hd-top">'
@@ -12761,6 +12965,18 @@
                                                         var merged = { list: [] };
                                                         var pending = symbols.length;
                                                         var stockSyms = [];
+                                                        var _ac = alpacaCfg();
+                                                        var _alpacaPrevForFund = function() {
+                                                            if (!(_ac && _ac.keyId && _ac.secret) || !stockSyms.length) return Promise.resolve({});
+                                                            return fetchUsQuotesAlpaca(stockSyms, _ac).then(function(m) {
+                                                                var o = {};
+                                                                stockSyms.forEach(function(s) {
+                                                                    var q = m[s];
+                                                                    if (q && q.prevClose != null && q.prevClose > 0) o[s] = q.prevClose;
+                                                                });
+                                                                return o;
+                                                            }).catch(function() { return {}; });
+                                                        };
                                                         symbols.forEach(function(sym) {
                                                             var tUrl = MARKET_API_BASE + "/tickers?category=linear&symbol=" + sym;
                                                             var iUrl = MARKET_API_BASE + "/instruments-info?category=linear&symbol=" + sym;
@@ -12800,9 +13016,14 @@
                                                                             pending--;
                                                                             if (pending === 0) {
                                                                                 if (stockSyms.length > 0) {
-                                                                                    fetchTencentClose(stockSyms).then(function(map) { fillFundHoldingsQuotes(merged, map); });
+                                                                                    // 腾讯 Close 用 script 注入，为防止某些环境（CSP/网络）卡住不回调，加 8s 强制兜底
+                                                                                    var tCloseP = fetchTencentClose(stockSyms);
+                                                                                    var tCloseTimeout = new Promise(function(_, rej) { setTimeout(function() { rej(new Error("tencent close timeout")); }, 8000); });
+                                                                                    Promise.race([tCloseP, tCloseTimeout])
+                                                                                        .then(function(map) { _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, map || {}, am); }); })
+                                                                                        .catch(function(e) { _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, {}, am); }); });
                                                                                 } else {
-                                                                                    fillFundHoldingsQuotes(merged, {});
+                                                                                    _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, {}, am); });
                                                                                 }
                                                                             }
                                                                         });
@@ -12811,14 +13032,14 @@
                                                     }
 
                                                     // 把实时数据填充到基金持仓行（按市场逻辑算盈亏率 + 数据源标注）
-                                                    function fillFundHoldingsQuotes(merged, tencentMap) {
+                                                    function fillFundHoldingsQuotes(merged, tencentMap, alpacaMap) {
                                                         var map = {};
                                                         merged.list.forEach(function(it) { map[it.symbol] = it; });
                                                         var srcLabelMap = { bybit: "Bybit", tencent: "腾讯财经", alpaca: "Alpaca" };
                                                         var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca" };
                                                         document.querySelectorAll('#unifiedList .fund-hd-item[data-fh-sym]').forEach(function(row) {
                                                             var sym = row.getAttribute("data-fh-sym");
-                                                            var key = sym + "USDT";
+                                                            var key = bybitCodeOf(sym) + "USDT";
                                                             var it = map[key];
                                                             var qEl = row.querySelector(".fund-hd-quote");
                                                             var cEl = row.querySelector(".fund-hd-chg");
@@ -12828,19 +13049,54 @@
                                                             var p = isNaN(idx) ? parseFloat(it.lastPrice) : idx;
                                                             if (!isNaN(p)) qEl.textContent = p >= 1 ? p.toFixed(2) : p.toFixed(4);
                                                             var ch = null;
-                                                            if (it._isStock && !it._useBybit) {
-                                                                // 盘中(非周末)：Bybit 实时价 vs 腾讯昨收
-                                                                var base = tencentMap ? tencentMap[tencentQueryOf(sym)] : null;
-                                                                if (base && base > 0 && !isNaN(p)) ch = (p - base) / base * 100;
-                                                            } else if (it._isStock && it._useBybit) {
-                                                                // 周末间隙：Bybit indexPrice vs 腾讯昨收 = 周末缺口盈亏率
-                                                                //   单价基准 = 基金持仓单价(NAV) ×(1 + 基金持仓当日预测盈亏率)
+                                                            var _fSrc = null;
+                                                            if (it._isStock) {
+                                                                if (isHkSpecial(sym)) {
+                                                                    var tqH = tencentMap ? tencentMap[tencentQueryOf(sym)] : null;
+                                                                    var hkdH = effHkd();
+                                                                    var phkdH = (!isNaN(p) && hkdH > 0) ? p * hkdH : NaN;
+                                                                    if (tqH && tqH.price > 0 && !isNaN(phkdH)) {
+                                                                        ch = (phkdH - tqH.price) / tqH.price * 100;
+                                                                        _fSrc = "bybit";
+                                                                    } else {
+                                                                        var ch24h2 = parseFloat(it._ch24);
+                                                                        if (!isNaN(ch24h2)) ch = ch24h2 * 100;
+                                                                        _fSrc = "bybit";
+                                                                    }
+                                                                    if (!isNaN(phkdH)) qEl.textContent = "HK$" + phkdH.toFixed(2);
+                                                                } else {
+                                                                // 美股/ETF：
+                                                                //  盘中(!_useBybit)：纯腾讯——现价用腾讯 p[3]，涨跌幅用腾讯自带(现价-昨收)/昨收
+                                                                //  盘外(_useBybit)：Bybit 实时价 vs 腾讯现价(周五收盘)基准
                                                                 var tq = tencentMap ? tencentMap[tencentQueryOf(sym)] : null;
-                                                                if (tq && tq > 0 && !isNaN(p)) ch = (p - tq) / tq * 100;
+                                                                if (tq && tq.price > 0) {
+                                                                    if (!it._useBybit) {
+                                                                        // 盘中：腾讯现价 + 腾讯自带涨跌幅
+                                                                        var tp4 = tq.prevClose;
+                                                                        if (tp4 > 0 && !isNaN(p)) { /* 下面用腾讯覆盖 */ }
+                                                                        p = tq.price;
+                                                                        if (!isNaN(p)) qEl.textContent = p >= 1 ? p.toFixed(2) : p.toFixed(4);
+                                                                        if (tp4 > 0) ch = (p - tp4) / tp4 * 100;
+                                                                        _fSrc = "tencent"; // 现价来自腾讯
+                                                                    } else {
+                                                                        // 盘外：Bybit 实时价 vs 腾讯现价(周五收盘)基准
+                                                                        if (!isNaN(p) && tq.price > 0) ch = (p - tq.price) / tq.price * 100;
+                                                                        _fSrc = "bybit"; // 现价来自 Bybit
+                                                                    }
+                                                                } else {
+                                                                    // 腾讯缺失：回退 Bybit 24h / Alpaca 前收
+                                                                    var ch24_1 = parseFloat(it._ch24);
+                                                                    if (!isNaN(ch24_1)) { ch = ch24_1 * 100; _fSrc = "bybit"; }
+                                                                    else if (alpacaMap) {
+                                                                        var ap1 = alpacaMap[sym];
+                                                                        if (ap1 && ap1 > 0 && !isNaN(p)) { ch = (p - ap1) / ap1 * 100; _fSrc = "alpaca"; }
+                                                                    }
+                                                                }
+                                                                } // end !isHkSpecial
                                                             } else {
                                                                 // 加密(非美股)：Bybit 24h 涨跌
                                                                 var ch24 = parseFloat(it._ch24);
-                                                                if (!isNaN(ch24)) ch = ch24 * 100;
+                                                                if (!isNaN(ch24)) { ch = ch24 * 100; _fSrc = "bybit"; }
                                                             }
                                                             if (ch !== null && !isNaN(ch)) {
                                                                 var cls = ch >= 0 ? "up" : "down";
@@ -12848,9 +13104,9 @@
                                                                 cEl.textContent = sign + ch.toFixed(2) + "%";
                                                                 cEl.className = "fund-hd-chg " + cls;
                                                             }
-                                                            // 数据源标注（名称后）
+                                                            // 数据源标注（名称后）：回退时按 _fSrc 标注
                                                             if (srcEl) {
-                                                                var sk = it._src || (it._isStock ? "tencent" : "bybit");
+                                                                var sk = _fSrc || (it._src || (it._isStock ? "tencent" : "bybit"));
                                                                 srcEl.textContent = srcLabelMap[sk] || sk;
                                                                 srcEl.className = "market-src " + (srcClsMap[sk] || "s-none");
                                                             }
@@ -12987,9 +13243,14 @@
 
                                                     // 股票是否改用 Bybit：美东 周五盘后 20:00 ~ 周日夜盘开盘 20:00 之前读 Bybit；其余走美股当日预测（腾讯基准）
                                                     // 直接复用项目现有的 inUsWeekendGap() 判断（周五盘后20:00后、周六全天、周日20:00前）
+                                                    // 美股在市场行情页的主数据源：盘中=腾讯财经；盘前/盘后/夜盘/周末间隙=Bybit indexPrice
+                                                    // （与"自动模式各行情源"说明一致：盘中腾讯，其余 Bybit，Alpaca 仅作兜底）
                                                     function marketStockUseBybit() {
-                                                        try { return typeof inUsWeekendGap === "function" && inUsWeekendGap(); }
-                                                        catch (e) { return false; }
+                                                        try {
+                                                            // 非美东常规时段（含盘前/盘后/夜盘/周末）一律走 Bybit
+                                                            if (typeof isUsRegularSession === "function" && !isUsRegularSession()) return true;
+                                                            return false;
+                                                        } catch (e) { return false; }
                                                     }
 
                                                     function fetchMarketData() {
@@ -13025,19 +13286,33 @@
                                                         // 兜底：若任一 fetch 永久 pending（网络被墙/CORS 卡死），pending 永不归零，
                                                         // renderMarketList 永不调用，导致美股/大宗/加密不显示（基金走独立渲染链照常显示）。
                                                         // 这里加总超时：到点无论 pending 是否归零，都强制渲染已拿到的数据。
+                                                        var _ac = alpacaCfg();
+                                                        var _useAlpaca = !!(_ac && _ac.keyId && _ac.secret);
+                                                        // 最终兜底：腾讯/Bybit 都拿不到时，用 Alpaca 前收做涨跌基准
+                                                        var _fetchAlpacaPrev = function() {
+                                                            if (!_useAlpaca || !stockSyms.length) return Promise.resolve({});
+                                                            return fetchUsQuotesAlpaca(stockSyms, _ac).then(function(m) {
+                                                                var o = {};
+                                                                stockSyms.forEach(function(s) {
+                                                                    var q = m[s];
+                                                                    if (q && q.prevClose != null && q.prevClose > 0) o[s] = q.prevClose;
+                                                                });
+                                                                return o;
+                                                            }).catch(function() { return {}; });
+                                                        };
+                                                        // 基金持仓涨跌幅兜底(与上面对称)：Alpaca 前收
+                                                        var _alpacaPrevForFund = _fetchAlpacaPrev;
                                                         var _renderDone = function(force) {
                                                             if (settled && !force) return;
                                                             settled = true;
                                                             if (loadingEl) loadingEl.style.display = "none";
-                                                            if (stockSyms.length > 0) {
-                                                                fetchTencentClose(stockSyms).then(function(tencentMap) {
-                                                                    renderMarketList(merged, tencentMap);
-                                                                }).catch(function() {
-                                                                    renderMarketList(merged, {});
-                                                                });
-                                                            } else {
-                                                                renderMarketList(merged, {});
-                                                            }
+                                                            var tP = (stockSyms.length > 0) ? fetchTencentClose(stockSyms) : Promise.resolve({});
+                                                            var aP = _fetchAlpacaPrev();
+                                                            Promise.all([tP, aP]).then(function(r) {
+                                                                renderMarketList(merged, r[0] || {}, r[1] || {});
+                                                            }).catch(function() {
+                                                                renderMarketList(merged, {}, {});
+                                                            });
                                                         };
                                                         var _safetyTimer = setTimeout(function() {
                                                             if (pending > 0) {
@@ -13066,14 +13341,13 @@
                                                                 .catch(function() {})
                                                                 .finally(function() {
                                                                     var isStock = (symbolType === "stock" || symbolType === "ETF");
-                                                                    // 股票在周末间隙(周五盘后20:00~周日20:00)改用 Bybit，不拉腾讯
+                                                                    // 盘前/盘后/夜盘/周末间隙(非美东常规时段)美股走 Bybit；盘中走腾讯
                                                                     var stockUseBybit = isStock && marketStockUseBybit();
                                                                     var useTencent = isStock && !stockUseBybit;
-                                                                    // 数据源标识：bybit / tencent(腾讯财经) / alpaca
+                                                                    // 数据源标识：bybit / tencent(腾讯财经)；Alpaca 仅作最终兜底(渲染层回退时标注)
                                                                     var src = "bybit";
                                                                     if (isStock) {
-                                                                        if (stockUseBybit) src = "bybit";
-                                                                        else src = (typeof isUsRegularSession === "function" && isUsRegularSession()) ? "tencent" : "alpaca";
+                                                                        src = stockUseBybit ? "bybit" : "tencent";
                                                                     }
                                                                     fetch(tUrl)
                                                                         .then(function(r) { return r.json(); })
@@ -13085,7 +13359,8 @@
                                                                                     it._src = src;                // 数据源标识
                                                                                     it._ch24 = parseFloat(it.price24hPcnt); // 已是小数，渲染*100
                                                                                     merged.list.push(it);
-                                                                                    if (useTencent) stockSyms.push(sym.replace(/USDT$/, ""));
+                                                                                    // 所有美股/ETF 都拉腾讯昨收作为涨跌基准(盘中盘外统一)，不再仅限盘中
+                                                                                    if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
                                                                                 });
                                                                             }
                                                                         })
