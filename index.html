@@ -4671,20 +4671,20 @@
                                                     alpOk = true;
                                                 const EMBEDDED = typeof __EMBED_SEED__ !== "undefined" ? __EMBED_SEED__ : null;
                                                 if (EMBEDDED && (!funds || !funds.length) && (!us || !us.length) && (!cash || !cash.length)) {
-                                                    funds = (EMBEDDED.funds || []).map(f => {
+                                                    funds = (EMBEDDED.pa_funds || []).map(f => {
                                                         if (!f.id) f.id = uid();
                                                         return f
                                                     });
-                                                    us = (EMBEDDED.us || []).map(u => {
+                                                    us = (EMBEDDED.pa_us || []).map(u => {
                                                         if (!u.id) u.id = uid();
                                                         return u
                                                     });
-                                                    cash = (EMBEDDED.cash || []).map(c => {
+                                                    cash = (EMBEDDED.pa_cash || []).map(c => {
                                                         if (!c.id) c.id = uid();
                                                         return c
                                                     });
-                                                    if (EMBEDDED.fxRate && !isNaN(EMBEDDED.fxRate)) fxRate = Number(EMBEDDED.fxRate);
-                                                    fxManual = EMBEDDED.fxManual == null ? null : Number(EMBEDDED.fxManual);
+                                                    if (EMBEDDED.pa_fx && !isNaN(EMBEDDED.pa_fx)) fxRate = Number(EMBEDDED.pa_fx);
+                                                    fxManual = EMBEDDED.pa_fxman == null ? null : Number(EMBEDDED.pa_fxman);
                                                     if (EMBEDDED.usInvest != null && !isNaN(EMBEDDED.usInvest)) usInvestManual = Number(EMBEDDED.usInvest);
                                                     save()
                                                 }
@@ -10449,7 +10449,9 @@
                                                         pa_funds: cleanArr(funds, ["id", "code", "name", "manualNav", "trades", "icon"]),
                                                         pa_us: cleanArr(us, ["id", "symbol", "name", "price", "histText", "trades", "icon"]),
                                                         pa_cash: cleanArr(cash, ["id", "date", "currency", "note", "transactions", "icon"]),
-                                                        usInvest: usInvestManual
+                                                        usInvest: usInvestManual,
+                                                        pa_fx: fxRate,
+                                                        pa_fxman: fxManual
                                                     };
                                                     /* 把 seed 中 img 的 data: URI 替换为 @b64:n 标记 */
                                                     var bs = window.__B || [];
@@ -12727,7 +12729,7 @@
                                                     function getUnifiedSort() {
                                                         try {
                                                             var s = JSON.parse(localStorage.getItem(UNIFIED_SORT_KEY));
-                                                            if (s && (s.key === "mv" || s.key === "pnl" || s.key === "chg") && (s.dir === 1 || s.dir === -1)) return s;
+                                                            if (s && (s.key === "mv" || s.key === "pnl" || s.key === "chg") && (s.dir === 1 || s.dir === -1 || s.dir === 0)) return s;
                                                         } catch (e) {}
                                                         return { key: "mv", dir: -1 }; // 默认：市值降序
                                                     }
@@ -12799,17 +12801,13 @@
                                                                 var ra = sa === "top" ? 0 : (sa === "bottom" ? 2 : 1);
                                                                 var rb = sb === "top" ? 0 : (sb === "bottom" ? 2 : 1);
                                                                 if (ra !== rb) return ra - rb;
-                                                                if (ra === 0 || ra === 2) {
-                                                                    // 置顶/置底分组：按当前排序键(涨跌幅/市值/盈亏)在组内单独排序，而非固定手动顺序
+                                                                // dir!==0：按当前排序键(涨跌幅/市值/盈亏)在组内单独排序；dir===0：取消排序，仅按手动顺序
+                                                                if (st.dir !== 0) {
                                                                     var va = unifiedSortVal(a, st.key), vb = unifiedSortVal(b, st.key);
                                                                     if (va !== vb) return va < vb ? -1 * st.dir : 1 * st.dir;
-                                                                    var oa = parseInt(a.getAttribute("data-order"), 10), ob = parseInt(b.getAttribute("data-order"), 10);
-                                                                    return oa - ob;
                                                                 }
-                                                                var va = unifiedSortVal(a, st.key), vb = unifiedSortVal(b, st.key);
-                                                                if (va !== vb) return va < vb ? -1 * st.dir : 1 * st.dir;
-                                                                var oa2 = parseInt(a.getAttribute("data-order"), 10), ob2 = parseInt(b.getAttribute("data-order"), 10);
-                                                                return oa2 - ob2;
+                                                                var oa = parseInt(a.getAttribute("data-order"), 10), ob = parseInt(b.getAttribute("data-order"), 10);
+                                                                return oa - ob;
                                                             });
                                                         }
                                                         // 按排序顺序重排：基金行的展开 body 已嵌套在内部，随 .fund-row 一起移动
@@ -12823,12 +12821,21 @@
                                                         var head = document.querySelector("#pageMarket .unified-head");
                                                         if (!head) return;
                                                         var st = getUnifiedSort();
-                                                        var el = head.querySelector('[data-key="mvpnl"]');
-                                                        if (el) {
-                                                            el.classList.add("active");
+                                                        head.querySelectorAll(".uh-sort").forEach(function(el) {
+                                                            var k = el.getAttribute("data-key");
+                                                            // 该表头对应的实际排序键：mvpnl 表头映射到当前主/次键(mv/pnl)
+                                                            var activeKey = (k === "mvpnl")
+                                                                ? ((st.key === "mv" || st.key === "pnl") ? st.key : null)
+                                                                : (k === st.key ? k : null);
                                                             var ind = el.querySelector(".sort-ind");
-                                                            if (ind) ind.textContent = st.dir === 1 ? "▲" : "▼";
-                                                        }
+                                                            if (activeKey && st.dir !== 0) {
+                                                                el.classList.add("active");
+                                                                if (ind) ind.textContent = st.dir === 1 ? "▲" : "▼";
+                                                            } else {
+                                                                el.classList.remove("active");
+                                                                if (ind) ind.textContent = "⇅";
+                                                            }
+                                                        });
                                                     }
                                                     function applyMvpnlMode() {
                                                         var mode = getUnifiedSort().key; // 'mv' 或 'pnl'
@@ -12870,10 +12877,16 @@
                                                             head.querySelectorAll(".uh-sort").forEach(function(el) {
                                                                 el.addEventListener("click", function() {
                                                                     var k = el.getAttribute("data-key");
-                                                                    if (k === "mvpnl") { k = getUnifiedSort().key; } // 只排序：按当前主次键（市值或盈亏）
+                                                                    if (k === "mvpnl") { k = getUnifiedSort().key; if (k !== "mv" && k !== "pnl") k = "mv"; } // 市值/盈亏：按当前主次键
                                                                     var st = getUnifiedSort();
-                                                                    if (st.key === k) st.dir = st.dir === 1 ? -1 : 1;
-                                                                    else { st.key = k; st.dir = -1; }
+                                                                    if (st.key === k) {
+                                                                        // 同一列再点：大到小(-1) → 小到大(1) → 取消(0，回默认顺序)
+                                                                        if (st.dir === -1) st.dir = 1;
+                                                                        else if (st.dir === 1) st.dir = 0;
+                                                                        else st.dir = -1;
+                                                                    } else {
+                                                                        st.key = k; st.dir = -1; // 首次点该列 = 从大到小
+                                                                    }
                                                                     setUnifiedSort(st);
                                                                     renderUnifiedList();
                                                                 });
@@ -12894,7 +12907,7 @@
                                                         }
                                                     }
 
-                                                    function renderMarketList(data, tencentMap, alpacaMap) {
+                                                    function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
                                                         var loadingEl = document.getElementById("marketLoading");
                                                         var errEl = document.getElementById("marketError");
                                                         if (loadingEl) loadingEl.style.display = "none";
@@ -13025,18 +13038,30 @@
                                                                 var _optParsed = parseOptionSymbol(g.optionSyms[0]);
                                                                 var _optRoot = g.root;
                                                                 name = _optRoot;
+                                                                // 期权正股优先走 Bybit 实时价，其次 Alpaca 实时价，最后腾讯兜底；都没有则画杠
+                                                                var _optKey = bybitCodeOf(_optRoot) + "USDT";
+                                                                var _optItem = map[_optKey]; // Bybit 实时（若已请求并拿到）
+                                                                var _optApPrice = alpacaPriceMap ? alpacaPriceMap[_optRoot] : null; // Alpaca 实时价
+                                                                var _optApPrev = alpacaMap ? alpacaMap[_optRoot] : null;           // Alpaca 前收（作为涨跌基准）
                                                                 var _optTq = tencentMap ? tencentMap[tencentQueryOf(_optRoot)] : null;
-                                                                var _optAp = alpacaMap ? alpacaMap[_optRoot] : null;
                                                                 price = "--";
                                                                 pct = null;
                                                                 _srcTag = null;
-                                                                if (_optTq && _optTq.price > 0) {
+                                                                if (_optItem) {
+                                                                    var _op = parseFloat(_optItem.indexPrice);
+                                                                    var _opP = isNaN(_op) ? parseFloat(_optItem.lastPrice) : _op;
+                                                                    if (!isNaN(_opP)) price = _opP >= 1 ? _opP.toFixed(2) : _opP.toFixed(4);
+                                                                    var _ch = parseFloat(_optItem._ch24);
+                                                                    if (!isNaN(_ch)) { pct = _ch * 100; _srcTag = "bybit"; }
+                                                                    else if (_optApPrev > 0 && !isNaN(_opP)) { pct = (_opP - _optApPrev) / _optApPrev * 100; _srcTag = "bybit"; }
+                                                                } else if (_optApPrice != null && !isNaN(_optApPrice) && _optApPrice > 0) {
+                                                                    price = _optApPrice >= 1 ? _optApPrice.toFixed(2) : _optApPrice.toFixed(4);
+                                                                    if (_optApPrev > 0) pct = (_optApPrice - _optApPrev) / _optApPrev * 100;
+                                                                    _srcTag = "alpaca";
+                                                                } else if (_optTq && _optTq.price > 0) {
                                                                     price = _optTq.price >= 1 ? _optTq.price.toFixed(2) : _optTq.price.toFixed(4);
                                                                     if (_optTq.prevClose > 0) pct = (_optTq.price - _optTq.prevClose) / _optTq.prevClose * 100;
                                                                     _srcTag = "tencent";
-                                                                } else if (_optAp && _optAp > 0) {
-                                                                    price = _optAp >= 1 ? _optAp.toFixed(2) : _optAp.toFixed(4);
-                                                                    _srcTag = "alpaca";
                                                                 }
                                                             }
                                                             var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca" };
@@ -13766,6 +13791,14 @@
                                                             us.forEach(function(u) {
                                                                 var s = String(u.symbol || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
                                                                 if (s && allSyms.indexOf(s) < 0) allSyms.push(s);
+                                                                // 期权持仓的正股代码也加入 Bybit 行情请求（期权正股优先走 Bybit）
+                                                                if (u && isOptionSymbol(u.symbol)) {
+                                                                    var _op = parseOptionSymbol(u.symbol);
+                                                                    if (_op && _op.root) {
+                                                                        var _root = _op.root.toUpperCase();
+                                                                        if (allSyms.indexOf(_root) < 0) allSyms.push(_root);
+                                                                    }
+                                                                }
                                                             });
                                                         }
                                                         // 过滤"永久隐藏"的行（localStorage），避免刷新后重新出现
@@ -13787,7 +13820,7 @@
                                                         var _failedStockSyms = [];
                                                         var _failedStockSet = {};
                                                         function _recordFail(isStock, bybitSym) {
-                                                            if (!isStock) return;
+                                                            // 不再要求 isStock：Bybit 读不到的任意符号都记录，统一交由腾讯/Alpaca 兜底
                                                             var plain = String(bybitSym || "").replace(/USDT$/, "");
                                                             if (!plain || _failedStockSet[plain]) return;
                                                             _failedStockSet[plain] = true;
@@ -13838,32 +13871,41 @@
                                                             Promise.all([tP, aP]).then(function(r) {
                                                                 var tencentMap = r[0] || {};
                                                                 var alpacaFull = r[1] || {};
-                                                                // Bybit 读不到的股票，用 Alpaca 实时价补一条（腾讯可用仍优先腾讯，仅当腾讯缺失才真正用 Alpaca 价）
-                                                                if (_failedStockSyms.length && alpacaFull) {
+                                                                // Bybit 读不到的股票：Alpaca 实时价优先补行；若 Alpaca 也无价但腾讯有价，用腾讯价补行。
+                                                                // 这样只要腾讯/Alpaca 任一有数据，该行就不会画杠（渲染层再按 tencentMap/alpacaMap 细化现价与涨跌）。
+                                                                if (_failedStockSyms.length) {
                                                                     _failedStockSyms.forEach(function(sym) {
                                                                         if (isOptionSymbol(sym)) return;
-                                                                        var al = alpacaFull[sym];
-                                                                        if (!al || al.price == null || isNaN(al.price)) return;
                                                                         var k = bybitCodeOf(sym) + "USDT";
                                                                         if (merged.list.some(function(it) { return it.symbol === k; })) return;
-                                                                        merged.list.push({
-                                                                            symbol: k,
-                                                                            baseCoin: sym,
-                                                                            lastPrice: String(al.price),
-                                                                            indexPrice: String(al.price),
-                                                                            _isStock: true,
-                                                                            _useBybit: false,
-                                                                            _src: "alpaca"
-                                                                        });
+                                                                        var al = alpacaFull ? alpacaFull[sym] : null;
+                                                                        var tSym = tencentQueryOf(sym);
+                                                                        var tq = tencentMap ? tencentMap[tSym] : null;
+                                                                        if (al && al.price != null && !isNaN(al.price)) {
+                                                                            merged.list.push({
+                                                                                symbol: k, baseCoin: sym,
+                                                                                lastPrice: String(al.price), indexPrice: String(al.price),
+                                                                                _isStock: true, _useBybit: false, _src: "alpaca"
+                                                                            });
+                                                                        } else if (tq && tq.price > 0) {
+                                                                            merged.list.push({
+                                                                                symbol: k, baseCoin: sym,
+                                                                                lastPrice: String(tq.price), indexPrice: String(tq.price),
+                                                                                _isStock: true, _useBybit: false, _src: "tencent"
+                                                                            });
+                                                                        }
                                                                     });
                                                                 }
                                                                 // 构造前收数字 map 供 renderMarketList 涨跌基准逻辑(alpacaMap[sym] 视为前收)
                                                                 var alpacaPrevMap = {};
+                                                                // 构造 Alpaca 实时价 map，供期权正股兜底（Bybit→Alpaca实时→腾讯）
+                                                                var alpacaPriceMap = {};
                                                                 Object.keys(alpacaFull).forEach(function(s) {
                                                                     var v = alpacaFull[s];
                                                                     if (v && v.prevClose != null) alpacaPrevMap[s] = v.prevClose;
+                                                                    if (v && v.price != null && !isNaN(v.price)) alpacaPriceMap[s] = v.price;
                                                                 });
-                                                                renderMarketList(merged, tencentMap, alpacaPrevMap);
+                                                                renderMarketList(merged, tencentMap, alpacaPrevMap, alpacaPriceMap);
                                                             }).catch(function() {
                                                                 renderMarketList(merged, {}, {});
                                                             });
@@ -13917,7 +13959,11 @@
                                                                                     if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
                                                                                 });
                                                                             } else {
+                                                                                // Bybit 读不到该符号（含股票/非美股，Bybit 多返回空列表而非报错）：
+                                                                                // 记录失败并加入腾讯/Alpaca 拉取集合，确保走兜底而非画杠
                                                                                 _recordFail(isStock, sym);
+                                                                                var _plainFail = sym.replace(/USDT$/, "");
+                                                                                if (_plainFail && stockSyms.indexOf(_plainFail) < 0) stockSyms.push(_plainFail);
                                                                             }
                                                                         })
                                                                         .catch(function(err) {
