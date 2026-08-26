@@ -3811,8 +3811,7 @@
                                                                     <col style="width:11%">
                                                                     <col style="width:11%">
                                                                     <col style="width:13%">
-                                                                    <col style="width:23%">
-                                                                    <col style="width:10%">
+                                                                    <col style="width:33%">
                                                                 </colgroup>
                                                                 <thead>
                                                                     <tr>
@@ -3822,7 +3821,6 @@
                                                                         <th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th>
                                                                         <th class="sortable" data-sort="time">时间<span class="sort-ind">⇅</span></th>
                                                                         <th>操作</th>
-                                                                        <th>当日预测</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody id="tbFund"></tbody>
@@ -3846,7 +3844,6 @@
                                                             <col style="width:12%">
                                                             <col style="width:13%">
                                                             <col style="width:22%">
-                                                            <col style="width:11%">
                                                         </colgroup>
                                                         <thead>
                                                             <tr>
@@ -3857,7 +3854,6 @@
                                                                 <th class="sortable" data-sort="usd">现/均价<span class="sort-ind">⇅</span></th>
                                                                 <th class="sortable" data-sort="time">时间<span class="sort-ind">⇅</span></th>
                                                                 <th>操作</th>
-                                                                <th>当日预测</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody id="tbUs"></tbody>
@@ -6570,30 +6566,10 @@
                                                         }
                                                         targetFundDayPnl += _tPnl;
                                                         targetFundPrevVal += _tPrev;
-                                                        var _predPct = null,
-                                                            _predPnl = null,
-                                                            _predPnlHero = null;
-                                                        if (window._holdQ && FUND_HOLDINGS[f.code]) {
-                                                            var _ph = FUND_HOLDINGS[f.code],
-                                                                _av = 0,
-                                                                _sw = 0;
-                                                            var _pd = predictDayForFund(f, fundDiscDay);
-                                                            _ph.items.forEach(function(it) {
-                                                                if (typeof it.p !== "number") return;
-                                                                var _ch = holdingChg(it, _pd);
-                                                                if (_ch != null) {
-                                                                    _sw += it.p * _ch;
-                                                                    _av += it.p
-                                                                }
-                                                            });
-                                                            if (_av > 0) {
-                                                                _predPct = _sw / _av;
-                                                                var _base = nav != null ? holdSh * nav : null;
-                                                                if (_base != null) _base = _base - (f._dayPnl || 0);
-                                                                if (fundNeedsPredict(f, fundDiscDay) && _base != null) _predPnl = _base * _predPct / 100;
-                                                                if ((isUsRegularSession() || fundNeedsPredictHero(f, fundDiscDay)) && _base != null) _predPnlHero = _base * _predPct / 100
-                                                            }
-                                                        }
+                                                        var _pr = computeFundPrediction(f, fundDiscDay);
+                                                        var _predPct = _pr.dash ? null : _pr.predPct;
+                                                        var _predPnl = _pr.dash ? null : _pr.predPnl;
+                                                        var _predPnlHero = _predPnl;
                                                         f._dayPredict = _predPnl;
                                                         f._dayPredictPct = _predPct;
                                                         f._dayPredictHero = _predPnlHero
@@ -6652,25 +6628,12 @@
                                                         u._dayPrevVal = dPrev;
                                                         u._stats = st;
                                                         u._usd = usd;
-                                                        var _usPred = null,
-                                                            _usPredPct = null;
-                                                        if (!isUsRegularSession() && !isOptionSymbol(u.symbol) && u._alpacaPrice != null && usd > 0) {
-                                                            _usPred = (u._alpacaPrice - usd) * holdSh * mult * fx;
-                                                            _usPredPct = (u._alpacaPrice - usd) / usd * 100
-                                                        }
+                                                        var _upr = computeUsPrediction(u, fx);
+                                                        var _usPred = _upr.dash ? null : _upr.predPnl;
+                                                        var _usPredPct = _upr.dash ? null : _upr.predPct;
                                                         u._dayPredictUs = _usPred;
                                                         u._dayPredictUsPct = _usPredPct;
-                                                        // 周末间隙：用 Bybit NAS100 24h 涨跌幅作为 QQQ/TQQQ 当日预测
-                                                        var _nas = window._nas100Predict;
-                                                        if (_nas && typeof _nas.pct === "number" && !isOptionSymbol(u.symbol) && (symUp === "QQQ" || symUp === "TQQQ")) {
-                                                            var _m3 = symUp === "TQQQ" ? 3 : 1;
-                                                            u._dayPredictUsPct = _nas.pct * _m3;
-                                                            u._dayPredictUs = holdSh * mult * usd * (_nas.pct * _m3 / 100) * fx;
-                                                            u._dayPredictSource = "bybit";
-                                                        } else if (u._dayPredictSource === "bybit") {
-                                                            u._dayPredictSource = null;
-                                                        }
-                                                        if (_usPred != null) usPredictPnl += _usPred;
+                                                        if (!_upr.dash) usPredictPnl += _usPred;
                                                         u._realizedPnl = realizedPnlCny
                                                     });
                                                     cash.forEach(c => {
@@ -6955,6 +6918,7 @@
                                                 // 市场行情「当日预测」覆盖层：市场头部「📈 预测」按钮打开 / 返回按钮关闭
                                                 // 克隆市场列表（基金预测净值行 + 美股/加密实时行）与预测横幅，原样展示当日预测口径
                                                                                                                                                 (function() {
+                                                        function init() {
                                                     var btn = document.getElementById("marketPredictToggle");
                                                     var overlay = document.getElementById("predictOverlay");
                                                     var back = document.getElementById("predictBackBtn");
@@ -6963,62 +6927,92 @@
                                                     if (!btn || !overlay || !listEl) return;
                                                     
                                                     // 基金行：按「当日预测」时间公式重算——fundNeedsPredict 为 true（净值偏旧）才预测，否则画杠
-                                                    function refillFundPredict(container) {
-                                                        if (typeof funds === "undefined" || !funds) return;
-                                                        var discDay = (typeof fundDisclosureDay === "function") ? fundDisclosureDay() : null;
-                                                        var mode = getUnifiedSort().key;
-                                                        funds.forEach(function(f){
-                                                            if (!f.code) return;
-                                                            var row = container.querySelector('.fund-row[data-fund-code="' + f.code + '"]');
-                                                            if (!row) return;
-                                                            var st = (typeof getFundTradeStats === "function") ? getFundTradeStats(f) : { holdShares: 0 };
-                                                            var holdSh = st.holdShares || 0;
-                                                            var nav = null;
+                                                                                                            function computeFundPrediction(f, discDay) {
+                                                            if (typeof f !== "object" || !f || !f.code) return { dash: true };
+                                                            var nav = null, holdSh = 0;
                                                             if (f._list && f._list.length) { try { nav = valOnOrBefore(f._list, todayTs(), "nav"); } catch (e) {} }
                                                             if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
-                                                            if (holdSh <= 0 || nav == null || !isFinite(nav)) return;
-                                                            var curMv = parseFloat(row.getAttribute("data-mv")) || 0;
-                                                            var predPct = null, predPnl = null;
-                                                            if (typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code]) {
-                                                                var ph = FUND_HOLDINGS[f.code], av = 0, sw = 0;
-                                                                var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
-                                                                ph.items.forEach(function(it){
-                                                                    if (typeof it.p !== "number") return;
-                                                                    var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
-                                                                    if (ch != null) { sw += it.p * ch; av += it.p; }
-                                                                });
-                                                                if (av > 0) {
-                                                                    predPct = sw / av;
-                                                                    var base = holdSh * nav - (f._dayPnl || 0);
-                                                                    predPnl = (base != null) ? base * predPct / 100 : null;
-                                                                }
+                                                            if (typeof getFundTradeStats === "function") { try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {} }
+                                                            if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
+                                                            var rawBase = holdSh * nav;
+                                                            var base = rawBase - (f._dayPnl || 0);
+                                                            if (!(typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code])) {
+                                                                return { dash: true, nav: nav, holdSh: holdSh, base: base };
                                                             }
-                                                            var navEl = row.querySelector(".fund-acc-nav");
-                                                            var chgEl = row.querySelector(".fas-chg");
-                                                            var valEl = row.querySelector(".fas-val") || row.querySelector(".mvp-val");
-                                                            var amtEl = row.querySelector(".fas-amt") || row.querySelector(".mvp-amt");
-                                                            if (predPct == null) {
-                                                                if (navEl) { navEl.textContent = "\u2014"; navEl.className = "fund-acc-nav"; }
-                                                                if (chgEl) { chgEl.textContent = "\u2014"; chgEl.className = "fas-chg fund-chg-pill"; }
-                                                                if (valEl) { valEl.textContent = "\u00a5" + Math.round(curMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
-                                                                if (amtEl) { var ac = amtEl.className.replace(/ ?(up|down)/g, "").trim(); amtEl.textContent = "\u2014"; amtEl.className = ac + " " + (mode === "pnl" ? "mvp-main" : "mvp-sub"); }
-                                                                row.setAttribute("data-mv", Math.round(curMv));
-                                                                row.setAttribute("data-pnl", 0);
-                                                                return;
-                                                            }
+                                                            var ph = FUND_HOLDINGS[f.code], av = 0, sw = 0;
+                                                            var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
+                                                            ph.items.forEach(function(it) {
+                                                                if (typeof it.p !== "number") return;
+                                                                var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
+                                                                if (ch != null) { sw += it.p * ch; av += it.p; }
+                                                            });
+                                                            var predPct = (av > 0) ? sw / av : 0;
                                                             var predNav = nav * (1 + predPct / 100);
                                                             var predMv = predNav * holdSh;
-                                                            if (predPnl == null) predPnl = predMv - curMv;
-                                                            if (navEl) { navEl.textContent = (predNav >= 1 ? predNav.toFixed(3) : predNav.toFixed(4)); var ncls = (predNav > nav) ? "up" : (predNav < nav ? "down" : ""); navEl.className = "fund-acc-nav" + (ncls ? " " + ncls : ""); }
-                                                            if (chgEl) { var ccls = predPct >= 0 ? "up" : "down"; var csgn = predPct > 0 ? "+" : ""; chgEl.textContent = csgn + predPct.toFixed(2) + "%"; chgEl.className = "fas-chg fund-chg-pill " + ccls; }
-                                                            if (valEl) { valEl.textContent = "\u00a5" + Math.round(predMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
-                                                            if (amtEl) { var acls = predPnl >= 0 ? "up" : "down"; var asgn = predPnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(predPnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
-                                                            row.setAttribute("data-mv", Math.round(predMv));
-                                                            row.setAttribute("data-pnl", Math.round(predPnl));
-                                                        });
-                                                    }
+                                                            var predPnl = base * predPct / 100;
+                                                            return { dash: false, nav: nav, holdSh: holdSh, base: base, predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl };
+                                                        }
+                                                        function computeUsPrediction(u, fx) {
+                                                            if (typeof u !== "object" || !u) return { dash: true };
+                                                            var symUp = String(u.symbol || "").toUpperCase();
+                                                            var st = (typeof getTradeStats === "function") ? getTradeStats(u) : { holdShares: 0 };
+                                                            var holdSh = st.holdShares || 0;
+                                                            var mult = (typeof usUnitMult === "function") ? usUnitMult(u) : 1;
+                                                            var usd = u._usd != null ? u._usd : (u.price != null ? Number(u.price) : 0);
+                                                            var inSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
+                                                            var isOpt = (typeof isOptionSymbol === "function") ? isOptionSymbol(u.symbol) : false;
+                                                            if (holdSh <= 0 || !(fx > 0)) return { dash: true };
+                                                            if (inSession || isOpt) return { dash: true };
+                                                            var predPrice = null, predPct = null;
+                                                            var nas = window._nas100Predict;
+                                                            if (nas && typeof nas.pct === "number" && !isOpt && (symUp === "QQQ" || symUp === "TQQQ")) {
+                                                                var m3 = (symUp === "TQQQ") ? 3 : 1;
+                                                                predPct = nas.pct * m3;
+                                                                predPrice = usd * (1 + nas.pct * m3 / 100);
+                                                            } else if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
+                                                                predPrice = u._alpacaPrice;
+                                                                predPct = (u._alpacaPrice - usd) / usd * 100;
+                                                            } else {
+                                                                return { dash: true };
+                                                            }
+                                                            var predMv = holdSh * mult * predPrice * fx;
+                                                            var predPnl = (predPrice - usd) * holdSh * mult * fx;
+                                                            return { dash: false, predPct: predPct, predPrice: predPrice, predMv: predMv, predPnl: predPnl };
+                                                        }
 
-                                                    // 美股持仓行：按「当日预测」逻辑——美东盘中(9:30-16:00)或期权画杠；盘外用 Alpaca 预测价；周末间隙 QQQ/TQQQ 用 Bybit NAS100
+                                                        function refillFundPredict(container) {
+                                                            if (typeof funds === "undefined" || !funds) return;
+                                                            var discDay = (typeof fundDisclosureDay === "function") ? fundDisclosureDay() : null;
+                                                            var mode = getUnifiedSort().key;
+                                                            funds.forEach(function(f){
+                                                                if (!f.code) return;
+                                                                var row = container.querySelector('.fund-row[data-fund-code="' + f.code + '"]');
+                                                                if (!row) return;
+                                                                var r = computeFundPrediction(f, discDay);
+                                                                var navEl = row.querySelector(".fund-acc-nav");
+                                                                var chgEl = row.querySelector(".fas-chg");
+                                                                var valEl = row.querySelector(".fas-val") || row.querySelector(".mvp-val");
+                                                                var amtEl = row.querySelector(".fas-amt") || row.querySelector(".mvp-amt");
+                                                                if (r.dash) {
+                                                                    if (navEl) { navEl.textContent = "\u2014"; navEl.className = "fund-acc-nav"; }
+                                                                    if (chgEl) { chgEl.textContent = "\u2014"; chgEl.className = "fas-chg fund-chg-pill"; }
+                                                                    if (valEl) { var curMv = parseFloat(row.getAttribute("data-mv")) || 0; valEl.textContent = "\u00a5" + Math.round(curMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                                                                    if (amtEl) { var ac = amtEl.className.replace(/ ?(up|down)/g, "").trim(); amtEl.textContent = "\u2014"; amtEl.className = ac + " " + (mode === "pnl" ? "mvp-main" : "mvp-sub"); }
+                                                                    row.setAttribute("data-mv", Math.round(parseFloat(row.getAttribute("data-mv")) || 0));
+                                                                    row.setAttribute("data-pnl", 0);
+                                                                    return;
+                                                                }
+                                                                var predNav = r.predNav, predMv = r.predMv, predPnl = r.predPnl, predPct = r.predPct, nav = r.nav;
+                                                                if (navEl) { navEl.textContent = (predNav >= 1 ? predNav.toFixed(3) : predNav.toFixed(4)); var ncls = (predNav > nav) ? "up" : (predNav < nav ? "down" : ""); navEl.className = "fund-acc-nav" + (ncls ? " " + ncls : ""); }
+                                                                if (chgEl) { var ccls = predPct >= 0 ? "up" : "down"; var csgn = predPct > 0 ? "+" : ""; chgEl.textContent = csgn + predPct.toFixed(2) + "%"; chgEl.className = "fas-chg fund-chg-pill " + ccls; }
+                                                                if (valEl) { valEl.textContent = "\u00a5" + Math.round(predMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                                                                if (amtEl) { var acls = predPnl >= 0 ? "up" : "down"; var asgn = predPnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(predPnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
+                                                                row.setAttribute("data-mv", Math.round(predMv));
+                                                                row.setAttribute("data-pnl", Math.round(predPnl));
+                                                            });
+                                                        }
+
+// 美股持仓行：按「当日预测」逻辑——美东盘中(9:30-16:00)或期权画杠；盘外用 Alpaca 预测价；周末间隙 QQQ/TQQQ 用 Bybit NAS100
                                                     function refillUsPredict(container) {
                                                         if (typeof us === "undefined" || !us) return;
                                                         var inSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
@@ -7125,6 +7119,9 @@
                                                     }
                                                     btn.addEventListener("click", openPredict);
                                                     if (back) back.addEventListener("click", closePredict);
+                                                        }
+                                                        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+                                                        else init();
                                                 })();
 
 
@@ -7895,7 +7892,7 @@
                                                 function renderTables() {
                                                     var tb = $("tbFund");
                                                     if (!funds.length) {
-                                                        tb.innerHTML = '<tr><td colspan="7" class="empty">还没有基金，点右上角"添加基金"。</td></tr>'
+                                                        tb.innerHTML = '<tr><td colspan="6" class="empty">还没有基金，点右上角"添加基金"。</td></tr>'
                                                     } else {
                                                         tb.innerHTML = applySort("fund", funds).map(function(f) {
                                                             var fst = f._stats || getFundTradeStats(f);
@@ -7941,7 +7938,7 @@
                                                             var predSubTxt = predPct == null ? "—" : predPct.toFixed(2) + "%";
                                                             var realizedTxt = fst.realizedPnl !== 0 ? (fst.realizedPnl >= 0 ? "+" : "") + fmt0(fst.realizedPnl) : "—";
                                                             var realizedCls = fst.realizedPnl > 0 ? "up" : fst.realizedPnl < 0 ? "down" : "";
-                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(f.icon) + "<span>" + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + "</span> ▸</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="time-cell"><span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '">' + esc(ymdShort(f._dayTime) || "—") + "</span></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '<td class="' + predCls + '"><div class="cell-main">' + predMainTxt + '</div><div class="cell-sub ' + predCls + '">' + predSubTxt + "</div></td></tr>" + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="7"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>已实现收益</b> <span class="' + realizedCls + '">' + realizedTxt + "</span></span><span><b>总交易</b> " + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
+                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(f.icon) + "<span>" + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + "</span> ▸</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="time-cell"><span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '">' + esc(ymdShort(f._dayTime) || "—") + "</span></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="6"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>已实现收益</b> <span class="' + realizedCls + '">' + realizedTxt + "</span></span><span><b>总交易</b> " + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
                                                         }).join("")
                                                     }
                                                     const tu = $("tbUs");
@@ -7978,7 +7975,7 @@
                                                             var usSrcTxt = u._dayPredictSource === "bybit" ? "Bybit·预测" : usAlpPriceTxt;
                                                             var _optMode = isOptionSymbol(u.symbol) ? optionAlpacaMode(u) : null;
                                                             var _isIbkr = _optMode === "ibkr";
-                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ▸</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td class="time-cell">${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}">${esc(ymdShort(u._dayTime)||"—")}</span>`}</td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td><td class="${usPredCls}"><div class="cell-main">${usPredTxt}</div><div class="cell-sub ${usPredCls}">${usPredPctTxt}</div><div class="cell-sub alp-price">${usSrcTxt}</div></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="8"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
+                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ▸</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td class="time-cell">${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}">${esc(ymdShort(u._dayTime)||"—")}</span>`}</td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="7"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
                                                         }).join("")
                                                     }
                                                     var tc = $("tbCash");
