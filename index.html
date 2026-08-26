@@ -2450,6 +2450,47 @@
             color: var(--text);
         }
 
+        /* 市场行情「当日预测」：全屏覆盖层（由市场头部按钮打开，返回按钮关闭） */
+        .predict-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: #f5f7fb;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: none;
+        }
+        .predict-overlay.open { display: block; }
+        .predict-overlay-head {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            background: #fff;
+            border-bottom: 1px solid var(--line, #e7eaf1);
+        }
+        .predict-back {
+            border: 0;
+            background: #eef2f7;
+            color: #1c2430;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .predict-back:active { background: #e2e8f0; }
+        .predict-overlay-title { font-size: 17px; font-weight: 700; color: var(--text); }
+        .predict-wrap { max-width: 680px; margin: 0 auto; padding: 12px 16px 40px; }
+        .predict-banner { margin-top: 8px; }
+        .predict-head { margin-top: 14px; }
+        .predict-list { margin-top: 6px; }
+        .predict-list .fund-acc-body { background: #fff; }
+
         .alloc-wrap {
             display: flex;
             flex-wrap: wrap;
@@ -2657,10 +2698,11 @@
             <h2 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                 <span>市场行情</span>
                 <div style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400;color:#888;">
-                    <input id="marketAddInput" placeholder="输入代码如 NVDA" style="width:140px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;outline:none;">
+                    <input id="marketAddInput" placeholder="如 NVDA" style="width:96px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;outline:none;">
                     <datalist id="marketSymbolList"></datalist>
                     <button id="marketAddBtn" type="button" style="padding:6px 14px;border:none;border-radius:8px;background:#1a73e8;color:#fff;font-size:13px;cursor:pointer;">添加</button>
                     <button id="mvpnlToggleBtn" type="button" title="切换市值/盈亏主次显示" style="padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;">市值 ▾</button>
+                    <button id="marketPredictToggle" type="button" title="进入当日预测页" style="padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;">📈 预测</button>
                     <button id="marketManageBtn" type="button" title="管理行（排序/置顶/删除）" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;cursor:pointer;line-height:1;">☰</button>
                 </div>
             </h2>
@@ -2702,6 +2744,24 @@
             </div>
         </section>
     </section>
+    <!-- 市场行情「当日预测」：全屏覆盖层（由市场头部「📈 预测」按钮打开，返回按钮关闭） -->
+    <div id="predictOverlay" class="predict-overlay" aria-hidden="true">
+        <div class="predict-overlay-head">
+            <button id="predictBackBtn" class="predict-back" type="button" aria-label="返回">‹ 返回</button>
+            <div class="predict-overlay-title">市场行情 · 当日预测</div>
+        </div>
+        <div class="predict-wrap">
+            <div class="predict-banner" id="predictBanner"></div>
+            <div class="unified-head u-grid predict-head">
+                <div class="uh-name">名称</div>
+                <div class="uh-price">价格</div>
+                <div class="uh-sort" data-key="chg">涨跌幅</div>
+                <div class="uh-mvpnl uh-sort" data-key="mvpnl">市值/盈亏</div>
+            </div>
+            <div id="predictList" class="predict-list"></div>
+        </div>
+    </div>
+
     <section class="page-section page-chart" id="pageChart">
         <section class="panel" id="chartSection">
             <h2>个人总资产图表</h2>
@@ -6907,6 +6967,44 @@
                                                     }
                                                     btn.addEventListener("click", openAlloc);
                                                     if (back) back.addEventListener("click", closeAlloc);
+                                                })();
+
+                                                // 市场行情「当日预测」覆盖层：市场头部「📈 预测」按钮打开 / 返回按钮关闭
+                                                // 克隆市场列表（基金预测净值行 + 美股/加密实时行）与预测横幅，原样展示当日预测口径
+                                                (function() {
+                                                    var btn = document.getElementById("marketPredictToggle");
+                                                    var overlay = document.getElementById("predictOverlay");
+                                                    var back = document.getElementById("predictBackBtn");
+                                                    var listEl = document.getElementById("predictList");
+                                                    var banner = document.getElementById("predictBanner");
+                                                    if (!btn || !overlay || !listEl) return;
+                                                    function cloneMarket() {
+                                                        var src = document.getElementById("unifiedList");
+                                                        var srcBanner = document.getElementById("marketPredict");
+                                                        listEl.innerHTML = "";
+                                                        if (src) {
+                                                            Array.prototype.slice.call(src.children).forEach(function(el) {
+                                                                listEl.appendChild(el.cloneNode(true));
+                                                            });
+                                                        }
+                                                        if (banner && srcBanner) {
+                                                            banner.innerHTML = "";
+                                                            banner.appendChild(srcBanner.cloneNode(true));
+                                                        }
+                                                    }
+                                                    function openPredict() {
+                                                        cloneMarket();
+                                                        overlay.classList.add("open");
+                                                        overlay.setAttribute("aria-hidden", "false");
+                                                        document.body.style.overflow = "hidden";
+                                                    }
+                                                    function closePredict() {
+                                                        overlay.classList.remove("open");
+                                                        overlay.setAttribute("aria-hidden", "true");
+                                                        document.body.style.overflow = "";
+                                                    }
+                                                    btn.addEventListener("click", openPredict);
+                                                    if (back) back.addEventListener("click", closePredict);
                                                 })();
 
                                                 function globalEarliest() {
