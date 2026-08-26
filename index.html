@@ -7765,23 +7765,27 @@
                                                     if (!cash.length) {
                                                         tc.innerHTML = '<tr><td colspan="3" class="empty">还没有现金记录，点"+ 添加记录"。</td></tr>'
                                                     } else {
-                                                        tc.innerHTML = applySort("cash", cash).map(function(c) {
+                                                        var _cashRows = applySort("cash", cash);
+                                                        tc.innerHTML = _cashRows.map(function(c) {
                                                             var amt = calcCashAmount(c);
                                                             var isUsd = c.currency === "usd";
                                                             var cny = isUsd ? amt * fx : amt;
                                                             var amtCls = amt >= 0 ? "" : "down";
                                                             var amtMain = isUsd ? fmtUSD(amt) : fmt0(amt);
                                                             var amtSub = isUsd ? "≈" + fmt0(cny) : "";
-                                                            // 应计利息单独成行（不与「≈人民币」同行），保留两位小数值
+                                                            // 应计利息四舍五入显示为整数，改名「含利息」，与「≈人民币」合并到同一行（含利息在前）
                                                             var amtAccrued = "";
                                                             var amtAccruedCls = "";
                                                             if (c.accruedInterest) {
-                                                                amtAccrued = "含应计利息 " + (c.accruedInterest >= 0 ? "+" : "") + c.accruedInterest.toFixed(2);
-                                                                amtAccruedCls = c.accruedInterest < 0 ? "down" : "";
+                                                                var _ai = Math.round(Number(c.accruedInterest) || 0);
+                                                                amtAccrued = "含利息" + (_ai >= 0 ? "+" : "-") + Math.abs(_ai);
+                                                                amtAccruedCls = _ai < 0 ? "down" : "";
                                                             }
+                                                            var _subParts = [];
+                                                            if (amtAccrued) _subParts.push('<span class="' + amtAccruedCls + '">' + amtAccrued + "</span>");
+                                                            if (amtSub) _subParts.push('<span>' + amtSub + "</span>");
                                                             var amtHtml = '<div class="cell-main">' + amtMain + "</div>"
-                                                                + (amtSub ? '<div class="cell-sub">' + amtSub + "</div>" : "")
-                                                                + (amtAccrued ? '<div class="cell-sub ' + amtAccruedCls + '">' + amtAccrued + "</div>" : "");
+                                                                + (_subParts.length ? '<div class="cell-sub">' + _subParts.join(" ") + "</div>" : "");
                                                             var txs = c.transactions || [];
                                                             var totalIn = 0,
                                                                 totalOut = 0;
@@ -10215,7 +10219,11 @@
                                                 // 自动刷新入口：刷新美股 + 刷新市场行情（共用 2 分钟定时器）
                                                 function refreshAuto() {
                                                     refreshUsOnly();
-                                                    if (typeof fetchMarketData === "function" && _marketSymbols && _marketSymbols.length > 0) {
+                                                    // 注意：不要在这里用 _marketSymbols.length > 0 做守卫。
+                                                    // fetchMarketData 内部会自动并入美股持仓(us)作为行情源，
+                                                    // 且自身已有「自选与美股都为空才早退」的保护，因此可无条件调用，
+                                                    // 否则仅靠美股持仓驱动的市场列表永远不会被自动刷新。
+                                                    if (typeof fetchMarketData === "function") {
                                                         try { fetchMarketData(); } catch (e) {}
                                                     }
                                                 }
@@ -11603,6 +11611,19 @@
                                                 #pageMarket .panel { background: transparent; border-color: transparent; box-shadow: none; padding: 16px; }
                                                 #pageMarket .u-row, #pageMarket .fund-row { background: #fff; }
                                                 #pageMarket .u-row:hover, #pageMarket .fund-row:hover { background: #fafafa; }
+                                                /* 置顶/置底的项目：灰色背景，方便与未置顶区分 */
+                                                #pageMarket .u-row[data-pinned="top"],
+                                                #pageMarket .market-item[data-pinned="top"],
+                                                #pageMarket .fund-row[data-pinned="top"],
+                                                #pageMarket .u-row[data-pinned="bottom"],
+                                                #pageMarket .market-item[data-pinned="bottom"],
+                                                #pageMarket .fund-row[data-pinned="bottom"] { background: #eef0f3; }
+                                                #pageMarket .u-row[data-pinned="top"]:hover,
+                                                #pageMarket .market-item[data-pinned="top"]:hover,
+                                                #pageMarket .fund-row[data-pinned="top"]:hover,
+                                                #pageMarket .u-row[data-pinned="bottom"]:hover,
+                                                #pageMarket .market-item[data-pinned="bottom"]:hover,
+                                                #pageMarket .fund-row[data-pinned="bottom"]:hover { background: #e4e7ec; }
                                                 /* 添加框：placeholder 字体小于输入字体(16px 防 iOS 缩放)，点击不弹 datalist 下拉 */
                                                 #marketAddInput::placeholder { font-size: 12px; color: #aaa; }
                                                 /* 统一 grid 列：名称(代码+数据源胶囊) | 价格 | 涨跌幅 | 市值盈亏合并 */
@@ -11652,6 +11673,10 @@
                                                 }
                                                 .u-row:hover { background: #fafafa; }
                                                 .u-row:last-child { border-bottom: none; }
+                                                /* 多个期权同正股时合并为一行：行高自适应，正股下逐行列出期权代码 */
+                                                .u-row.u-row-multi { height: auto; min-height: 60px; overflow: visible; }
+                                                .u-name .un-sym.un-sym-multi { display: block; white-space: normal; gap: 0; }
+                                                .u-name .un-sym.un-sym-multi .opt-code { display: block; line-height: 1.5; }
                                                 .u-name { min-width: 0; }
                                                 .u-name .un-main {
                                                     font-weight: 600; color: #222; line-height: 1.25;
@@ -12775,6 +12800,9 @@
                                                                 var rb = sb === "top" ? 0 : (sb === "bottom" ? 2 : 1);
                                                                 if (ra !== rb) return ra - rb;
                                                                 if (ra === 0 || ra === 2) {
+                                                                    // 置顶/置底分组：按当前排序键(涨跌幅/市值/盈亏)在组内单独排序，而非固定手动顺序
+                                                                    var va = unifiedSortVal(a, st.key), vb = unifiedSortVal(b, st.key);
+                                                                    if (va !== vb) return va < vb ? -1 * st.dir : 1 * st.dir;
                                                                     var oa = parseInt(a.getAttribute("data-order"), 10), ob = parseInt(b.getAttribute("data-order"), 10);
                                                                     return oa - ob;
                                                                 }
@@ -12902,9 +12930,29 @@
                                                             data.list.forEach(function(item) { map[item.symbol] = item; });
                                                         }
 
-                                                        var html = "";
+                                                        // 按正股分组：相同正股的多个期权合并为一行，正股名称下逐行列出各期权代码
+                                                        var _groups = [];
+                                                        var _grpByRoot = {};
                                                         showSyms.forEach(function(sym) {
                                                             if (isHiddenSym(bybitCodeOf(sym) + "USDT")) return;
+                                                            if (isOptionSymbol(sym)) {
+                                                                var _op = parseOptionSymbol(sym);
+                                                                var _root = (_op && _op.root ? _op.root : sym).toUpperCase();
+                                                                if (_grpByRoot[_root]) {
+                                                                    _grpByRoot[_root].optionSyms.push(sym);
+                                                                } else {
+                                                                    var _g = { sym: _root, isOption: true, root: _root, optionSyms: [sym] };
+                                                                    _grpByRoot[_root] = _g;
+                                                                    _groups.push(_g);
+                                                                }
+                                                            } else {
+                                                                _groups.push({ sym: sym, isOption: false, root: null, optionSyms: [] });
+                                                            }
+                                                        });
+
+                                                        var html = "";
+                                                        _groups.forEach(function(g) {
+                                                            var sym = g.sym;
                                                             var key = bybitCodeOf(sym) + "USDT";                                                            var item = map[key];
                                                             var name = sym;
                                                             var price = "--";
@@ -12973,9 +13021,9 @@
                                                             }
                                                             var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP" };
                                                             // 期权持仓：市场列表显示其正股（仅价格+涨跌幅），市值/盈亏画杠
-                                                            if (isOptionSymbol(sym)) {
-                                                                var _optParsed = parseOptionSymbol(sym);
-                                                                var _optRoot = _optParsed ? _optParsed.root.toUpperCase() : sym;
+                                                            if (g.isOption) {
+                                                                var _optParsed = parseOptionSymbol(g.optionSyms[0]);
+                                                                var _optRoot = g.root;
                                                                 name = _optRoot;
                                                                 var _optTq = tencentMap ? tencentMap[tencentQueryOf(_optRoot)] : null;
                                                                 var _optAp = alpacaMap ? alpacaMap[_optRoot] : null;
@@ -12998,7 +13046,7 @@
                                                             var srcLabel = srcLabelMap[srcKey] || srcKey;
                                                             var srcCls = srcClsMap[srcKey] || "s-none";
                                                             // 美股持仓：实时市值(人民币)与预测盈亏金额
-                                                            var _hs = isOptionSymbol(sym) ? 0 : (usMap[sym.toUpperCase()] || 0);
+                                                            var _hs = g.isOption ? 0 : (usMap[sym.toUpperCase()] || 0);
                                                             var mvTxt = "--", pnlTxt = "--", pnlCls = "";
                                                             if (_hs && _hs > 0 && !isNaN(p)) {
                                                                 var _mktCny = _hs * p * fxRate;
@@ -13015,10 +13063,14 @@
                                                                 : '';
                                                             var chgAttr = (pct != null && !isNaN(pct)) ? ' data-chg="' + pct.toFixed(2) + '"' : '';
                                                             var _nfs = (name.length <= 6 ? 15 : (name.length <= 10 ? 13 : 12));
-                                                            html += '<div class="u-row u-grid market-item' + (_hs ? " market-item-us" : "") + '" data-symbol="' + key + '"' + dataAttr + chgAttr + '>'
+                                                            var _isMultiOpt = g.isOption && g.optionSyms.length > 1;
+                                                            var _symHtml = g.isOption
+                                                                ? g.optionSyms.map(function(os) { return '<span class="opt-code">' + shortOptionCode(os) + '</span>'; }).join("")
+                                                                : sym;
+                                                            html += '<div class="u-row u-grid market-item' + (_hs ? " market-item-us" : "") + (_isMultiOpt ? " u-row-multi" : "") + '" data-symbol="' + key + '"' + dataAttr + chgAttr + '>'
                                                                 + '<div class="u-name">'
                                                                     + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _nfs + 'px">' + name + '</span></div>'
-                                                                    + '<div class="un-sym">' + (isOptionSymbol(sym) ? shortOptionCode(sym) : sym)
+                                                                    + '<div class="un-sym' + (_isMultiOpt ? " un-sym-multi" : "") + '">' + _symHtml
                                                                         + ' <span class="market-src ' + srcCls + '">' + srcLabel + '</span>'
                                                                     + '</div>'
                                                                 + '</div>'
@@ -13136,7 +13188,7 @@
                                                                     + '<div class="mm-name"><div class="mn-t">' + esc(title) + '</div><div class="mn-s">' + esc(sub) + '</div></div>'
                                                                     + tagHtml
                                                                     + '<button class="mm-btn ' + pinCls + '" data-act="pin" title="' + pinTitle + '">' + pinGlyph + '</button>'
-                                                                    + '<button class="mm-btn del" data-act="del" title="删除（永久隐藏）">×</button>';
+                                                                    + '<button class="mm-btn del" data-act="del" title="直接删除（自选移本机 / 持仓需同步 GitHub）">×</button>';
                                                                 listEl.appendChild(row);
                                                             });
                                                             bindDrag();
@@ -13225,8 +13277,26 @@
                                                                 renderUnifiedList();
                                                                 renderManageList();
                                                             } else if (btn.getAttribute("data-act") === "del") {
-                                                                // 永久隐藏：写入 localStorage 隐藏集合，渲染与行情拉取两处都会过滤，刷新后不再恢复
-                                                                addHiddenSym(k);
+                                                                // 直接删除（非隐藏）：自选从本机移除；持仓从数组移除，需同步 GitHub 才在 Pages 生效
+                                                                var _plain = String(k || "").replace(/USDT$/i, "").toUpperCase();
+                                                                var _isFund = !!row.getAttribute("data-fund-code");
+                                                                var _isSelf = getMarketSymbols().indexOf(_plain) >= 0;
+                                                                var _isHolding = false;
+                                                                if (_isFund) _isHolding = (funds || []).some(function(x) { return String(x.code || "").toUpperCase() === _plain; });
+                                                                else _isHolding = (us || []).some(function(x) { return String(bybitCodeOf(x.symbol || "")).toUpperCase() === _plain; });
+                                                                if (!_isSelf && !_isHolding) { renderManageList(); renderUnifiedList(); return; }
+                                                                var _label = _isHolding ? (_isFund ? "基金持仓" : "美股持仓") : "自选监控";
+                                                                if (!confirm("确定删除该项（" + _label + "）？\n· 自选：仅从本机移除，刷新不再恢复。\n· 持仓：删除后请点设置里的『同步到 GitHub』，才会写回仓库并在线上 Pages 生效。")) {
+                                                                    renderManageList(); renderUnifiedList(); return;
+                                                                }
+                                                                if (_isSelf) removeMarketSymbol(_plain);
+                                                                if (_isHolding) {
+                                                                    if (_isFund) funds = (funds || []).filter(function(x) { return String(x.code || "").toUpperCase() !== _plain; });
+                                                                    else us = (us || []).filter(function(x) { return String(bybitCodeOf(x.symbol || "")).toUpperCase() !== _plain; });
+                                                                }
+                                                                save();
+                                                                renderTables();
+                                                                if (typeof refresh === "function") refresh();
                                                                 var _pins = getMarketPins();
                                                                 if (_pins[k] != null) { delete _pins[k]; saveMarketPins(_pins); }
                                                                 var _ord = getMarketOrder(); var _oi = _ord.indexOf(k);
@@ -13713,6 +13783,16 @@
                                                         var pending = symbols.length;
                                                         var hasError = false;
                                                         var stockSyms = []; // 需要腾讯基准的股票/ETF 代码
+                                                        // Bybit 读取失败(网络错误/retCode!=0)的股票符号，留待渲染前用 Alpaca 兜底
+                                                        var _failedStockSyms = [];
+                                                        var _failedStockSet = {};
+                                                        function _recordFail(isStock, bybitSym) {
+                                                            if (!isStock) return;
+                                                            var plain = String(bybitSym || "").replace(/USDT$/, "");
+                                                            if (!plain || _failedStockSet[plain]) return;
+                                                            _failedStockSet[plain] = true;
+                                                            _failedStockSyms.push(plain);
+                                                        }
                                                         // 期权持仓：把正股代码加入腾讯/Alpaca 行情拉取集合，
                                                         // 市场列表用正股价格/涨跌幅代表期权持仓（市值/盈亏画杠，不单独成行）
                                                         if (typeof us !== "undefined" && us && us.length) {
@@ -13753,9 +13833,37 @@
                                                             settled = true;
                                                             if (loadingEl) loadingEl.style.display = "none";
                                                             var tP = (stockSyms.length > 0) ? fetchTencentClose(stockSyms) : Promise.resolve({});
-                                                            var aP = _fetchAlpacaPrev();
+                                                            // Alpaca 全量(价格+前收)：既保留原有前收基准兜底，又用于 Bybit 失败时的价格兜底
+                                                            var aP = (_useAlpaca && stockSyms.length) ? fetchUsQuotesAlpaca(stockSyms, _ac) : Promise.resolve({});
                                                             Promise.all([tP, aP]).then(function(r) {
-                                                                renderMarketList(merged, r[0] || {}, r[1] || {});
+                                                                var tencentMap = r[0] || {};
+                                                                var alpacaFull = r[1] || {};
+                                                                // Bybit 读不到的股票，用 Alpaca 实时价补一条（腾讯可用仍优先腾讯，仅当腾讯缺失才真正用 Alpaca 价）
+                                                                if (_failedStockSyms.length && alpacaFull) {
+                                                                    _failedStockSyms.forEach(function(sym) {
+                                                                        if (isOptionSymbol(sym)) return;
+                                                                        var al = alpacaFull[sym];
+                                                                        if (!al || al.price == null || isNaN(al.price)) return;
+                                                                        var k = bybitCodeOf(sym) + "USDT";
+                                                                        if (merged.list.some(function(it) { return it.symbol === k; })) return;
+                                                                        merged.list.push({
+                                                                            symbol: k,
+                                                                            baseCoin: sym,
+                                                                            lastPrice: String(al.price),
+                                                                            indexPrice: String(al.price),
+                                                                            _isStock: true,
+                                                                            _useBybit: false,
+                                                                            _src: "alpaca"
+                                                                        });
+                                                                    });
+                                                                }
+                                                                // 构造前收数字 map 供 renderMarketList 涨跌基准逻辑(alpacaMap[sym] 视为前收)
+                                                                var alpacaPrevMap = {};
+                                                                Object.keys(alpacaFull).forEach(function(s) {
+                                                                    var v = alpacaFull[s];
+                                                                    if (v && v.prevClose != null) alpacaPrevMap[s] = v.prevClose;
+                                                                });
+                                                                renderMarketList(merged, tencentMap, alpacaPrevMap);
                                                             }).catch(function() {
                                                                 renderMarketList(merged, {}, {});
                                                             });
@@ -13808,10 +13916,13 @@
                                                                                     // 所有美股/ETF 都拉腾讯昨收作为涨跌基准(盘中盘外统一)，不再仅限盘中
                                                                                     if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
                                                                                 });
+                                                                            } else {
+                                                                                _recordFail(isStock, sym);
                                                                             }
                                                                         })
                                                                         .catch(function(err) {
                                                                             hasError = true;
+                                                                            _recordFail(isStock, sym);
                                                                             pending--;
                                                                             if (pending <= 0) {
                                                                                 clearTimeout(_safetyTimer);
