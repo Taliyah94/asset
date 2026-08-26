@@ -2744,23 +2744,6 @@
             </div>
         </section>
     </section>
-    <!-- 市场行情「当日预测」：全屏覆盖层（由市场头部「📈 预测」按钮打开，返回按钮关闭） -->
-    <div id="predictOverlay" class="predict-overlay" aria-hidden="true">
-        <div class="predict-overlay-head">
-            <button id="predictBackBtn" class="predict-back" type="button" aria-label="返回">‹ 返回</button>
-            <div class="predict-overlay-title">市场行情 · 当日预测</div>
-        </div>
-        <div class="predict-wrap">
-            <div class="predict-banner" id="predictBanner"></div>
-            <div class="unified-head u-grid predict-head">
-                <div class="uh-name">名称</div>
-                <div class="uh-price">价格</div>
-                <div class="uh-sort" data-key="chg">涨跌幅</div>
-                <div class="uh-mvpnl uh-sort" data-key="mvpnl">市值/盈亏</div>
-            </div>
-            <div id="predictList" class="predict-list"></div>
-        </div>
-    </div>
 
     <section class="page-section page-chart" id="pageChart">
         <section class="panel" id="chartSection">
@@ -6971,29 +6954,166 @@
 
                                                 // 市场行情「当日预测」覆盖层：市场头部「📈 预测」按钮打开 / 返回按钮关闭
                                                 // 克隆市场列表（基金预测净值行 + 美股/加密实时行）与预测横幅，原样展示当日预测口径
-                                                (function() {
+                                                                                                                                                (function() {
                                                     var btn = document.getElementById("marketPredictToggle");
                                                     var overlay = document.getElementById("predictOverlay");
                                                     var back = document.getElementById("predictBackBtn");
                                                     var listEl = document.getElementById("predictList");
                                                     var banner = document.getElementById("predictBanner");
                                                     if (!btn || !overlay || !listEl) return;
-                                                    function cloneMarket() {
-                                                        var src = document.getElementById("unifiedList");
-                                                        var srcBanner = document.getElementById("marketPredict");
-                                                        listEl.innerHTML = "";
-                                                        if (src) {
-                                                            Array.prototype.slice.call(src.children).forEach(function(el) {
-                                                                listEl.appendChild(el.cloneNode(true));
-                                                            });
-                                                        }
-                                                        if (banner && srcBanner) {
-                                                            banner.innerHTML = "";
-                                                            banner.appendChild(srcBanner.cloneNode(true));
-                                                        }
+                                                    
+                                                    // 基金行：按「当日预测」时间公式重算——fundNeedsPredict 为 true（净值偏旧）才预测，否则画杠
+                                                    function refillFundPredict(container) {
+                                                        if (typeof funds === "undefined" || !funds) return;
+                                                        var discDay = (typeof fundDisclosureDay === "function") ? fundDisclosureDay() : null;
+                                                        var mode = getUnifiedSort().key;
+                                                        funds.forEach(function(f){
+                                                            if (!f.code) return;
+                                                            var row = container.querySelector('.fund-row[data-fund-code="' + f.code + '"]');
+                                                            if (!row) return;
+                                                            var st = (typeof getFundTradeStats === "function") ? getFundTradeStats(f) : { holdShares: 0 };
+                                                            var holdSh = st.holdShares || 0;
+                                                            var nav = null;
+                                                            if (f._list && f._list.length) { try { nav = valOnOrBefore(f._list, todayTs(), "nav"); } catch (e) {} }
+                                                            if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
+                                                            if (holdSh <= 0 || nav == null || !isFinite(nav)) return;
+                                                            var curMv = parseFloat(row.getAttribute("data-mv")) || 0;
+                                                            var predPct = null, predPnl = null;
+                                                            if (typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code]) {
+                                                                var ph = FUND_HOLDINGS[f.code], av = 0, sw = 0;
+                                                                var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
+                                                                ph.items.forEach(function(it){
+                                                                    if (typeof it.p !== "number") return;
+                                                                    var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
+                                                                    if (ch != null) { sw += it.p * ch; av += it.p; }
+                                                                });
+                                                                if (av > 0) {
+                                                                    predPct = sw / av;
+                                                                    var base = holdSh * nav - (f._dayPnl || 0);
+                                                                    predPnl = (base != null) ? base * predPct / 100 : null;
+                                                                }
+                                                            }
+                                                            var navEl = row.querySelector(".fund-acc-nav");
+                                                            var chgEl = row.querySelector(".fas-chg");
+                                                            var valEl = row.querySelector(".fas-val") || row.querySelector(".mvp-val");
+                                                            var amtEl = row.querySelector(".fas-amt") || row.querySelector(".mvp-amt");
+                                                            if (predPct == null) {
+                                                                if (navEl) { navEl.textContent = "\u2014"; navEl.className = "fund-acc-nav"; }
+                                                                if (chgEl) { chgEl.textContent = "\u2014"; chgEl.className = "fas-chg fund-chg-pill"; }
+                                                                if (valEl) { valEl.textContent = "\u00a5" + Math.round(curMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                                                                if (amtEl) { var ac = amtEl.className.replace(/ ?(up|down)/g, "").trim(); amtEl.textContent = "\u2014"; amtEl.className = ac + " " + (mode === "pnl" ? "mvp-main" : "mvp-sub"); }
+                                                                row.setAttribute("data-mv", Math.round(curMv));
+                                                                row.setAttribute("data-pnl", 0);
+                                                                return;
+                                                            }
+                                                            var predNav = nav * (1 + predPct / 100);
+                                                            var predMv = predNav * holdSh;
+                                                            if (predPnl == null) predPnl = predMv - curMv;
+                                                            if (navEl) { navEl.textContent = (predNav >= 1 ? predNav.toFixed(3) : predNav.toFixed(4)); var ncls = (predNav > nav) ? "up" : (predNav < nav ? "down" : ""); navEl.className = "fund-acc-nav" + (ncls ? " " + ncls : ""); }
+                                                            if (chgEl) { var ccls = predPct >= 0 ? "up" : "down"; var csgn = predPct > 0 ? "+" : ""; chgEl.textContent = csgn + predPct.toFixed(2) + "%"; chgEl.className = "fas-chg fund-chg-pill " + ccls; }
+                                                            if (valEl) { valEl.textContent = "\u00a5" + Math.round(predMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                                                            if (amtEl) { var acls = predPnl >= 0 ? "up" : "down"; var asgn = predPnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(predPnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
+                                                            row.setAttribute("data-mv", Math.round(predMv));
+                                                            row.setAttribute("data-pnl", Math.round(predPnl));
+                                                        });
                                                     }
+
+                                                    // 美股持仓行：按「当日预测」逻辑——美东盘中(9:30-16:00)或期权画杠；盘外用 Alpaca 预测价；周末间隙 QQQ/TQQQ 用 Bybit NAS100
+                                                    function refillUsPredict(container) {
+                                                        if (typeof us === "undefined" || !us) return;
+                                                        var inSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
+                                                        var fx = (typeof effFx === "function") ? effFx() : 0;
+                                                        if (!fx || !isFinite(fx) || fx <= 0) fx = (typeof fxRate !== "undefined" && fxRate) ? fxRate : 1;
+                                                        var nas = window._nas100Predict;
+                                                        var mode = getUnifiedSort().key;
+                                                        us.forEach(function(u){
+                                                            var sym = String(u.symbol || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+                                                            if (!sym) return;
+                                                            var key = bybitCodeOf(sym) + "USDT";
+                                                            var row = container.querySelector('.market-item-us[data-symbol="' + key + '"]');
+                                                            if (!row) return;
+                                                            var isOpt = (typeof isOptionSymbol === "function") ? isOptionSymbol(u.symbol) : false;
+                                                            var st = (typeof getTradeStats === "function") ? getTradeStats(u) : { holdShares: 0 };
+                                                            var holdSh = st.holdShares || 0;
+                                                            if (holdSh <= 0) return;
+                                                            var mult = (typeof usUnitMult === "function") ? usUnitMult(u) : 1;
+                                                            var usd = u._usd != null ? u._usd : (u.price != null ? Number(u.price) : 0);
+                                                            var dash = inSession || isOpt;
+                                                            var predPrice = null, predPct = null;
+                                                            if (!dash) {
+                                                                if (nas && typeof nas.pct === "number" && !isOpt && (sym === "QQQ" || sym === "TQQQ")) {
+                                                                    var m3 = (sym === "TQQQ") ? 3 : 1;
+                                                                    predPct = nas.pct * m3;
+                                                                    predPrice = usd * (1 + nas.pct * m3 / 100);
+                                                                } else if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
+                                                                    predPrice = u._alpacaPrice;
+                                                                    predPct = (u._alpacaPrice - usd) / usd * 100;
+                                                                } else {
+                                                                    dash = true;
+                                                                }
+                                                            }
+                                                            var curMv = parseFloat(row.getAttribute("data-mv")) || 0;
+                                                            var priceEl = row.querySelector(".u-price");
+                                                            var chgEl = row.querySelector(".u-chg .fas-chg-mkt") || row.querySelector(".u-chg");
+                                                            var valEl = row.querySelector(".mvp-val");
+                                                            var amtEl = row.querySelector(".mvp-amt");
+                                                            if (dash) {
+                                                                if (priceEl) { priceEl.textContent = "\u2014"; priceEl.className = "u-price"; }
+                                                                if (chgEl) { chgEl.textContent = "\u2014"; chgEl.className = chgEl.className.replace(/ ?(up|down)/g, "").trim(); }
+                                                                if (valEl) { valEl.textContent = "\u00a5" + Math.round(curMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                                                                if (amtEl) { amtEl.textContent = "\u2014"; var ac = amtEl.className.replace(/ ?(up|down)/g, "").trim(); amtEl.className = ac + " " + (mode === "pnl" ? "mvp-main" : "mvp-sub"); }
+                                                                row.setAttribute("data-mv", Math.round(curMv));
+                                                                row.setAttribute("data-pnl", 0);
+                                                                return;
+                                                            }
+                                                            var predMv = holdSh * mult * predPrice * fx;
+                                                            var predPnl = (predPrice - usd) * holdSh * mult * fx;
+                                                            if (priceEl) { priceEl.textContent = (predPrice >= 1 ? predPrice.toFixed(2) : predPrice.toFixed(4)); priceEl.className = "u-price " + (predPrice >= usd ? "up" : "down"); }
+                                                            if (chgEl) { var ccls = predPct >= 0 ? "up" : "down"; var csgn = predPct > 0 ? "+" : ""; chgEl.textContent = csgn + predPct.toFixed(2) + "%"; chgEl.className = "fas-chg-mkt fund-chg-pill " + ccls; }
+                                                            if (valEl) { valEl.textContent = "\u00a5" + Math.round(predMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                                                            if (amtEl) { var acls = predPnl >= 0 ? "up" : "down"; var asgn = predPnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(predPnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
+                                                            row.setAttribute("data-mv", Math.round(predMv));
+                                                            row.setAttribute("data-pnl", Math.round(predPnl));
+                                                        });
+                                                    }
+                                                    
+                                                    // 横幅：仅统计持仓（基金预测口径 + 美股持仓实时）+ 现金，剔除加密货币/大宗商品
+                                                    function renderPredictBanner(container) {
+                                                        if (!banner) return;
+                                                        var fundMv = 0, fundPnl = 0, mktMv = 0, mktPnl = 0;
+                                                        Array.prototype.slice.call(container.querySelectorAll(".fund-row")).forEach(function(el){ fundMv += parseFloat(el.getAttribute("data-mv")) || 0; fundPnl += parseFloat(el.getAttribute("data-pnl")) || 0; });
+                                                        Array.prototype.slice.call(container.querySelectorAll(".market-item-us")).forEach(function(el){ mktMv += parseFloat(el.getAttribute("data-mv")) || 0; mktPnl += parseFloat(el.getAttribute("data-pnl")) || 0; });
+                                                        var cashVal = 0;
+                                                        try { if (typeof cash !== "undefined" && cash && cash.length) { var _fx = (typeof fxRate !== "undefined" && fxRate) ? fxRate : 1; cash.forEach(function(c){ var a = (typeof calcCashAmount === "function") ? calcCashAmount(c) : 0; cashVal += (c.currency === "usd") ? a * _fx : a; }); } } catch (e) {}
+                                                        var total = fundMv + mktMv + cashVal;
+                                                        var dayPnl = fundPnl + mktPnl;
+                                                        var baseVal = total - dayPnl;
+                                                        var pct = (baseVal > 0 && isFinite(baseVal)) ? dayPnl / baseVal * 100 : 0;
+                                                        var fmt = function(v){ return "¥" + Math.round(isFinite(v) ? v : 0).toLocaleString("zh-CN"); };
+                                                        var tEl = banner.querySelector(".mp-total"); if (tEl) tEl.textContent = fmt(total);
+                                                        var pEl = banner.querySelector(".mp-pnl");
+                                                        if (pEl) { if (dayPnl === 0) { pEl.textContent = "--"; pEl.className = "mp-pnl"; } else { var sign = dayPnl > 0 ? "+" : "-"; var tri = dayPnl > 0 ? "▲" : "▼"; var cls = dayPnl > 0 ? "up" : "down"; pEl.textContent = tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + "%)"; pEl.className = "mp-pnl " + cls; } }
+                                                    }
+                                                    
+                                                    // 构建预测列表：仅基金行 + 美股持仓行（含当日预测口径的基金重算），剔除加密货币/大宗商品/自选
+                                                    function buildPredictList() {
+                                                        listEl.innerHTML = "";
+                                                        if (banner) banner.innerHTML = '<div class="mp-top"><div class="mp-total">Y--</div><div class="mp-pnl">--</div></div>';
+                                                        var src = document.getElementById("unifiedList");
+                                                        if (!src) { renderPredictBanner(listEl); return; }
+                                                        Array.prototype.slice.call(src.children).forEach(function(el){
+                                                            var isFund = el.classList.contains("fund-row");
+                                                            var isUs = el.classList.contains("market-item-us");
+                                                            if (!isFund && !isUs) return;
+                                                            listEl.appendChild(el.cloneNode(true));
+                                                        });
+                                                        refillFundPredict(listEl);
+                                                        refillUsPredict(listEl);
+                                                        renderPredictBanner(listEl);
+                                                    }
+                                                    
                                                     function openPredict() {
-                                                        cloneMarket();
+                                                        buildPredictList();
                                                         overlay.classList.add("open");
                                                         overlay.setAttribute("aria-hidden", "false");
                                                         document.body.style.overflow = "hidden";
@@ -7006,6 +7126,8 @@
                                                     btn.addEventListener("click", openPredict);
                                                     if (back) back.addEventListener("click", closePredict);
                                                 })();
+
+
 
                                                 function globalEarliest() {
                                                     var e = null;
@@ -14629,6 +14751,23 @@
                                                     }
                                                 })();
                                             </script>
+    <!-- 市场行情「当日预测」覆盖层：移出 page-section，确保任意界面激活时均可全屏弹出 -->
+    <div id="predictOverlay" class="predict-overlay" aria-hidden="true">
+        <div class="predict-overlay-head">
+            <button id="predictBackBtn" class="predict-back" type="button" aria-label="返回">‹ 返回</button>
+            <div class="predict-overlay-title">市场行情 · 当日预测</div>
+        </div>
+        <div class="predict-wrap">
+            <div class="predict-banner" id="predictBanner"></div>
+            <div class="unified-head u-grid predict-head">
+                <div class="uh-name">名称</div>
+                <div class="uh-price">价格</div>
+                <div class="uh-sort" data-key="chg">涨跌幅</div>
+                <div class="uh-mvpnl uh-sort" data-key="mvpnl">市值/盈亏</div>
+            </div>
+            <div id="predictList" class="predict-list"></div>
+        </div>
+    </div>
 </body>
 
 </html>
