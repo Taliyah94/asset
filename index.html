@@ -4685,6 +4685,61 @@
                                                 const uid = () => Math.random().toString(36).slice(2, 9);
                                                 let funds = load("pa_funds", []);
                                                 let us = load("pa_us", []);
+
+                                                /* [修复] 提升为全局函数：原定义(6930/6955)仅在预测 init IIFE 内，
+                                                   而加载期主流程(6569/6631)提前调用会抛 ReferenceError。这里在更早的脚本块定义全局版本。 */
+                                                function computeFundPrediction(f, discDay) {
+                                                    if (typeof f !== "object" || !f || !f.code) return { dash: true };
+                                                    var nav = null, holdSh = 0;
+                                                    if (f._list && f._list.length) { try { nav = valOnOrBefore(f._list, todayTs(), "nav"); } catch (e) {} }
+                                                    if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
+                                                    if (typeof getFundTradeStats === "function") { try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {} }
+                                                    if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
+                                                    var rawBase = holdSh * nav;
+                                                    var base = rawBase - (f._dayPnl || 0);
+                                                    if (!(typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code])) {
+                                                        return { dash: true, nav: nav, holdSh: holdSh, base: base };
+                                                    }
+                                                    var ph = FUND_HOLDINGS[f.code], av = 0, sw = 0;
+                                                    var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
+                                                    ph.items.forEach(function(it) {
+                                                        if (typeof it.p !== "number") return;
+                                                        var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
+                                                        if (ch != null) { sw += it.p * ch; av += it.p; }
+                                                    });
+                                                    var predPct = (av > 0) ? sw / av : 0;
+                                                    var predNav = nav * (1 + predPct / 100);
+                                                    var predMv = predNav * holdSh;
+                                                    var predPnl = base * predPct / 100;
+                                                    return { dash: false, nav: nav, holdSh: holdSh, base: base, predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl };
+                                                }
+                                                function computeUsPrediction(u, fx) {
+                                                    if (typeof u !== "object" || !u) return { dash: true };
+                                                    var symUp = String(u.symbol || "").toUpperCase();
+                                                    var st = (typeof getTradeStats === "function") ? getTradeStats(u) : { holdShares: 0 };
+                                                    var holdSh = st.holdShares || 0;
+                                                    var mult = (typeof usUnitMult === "function") ? usUnitMult(u) : 1;
+                                                    var usd = u._usd != null ? u._usd : (u.price != null ? Number(u.price) : 0);
+                                                    var inSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
+                                                    var isOpt = (typeof isOptionSymbol === "function") ? isOptionSymbol(u.symbol) : false;
+                                                    if (holdSh <= 0 || !(fx > 0)) return { dash: true };
+                                                    if (inSession || isOpt) return { dash: true };
+                                                    var predPrice = null, predPct = null;
+                                                    var nas = window._nas100Predict;
+                                                    if (nas && typeof nas.pct === "number" && !isOpt && (symUp === "QQQ" || symUp === "TQQQ")) {
+                                                        var m3 = (symUp === "TQQQ") ? 3 : 1;
+                                                        predPct = nas.pct * m3;
+                                                        predPrice = usd * (1 + nas.pct * m3 / 100);
+                                                    } else if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
+                                                        predPrice = u._alpacaPrice;
+                                                        predPct = (u._alpacaPrice - usd) / usd * 100;
+                                                    } else {
+                                                        return { dash: true };
+                                                    }
+                                                    var predMv = holdSh * mult * predPrice * fx;
+                                                    var predPnl = (predPrice - usd) * holdSh * mult * fx;
+                                                    return { dash: false, predPct: predPct, predPrice: predPrice, predMv: predMv, predPnl: predPnl };
+                                                }
                                                 let cash = load("pa_cash", []);
                                                 let fxRate = Number(localStorage.getItem("pa_fx"));
                                                 if (!fxRate || isNaN(fxRate)) fxRate = 7;
@@ -7105,6 +7160,7 @@
                                                         refillUsPredict(listEl);
                                                         renderPredictBanner(listEl);
                                                     }
+                                                    window.buildPredictList = buildPredictList; // [修复] 暴露为全局：自动刷新预测覆盖层需重绘
                                                     
                                                     function openPredict() {
                                                         buildPredictList();
@@ -10434,14 +10490,21 @@
                                                     }
                                                 }
                                                 // 自动刷新入口：刷新美股 + 刷新市场行情（共用 2 分钟定时器）
-                                                function refreshAuto() {
-                                                    refreshUsOnly();
+                                                async function refreshAuto() {
+                                                    // [修复] 改为 async：等待美股与市场数据刷新完成后再决定是否重绘预测覆盖层，
+                                                    // 保证预测页跟随市场行情一起 2 分钟自动刷新。
+                                                    try { await refreshUsOnly(); } catch (e) {}
                                                     // 注意：不要在这里用 _marketSymbols.length > 0 做守卫。
                                                     // fetchMarketData 内部会自动并入美股持仓(us)作为行情源，
                                                     // 且自身已有「自选与美股都为空才早退」的保护，因此可无条件调用，
                                                     // 否则仅靠美股持仓驱动的市场列表永远不会被自动刷新。
                                                     if (typeof fetchMarketData === "function") {
-                                                        try { fetchMarketData(); } catch (e) {}
+                                                        try { await fetchMarketData(); } catch (e) {}
+                                                    }
+                                                    // 若「当日预测」覆盖层正打开，跟随市场刷新重绘预测页
+                                                    var ov = document.getElementById("predictOverlay");
+                                                    if (ov && ov.classList.contains("open") && typeof buildPredictList === "function") {
+                                                        try { buildPredictList(); } catch (e) {}
                                                     }
                                                 }
                                                 function setAutoUsState(on) {
@@ -12869,6 +12932,9 @@
                                                         var s = String(sym || "").toUpperCase().replace(/USDT$/, "");
                                                         return T_TO_B[s] || s;
                                                     }
+                                                    /* [修复] 暴露为全局：预测 refillUsPredict(7081) 在独立脚本块内调用 bybitCodeOf，
+                                                       原定义嵌套于本 IIFE 内不可见，导致点击「📈 预测」时 ReferenceError。 */
+                                                    window.bybitCodeOf = bybitCodeOf;
                                                     // 归一到腾讯查询代码（用于腾讯行情请求）。
                                                     // 腾讯接口对大小写敏感且按市场区分：
                                                     //   美股: us + 大写代码(如 usNVDA)；港股: hk + 小写代码(如 hk00700)；A股: sh/sz + 小写代码(如 sh600519)
@@ -12950,6 +13016,9 @@
                                                         } catch (e) {}
                                                         return { key: "mv", dir: -1 }; // 默认：市值降序
                                                     }
+                                                    /* [修复] 暴露为全局：预测 IIFE(6986/7022)在独立脚本块内调用 getUnifiedSort，
+                                                       原定义嵌套于本 IIFE 内不可见，导致点击「📈 预测」时 ReferenceError、覆盖层打不开。 */
+                                                    window.getUnifiedSort = getUnifiedSort;
                                                     function setUnifiedSort(s) {
                                                         try { localStorage.setItem(UNIFIED_SORT_KEY, JSON.stringify(s)); } catch (e) {}
                                                     }
@@ -14203,6 +14272,7 @@
                                                                 });
                                                         });
                                                     }
+                                                    window.fetchMarketData = fetchMarketData; // [修复] 暴露为全局：2 分钟自动刷新 refreshAuto(全局) 需调用它
 
                                                     // 市场页面显示时自动加载
                                                     var _marketLoaded = false;
