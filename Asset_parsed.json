@@ -4,7 +4,7 @@
     "accountName": "XIAOMEI REN",
     "currency": "USD",
     "openDate": "2026-02-06",
-    "lastTradeDate": "2026-08-25"
+    "lastTradeDate": "2026-08-26"
   },
   "totalNetValueDaily": [
     {
@@ -578,6 +578,10 @@
     {
       "date": "2026-08-25",
       "value": 29393.159147035
+    },
+    {
+      "date": "2026-08-26",
+      "value": 29914.849204185
     }
   ],
   "cashDaily": [
@@ -1156,38 +1160,43 @@
       "date": "2026-08-25",
       "value": 15680.489147035,
       "accrued": -7.6
+    },
+    {
+      "date": "2026-08-26",
+      "value": 22955.949204185,
+      "accrued": -7.6
     }
   ],
   "holdings": [
     {
       "symbol": "TQQQ",
       "side": "Long",
-      "position": 200.0,
-      "costBasisPrice": 69.83345557,
-      "markPrice": 70.27,
-      "positionValue": 14054.0,
-      "costBasisMoney": 13966.691114,
-      "unrealizedPnl": 87.308886
+      "position": 100.0,
+      "costBasisPrice": 70.23170557,
+      "markPrice": 70.47,
+      "positionValue": 7047.0,
+      "costBasisMoney": 7023.170557,
+      "unrealizedPnl": 23.829443
     },
     {
       "symbol": "ORCL  260828P00138000",
       "side": "Short",
       "position": -2.0,
       "costBasisPrice": 2.26294734,
-      "markPrice": 0.85,
-      "positionValue": -170.0,
+      "markPrice": 0.185,
+      "positionValue": -37.0,
       "costBasisMoney": -452.589468,
-      "unrealizedPnl": 282.589468
+      "unrealizedPnl": 415.589468
     },
     {
       "symbol": "ORCL  260828P00141000",
       "side": "Short",
       "position": -1.0,
       "costBasisPrice": 1.75952784,
-      "markPrice": 1.6373,
-      "positionValue": -163.73,
+      "markPrice": 0.435,
+      "positionValue": -43.5,
       "costBasisMoney": -175.952784,
-      "unrealizedPnl": 12.222784
+      "unrealizedPnl": 132.452784
     }
   ],
   "electronicFundTransfers": [
@@ -1287,6 +1296,17 @@
     }
   ],
   "trades": [
+    {
+      "date": "2026-08-26",
+      "symbol": "TQQQ",
+      "underlying": "TQQQ",
+      "cat": "STK",
+      "buySell": "SELL",
+      "quantity": -100.0,
+      "price": 72.76,
+      "realized": 331.94,
+      "tradeId": "10126500158"
+    },
     {
       "date": "2026-08-25",
       "symbol": "TQQQ",
@@ -2113,19 +2133,20 @@
       "tradeId": "9947650430"
     }
   ],
-  "lastSync": "2026-08-26",
+  "lastSync": "2026-08-27",
   "optBase": {
     "A": {
-      "date": "2026-08-25",
-      "prices": {
-        "ORCL  260828P00138000": 1.7731
-      }
-    },
-    "B": {
       "date": "2026-08-26",
       "prices": {
         "ORCL  260828P00138000": 0.85,
         "ORCL  260828P00141000": 1.6373
+      }
+    },
+    "B": {
+      "date": "2026-08-27",
+      "prices": {
+        "ORCL  260828P00138000": 0.185,
+        "ORCL  260828P00141000": 0.435
       }
     }
   },
