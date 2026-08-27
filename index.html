@@ -1651,6 +1651,12 @@
             left: 0;
         }
 
+        /* 基金持仓「操作」列表头居中（覆盖末列默认右对齐） */
+        .tbl-scroll>table>thead>tr>th.op-center {
+            text-align: center !important;
+            padding-right: 0 !important;
+        }
+
         /* 明细表「时间栏」：实时=绿，非实时=红（替代原「状态」列） */
         .time-cell {
             text-align: center;
@@ -3820,7 +3826,7 @@
                                                                         <th class="sortable" data-sort="pnl">浮动<span class="sort-ind">⇅</span></th>
                                                                         <th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th>
                                                                         <th class="sortable" data-sort="time">时间<span class="sort-ind">⇅</span></th>
-                                                                        <th>操作</th>
+                                                                        <th class="op-center">操作</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody id="tbFund"></tbody>
@@ -6172,6 +6178,40 @@
                                                     })
                                                 }
 
+                                                /* 东方财富（push2his）K 线：港股+A股成分股专用数据源
+                                                   港股 secid=116.代码；深A=0.代码；沪A=1.代码 */
+                                                function emSecid(mk, code) {
+                                                    if (mk === "hk") return "116." + code;
+                                                    if (mk === "sz") return "0." + code;
+                                                    if (mk === "sh") return "1." + code;
+                                                    return null
+                                                }
+                                                async function fetchEMKline(mk, code) {
+                                                    var secid = emSecid(mk, code);
+                                                    if (!secid) return null;
+                                                    var url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + encodeURIComponent(secid) + "&fields1=f1&fields2=f51,f52,f53,f54,f55&klt=101&fqt=1&end=20500101&lmt=30";
+                                                    try {
+                                                        var r = await fetch(url);
+                                                        var j = await r.json();
+                                                        var arr = (j && j.data && j.data.klines) || [];
+                                                        return arr.map(function(s) {
+                                                            var p = String(s).split(",");
+                                                            return { date: p[0], open: parseFloat(p[1]), close: parseFloat(p[2]), high: parseFloat(p[3]), low: parseFloat(p[4]) }
+                                                        })
+                                                    } catch (e) { return null }
+                                                }
+                                                /* 港股/A股成分股目标日：以美东 9:30 为界，[D日9:30, D+1日9:30) 取 D 日
+                                                   => (美东当前时间 - 9.5h) 所在的日期 */
+                                                function emTargetDate() {
+                                                    var p = null;
+                                                    try { p = etNowCached() || etNowParts(); } catch (e) { p = null; }
+                                                    if (!p) return null;
+                                                    var mi = p.h * 60 + p.m - 570; // 减 9.5h
+                                                    var ymd = p.ymd;
+                                                    if (mi < 0) ymd = (typeof ymdAddDays === "function") ? ymdAddDays(ymd, -1) : ymd;
+                                                    return ymd
+                                                }
+
                                                 function klineChangeOn(bars, targetDate) {
                                                     for (var i = 0; i < bars.length; i++) {
                                                         if (bars[i].date === targetDate) {
@@ -6215,19 +6255,70 @@
                                                             if (c != null && isFinite(c)) window._holdKline[sym + "|" + td] = c
                                                         })
                                                     }, 4)
+
+                                                    /* 东方财富：港股(hk)+A股(sz/sh)成分股，按美东窗口目标日抓取，覆盖腾讯K线路径 */
+                                                    if (!window._holdEMPrice) window._holdEMPrice = {};
+                                                    if (!window._holdEMChg) window._holdEMChg = {};
+                                                    if (!window._emKline) window._emKline = {};
+                                                    var emTarget = (typeof emTargetDate === "function") ? emTargetDate() : null;
+                                                    var emNeed = {};
+                                                    (funds || []).forEach(function(f) {
+                                                        if (!fundNeedsPredict(f, discDay)) return;
+                                                        var ph = FUND_HOLDINGS[f.code];
+                                                        if (!ph || !ph.items) return;
+                                                        ph.items.forEach(function(it) {
+                                                            var mk = it.m || "us";
+                                                            if (mk !== "hk" && mk !== "sz" && mk !== "sh") return;
+                                                            var secid = emSecid(mk, it.c);
+                                                            if (!secid) return;
+                                                            emNeed[secid] = { mk: mk, code: it.c, target: emTarget }
+                                                        })
+                                                    });
+                                                    var emSyms = Object.keys(emNeed);
+                                                    for (var ei = 0; ei < emSyms.length; ei++) {
+                                                        var secid = emSyms[ei];
+                                                        try {
+                                                        var info = emNeed[secid];
+                                                        var bars = window._emKline[secid];
+                                                        if (!bars) {
+                                                            bars = await fetchEMKline(info.mk, info.code);
+                                                            if (bars) window._emKline[secid] = bars
+                                                        }
+                                                        if (!bars || !bars.length) continue;
+                                                        /* 目标日精确匹配；未命中则向前取最近一个 ≤ 目标日 的交易日（港股可能休市/缺失） */
+                                                        var ti = -1;
+                                                        for (var i = bars.length - 1; i >= 0; i--) {
+                                                            if (bars[i].date <= info.target) { ti = i; break; }
+                                                        }
+                                                        if (ti < 1) continue;
+                                                        var closeT = bars[ti].close;
+                                                        var key = info.mk + info.code;
+                                                        window._holdEMPrice[key] = closeT;
+                                                        if (bars[ti - 1].close > 0) {
+                                                            window._holdEMChg[key] = (closeT - bars[ti - 1].close) / bars[ti - 1].close * 100
+                                                        }
+                                                        } catch(e) {}
+                                                    }
                                                 }
 
                                                 function holdingChg(it, predictDay) {
-                                                    var _qq = window._holdQ && window._holdQ[(it.m || "us") + it.c];
-                                                    var _rt = null;
-                                                    if (_qq && _qq.price > 0 && _qq.prevClose > 0) _rt = (_qq.price - _qq.prevClose) / _qq.prevClose * 100;
                                                     var mk = it.m || "us";
-                                                    if (mk === "us") return _rt != null ? _rt : null;
+                                                    if (mk === "us") {
+                                                        var _qq = window._holdQ && window._holdQ["us" + it.c];
+                                                        var _rt = null;
+                                                        if (_qq && _qq.price > 0 && _qq.prevClose > 0) _rt = (_qq.price - _qq.prevClose) / _qq.prevClose * 100;
+                                                        return _rt != null ? _rt : null
+                                                    }
+                                                    // 港股/A股：仅用东方财富（按美东窗口目标日）；缺失不回落，避免显示错值
+                                                    if (mk === "hk" || mk === "sz" || mk === "sh") {
+                                                        var ek = window._holdEMChg && window._holdEMChg[mk + it.c];
+                                                        return (ek != null && isFinite(ek)) ? ek : null
+                                                    }
                                                     if (predictDay != null && window._holdKline) {
                                                         var kk = window._holdKline[(it.m || "") + it.c + "|" + predictDay];
                                                         if (kk != null && isFinite(kk)) return kk
                                                     }
-                                                    return _rt
+                                                    return null
                                                 }
 
                                                 function sinaDailyK(sym) {
@@ -7182,10 +7273,15 @@
                                                                 if (!el) return;
                                                                 var mk = it.m || "us";
                                                                 var _qq = window._holdQ && window._holdQ[mk + it.c];
-                                                                var price = (_qq && _qq.price > 0) ? _qq.price : null;
+                                                                var isEM = (mk === "hk" || mk === "sz" || mk === "sh");
+                                                                var emPrice = (isEM && window._holdEMPrice) ? window._holdEMPrice[mk + it.c] : null;
+                                                                /* 港股/A股：价格仅取东方财富收盘价，不回落腾讯实时价，避免与涨跌幅数据源不一致 */
+                                                                var price = (isEM && emPrice != null && isFinite(emPrice)) ? emPrice
+                                                                         : ((mk === "us" && _qq && _qq.price > 0) ? _qq.price : null);
                                                                 var chg = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
                                                                 var src = "none";
                                                                 if (mk === "us") src = "tencent";
+                                                                else if (isEM) src = (emPrice != null && isFinite(emPrice)) ? "em" : "none";
                                                                 else if (chg != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) src = "predict";
                                                                 else if (_qq && _qq.price > 0) src = "tencent";
                                                                 var qEl = el.querySelector(".fund-hd-quote");
@@ -7204,8 +7300,8 @@
                                                                     } else { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
                                                                 }
                                                                 if (srcEl) {
-                                                                    var lbl = (src === "predict") ? "预测" : (src === "tencent" ? "QT" : (src === "bybit" ? "BYB" : (src === "alpaca" ? "ALP" : "--")));
-                                                                    var scls = (src === "predict") ? "s-predict" : (src === "tencent" ? "s-tencent" : (src === "bybit" ? "s-bybit" : (src === "alpaca" ? "s-alpaca" : "s-none")));
+                                                                    var lbl = (src === "em") ? "东方" : (src === "predict") ? "预测" : (src === "tencent" ? "QT" : (src === "bybit" ? "BYB" : (src === "alpaca" ? "ALP" : "--")));
+                                                                    var scls = (src === "em") ? "s-em" : (src === "predict") ? "s-predict" : (src === "tencent" ? "s-tencent" : (src === "bybit" ? "s-bybit" : (src === "alpaca" ? "s-alpaca" : "s-none")));
                                                                     srcEl.textContent = lbl;
                                                                     srcEl.className = "market-src " + scls;
                                                                 }
@@ -12048,6 +12144,7 @@
                                                 .market-src.s-fund { color: #00695c; background: #e0f2f1; border: 1px solid #b2dfdb; }
                                                 .market-src.s-none { color: #999; background: #f5f5f5; border: 1px solid #eee; }
                                                 .market-src.s-predict { color: #b26a00; background: #fff7e6; border: 1px solid #f0d9a8; }
+                                                .market-src.s-em { color: #c0392b; background: #fdecea; border: 1px solid #f3c0bb; }
 
                                                 /* 基金行：外层块，内部 .u-fund-grid 为网格行，.fund-acc-body 为展开内容 */
                                                 .fund-row {
@@ -12974,13 +13071,15 @@
                                                     });
                                                     // 是否为港股 special（如智谱）：Bybit 美元价需 ×USD-HKD 显示港币
                                                     function isHkSpecial(sym) {
-                                                        // 先归一化到 Bybit 代码(裸腾讯代码如 02513 / 港股 hk02513 也能识别)
+                                                        // 先归一化到 Bybit 代码(裸腾讯代码如 02513 / 港股 hk02513 / 新格式 mk|code 也能识别)
                                                         var s = bybitCodeOf(sym);
                                                         return !!BB_IS_HK[s];
                                                     }
-                                                    // 归一到 Bybit 代码（用于 Bybit 行情请求）。输入可为裸腾讯代码或 Bybit 代码
+                                                    // 归一到 Bybit 代码（用于 Bybit 行情请求）。输入可为裸腾讯代码、带前缀代码或新格式 mk|code
                                                     function bybitCodeOf(sym) {
                                                         var s = String(sym || "").toUpperCase().replace(/USDT$/, "");
+                                                        // 新格式 mk|code：取 code 部分再做归一（如 hk|02513 -> 02513 -> ZHIPU）
+                                                        if (s.indexOf("|") >= 0) s = s.split("|").pop();
                                                         return T_TO_B[s] || s;
                                                     }
                                                     /* [修复] 暴露为全局：预测 refillUsPredict(7081) 在独立脚本块内调用 bybitCodeOf，
@@ -12990,6 +13089,16 @@
                                                     // 腾讯接口对大小写敏感且按市场区分：
                                                     //   美股: us + 大写代码(如 usNVDA)；港股: hk + 小写代码(如 hk00700)；A股: sh/sz + 小写代码(如 sh600519)
                                                     function tencentQueryOf(sym) {
+                                                        // 新格式 mk|code：先拆出市场与代码，直接拼腾讯查询代码（hk/sh/sz 小写前缀 + 代码）
+                                                        if (String(sym || "").indexOf("|") >= 0) {
+                                                            var _pp = String(sym).split("|");
+                                                            var _mk = String(_pp[0] || "").toLowerCase();
+                                                            var _cd = String(_pp[1] || "").toLowerCase();
+                                                            if (_mk === "us") return "us" + _cd.toUpperCase();
+                                                            if (_mk === "hk") return "hk" + _cd;
+                                                            if (_mk === "sh" || _mk === "sz") return _mk + _cd;
+                                                            return _cd;
+                                                        }
                                                         var s = String(sym || "").toUpperCase().replace(/USDT$/, "");
                                                         if (B_TO_TQ[s]) return B_TO_TQ[s];
                                                         if (s.indexOf("US") === 0) return "us" + s.substring(2);       // 美股: us + 大写代码
@@ -13711,6 +13820,25 @@
                                                             renderUnifiedList();
                                                             return;
                                                         }
+                                                        // [兜底] 若东方财富基准价(_holdEMPrice)尚未抓取，且存在 A股/港股成分股，
+                                                        // 先异步 collectHoldingKline 抓取后再渲染，确保市场行情基金成分股涨跌幅有基准价。
+                                                        var _needEM = false;
+                                                        try {
+                                                            (fs || []).forEach(function(f) {
+                                                                var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
+                                                                (ph && ph.items || []).forEach(function(it) {
+                                                                    var mk = it.m || "us";
+                                                                    if (mk === "sz" || mk === "sh" || mk === "hk") _needEM = true;
+                                                                });
+                                                            });
+                                                        } catch (e) {}
+                                                        if (_needEM && !window.__fundHdEmFetched && (!window._holdEMPrice || !Object.keys(window._holdEMPrice).length)) {
+                                                            window.__fundHdEmFetched = true;
+                                                            try {
+                                collectHoldingKline(fs).then(function() { renderFundHoldings(); }).catch(function() { renderFundHoldings(); });
+                                return;
+                            } catch (e) {}
+                                                        }
                                                         // 收集所有美股(us)持仓代码，用于批量拉实时
                                                         var usCodes = [];
                                                         var html = "";
@@ -13725,9 +13853,12 @@
                                                                 items.slice(0, 10).forEach(function(it, i) {
                                                                     var pct = Number(it.p) || 0;
                                                                     var mkt = it.m || "us";
-                                                                    // 美股(us) 与 港股special(如智谱) 都进实时请求(Bybit 美元计价)
-                                                                    var symKey = ((mkt === "us") || isHkSpecial(it.c)) ? (it.c || "").toUpperCase() : "";
-                                                                    if (symKey && usCodes.indexOf(symKey) < 0) usCodes.push(symKey);
+                                                                    // 所有成分股统一带 data-fh-sym（格式 mk|c，便于取东方财富价与区分市场）；
+                                                                    // 美股(us) 与 港股special(如智谱) 额外进按币拉取(Bybit 美元计价)，普通 A股/港股走 qt.gtimg.cn。
+                                                                    var symKey = (mkt && it.c) ? (mkt + "|" + it.c) : "";
+                                                                    // 进 bybit 实时拉取的裸代码（美股 或 港股special）：仍按原口径收集
+                                                                    var bybitSym = ((mkt === "us") || isHkSpecial(it.c)) ? (it.c || "").toUpperCase() : "";
+                                                                    if (bybitSym && usCodes.indexOf(bybitSym) < 0) usCodes.push(bybitSym);
                                                                     body += '<div class="fund-hd-item" ' + (symKey ? 'data-fh-sym="' + symKey + '"' : '') + '>'
                                                                         + '<div class="fund-hd-top">'
                                                                             + '<span class="fund-hd-idx">' + (i + 1) + '</span>'
@@ -13883,14 +14014,28 @@
                                                         merged.list.forEach(function(it) { map[it.symbol] = it; });
                                                         var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP" };
                                                         var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca" };
+                                                        // A股/港股普通(无 Bybit 合约)成分股：收集后批量用 qt.gtimg.cn 拉实时价，涨跌幅 = 实时价 ÷ 东方财富价 − 1
+                                                        var qtRows = [];
                                                         document.querySelectorAll('#unifiedList .fund-hd-item[data-fh-sym]').forEach(function(row) {
-                                                            var sym = row.getAttribute("data-fh-sym");
+                                                            var sym = row.getAttribute("data-fh-sym") || "";
+                                                            // 解析市场与代码：新格式 mk|c（如 sz|300408 / hk|02513 / us|GOOG），兼容旧格式裸美股代码
+                                                            var mkt = "", code = "";
+                                                            if (sym.indexOf("|") >= 0) {
+                                var _sp = sym.split("|"); mkt = _sp[0] || ""; code = _sp[1] || "";
+                            } else { mkt = "us"; code = sym; }
                                                             var key = bybitCodeOf(sym) + "USDT";
                                                             var it = map[key];
                                                             var qEl = row.querySelector(".fund-hd-quote");
                                                             var cEl = row.querySelector(".fund-hd-chg");
                                                             var srcEl = row.querySelector(".market-src");
-                                                            if (!it || !qEl || !cEl) return;
+                                                            if (!qEl || !cEl) return;
+                                                            // —— 无 Bybit 标的（A股 sh/sz、港股普通）：走 qt.gtimg.cn 实时价 ——
+                                                            if (!it) {
+                                if (mkt === "sz" || mkt === "sh" || mkt === "hk") {
+                                    qtRows.push({ row: row, mkt: mkt, code: code, qEl: qEl, cEl: cEl, srcEl: srcEl });
+                                }
+                                return;
+                            }
                                                             var idx = parseFloat(it.indexPrice);
                                                             var p = isNaN(idx) ? parseFloat(it.lastPrice) : idx;
                                                             if (!isNaN(p)) qEl.textContent = p >= 1 ? p.toFixed(2) : p.toFixed(4);
@@ -13898,18 +14043,19 @@
                                                             var _fSrc = null;
                                                             if (it._isStock) {
                                                                 if (isHkSpecial(sym)) {
-                                                                    var tqH = tencentMap ? tencentMap[tencentQueryOf(sym)] : null;
+                                                                    // 港股special(智谱 ZHIPU)：优先 Bybit 实时价；涨跌幅 = (实时价 ÷ 东方财富价) − 1，与 A股/港股统一口径
                                                                     var hkdH = effHkd();
                                                                     var phkdH = (!isNaN(p) && hkdH > 0) ? p * hkdH : NaN;
-                                                                    if (tqH && tqH.price > 0 && !isNaN(phkdH)) {
-                                                                        ch = (phkdH - tqH.price) / tqH.price * 100;
-                                                                        _fSrc = "bybit";
+                                                                    var emKey = mkt + code; // 如 hk02513
+                                                                    var emPrice = (window._holdEMPrice && window._holdEMPrice[emKey] != null) ? Number(window._holdEMPrice[emKey]) : NaN;
+                                                                    if (!isNaN(phkdH)) qEl.textContent = "HK$" + phkdH.toFixed(2);
+                                                                    if (!isNaN(phkdH) && emPrice > 0) {
+                                                                        ch = (phkdH / emPrice - 1) * 100;
+                                                                        _fSrc = "bybit"; // 现价来自 Bybit，涨跌基准为东方财富
                                                                     } else {
                                                                         var ch24h2 = parseFloat(it._ch24);
-                                                                        if (!isNaN(ch24h2)) ch = ch24h2 * 100;
-                                                                        _fSrc = "bybit";
+                                                                        if (!isNaN(ch24h2)) { ch = ch24h2 * 100; _fSrc = "bybit"; }
                                                                     }
-                                                                    if (!isNaN(phkdH)) qEl.textContent = "HK$" + phkdH.toFixed(2);
                                                                 } else {
                                                                 // 美股/ETF：
                                                                 //  盘中(!_useBybit)：纯腾讯——现价用腾讯 p[3]，涨跌幅用腾讯自带(现价-昨收)/昨收
@@ -13933,8 +14079,8 @@
                                                                     // 腾讯缺失：回退 Bybit 24h / Alpaca 前收
                                                                     var ch24_1 = parseFloat(it._ch24);
                                                                     if (!isNaN(ch24_1)) { ch = ch24_1 * 100; _fSrc = "bybit"; }
-                                                                    else if (alpacaMap) {
-                                                                        var ap1 = alpacaMap[sym];
+                                                                        else if (alpacaMap) {
+                                                                        var ap1 = alpacaMap[code] || alpacaMap[sym];
                                                                         if (ap1 && ap1 > 0 && !isNaN(p)) { ch = (p - ap1) / ap1 * 100; _fSrc = "alpaca"; }
                                                                     }
                                                                 }
@@ -13957,7 +14103,95 @@
                                                                 srcEl.className = "market-src " + (srcClsMap[sk] || "s-none");
                                                             }
                                                         });
-                                                        aggregateFundSums();
+                                                        // A股/港股普通成分股：qt.gtimg.cn 拉实时价（Bybit 无合约）；涨跌幅 = (实时价 ÷ 东方财富价) − 1
+                                                        if (qtRows.length) {
+                                                            fetchFundHdQt(qtRows, function() { aggregateFundSums(); });
+                                                        } else {
+                                                            aggregateFundSums();
+                                                        }
+                                                    }
+
+                                                    // 批量拉 A股(sh/sz)/港股(hk)普通成分股实时价（qt.gtimg.cn，script 注入避免 CORS）；
+                                                    // 价格 = qt 实时价；涨跌幅 = (实时价 ÷ 东方财富价 window._holdEMPrice[mk+code]) − 1；缺失则保留 --。
+                                                    function fetchFundHdQt(qtRows, done) {
+                                                        if (!qtRows || !qtRows.length) { if (done) done(); return; }
+                                                        // 去重收集查询代码（小写前缀：hk02513 / sh600519 / sz300408）
+                                                        var need = {};
+                                                        qtRows.forEach(function(r) {
+                                                            var q = (r.mkt === "hk" ? "hk" : r.mkt) + String(r.code).toLowerCase();
+                                                            r._q = q; need[q] = r;
+                                                        });
+                                                        var keys = Object.keys(need);
+                                                        var out = {}; // q -> price
+                                                        var chunks = [];
+                                                        for (var i = 0; i < keys.length; i += MKT_QUOTE_CHUNK) chunks.push(keys.slice(i, i + MKT_QUOTE_CHUNK));
+                                                        var failed = false;
+                                                        (function next(idx) {
+                                                            if (idx >= chunks.length || failed) { finishQt(); return; }
+                                                            var ck = chunks[idx];
+                                                            var q = ck.join(",");
+                                                            var parse = function(txt) {
+                                                                ck.forEach(function(k) {
+                                                                    var m = txt.match(new RegExp("v_" + k + '="([^"]*)"'));
+                                                                    if (m) {
+                                                                        var p = m[1].split("~");
+                                                                        var pr = parseFloat(p[3]);
+                                                                        if (!isNaN(pr) && pr > 0) out[k] = pr;
+                                                                    }
+                                                                });
+                                                            };
+                                                            var done2 = false, to = null;
+                                                            var finish = function() { if (done2) return; done2 = true; if (to) clearTimeout(to); };
+                                                            var fallback = function() {
+                                                                try {
+                                                                    fetch("https://qt.gtimg.cn/q=" + q).then(function(rr) { return rr.arrayBuffer(); })
+                                                                        .then(function(buf) { finish(); parse(new TextDecoder("gbk").decode(buf)); next(idx + 1); })
+                                                                        .catch(function() { finish(); next(idx + 1); });
+                                                                } catch (e) { finish(); next(idx + 1); }
+                                                            };
+                                                            try {
+                                                                var s = document.createElement("script");
+                                                                s.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
+                                                                to = setTimeout(fallback, 8000);
+                                                                s.onload = function() {
+                                                                    if (done2) return; done2 = true; clearTimeout(to);
+                                                                    ck.forEach(function(k) {
+                                                                        var raw = window["v_" + k];
+                                                                        if (typeof raw === "string") {
+                                                                            var p = raw.split("~");
+                                                                            var pr = parseFloat(p[3]);
+                                                                            if (!isNaN(pr) && pr > 0) out[k] = pr;
+                                                                        }
+                                                                    });
+                                                                    setTimeout(function() { next(idx + 1); }, 60);
+                                                                };
+                                                                s.onerror = function() { if (!done2) { done2 = true; clearTimeout(to); } next(idx + 1); };
+                                                                document.head.appendChild(s);
+                                                            } catch (e) { finish(); next(idx + 1); }
+                                                        })(0);
+                                                        function finishQt() {
+                                                            qtRows.forEach(function(r) {
+                                                                var price = out[r._q];
+                                                                var emKey = r.mkt + r.code; // 如 sz300408 / hk02513
+                                                                var emPrice = (window._holdEMPrice && window._holdEMPrice[emKey] != null) ? Number(window._holdEMPrice[emKey]) : NaN;
+                                                                if (!price || !isFinite(price)) { if (r.srcEl) { r.srcEl.textContent = "--"; r.srcEl.className = "market-src s-none"; } return; }
+                                                                if (r.qEl) {
+                                                                    var txt = (r.mkt === "hk" ? "HK$" : (r.mkt === "sz" || r.mkt === "sh" ? "¥" : "")) + price.toFixed(2);
+                                                                    r.qEl.textContent = txt;
+                                                                }
+                                                                if (r.cEl && emPrice > 0) {
+                                                                    var ch = (price / emPrice - 1) * 100;
+                                                                    var cls = ch >= 0 ? "up" : "down";
+                                                                    var sign = ch > 0 ? "+" : "";
+                                                                    r.cEl.textContent = sign + ch.toFixed(2) + "%";
+                                                                    r.cEl.className = "fund-hd-chg " + cls;
+                                                                } else if (r.cEl) {
+                                                                    r.cEl.textContent = "--"; r.cEl.className = "fund-hd-chg";
+                                                                }
+                                                                if (r.srcEl) { r.srcEl.textContent = "QT"; r.srcEl.className = "market-src s-tencent"; }
+                                                            });
+                                                            if (done) done();
+                                                        }
                                                     }
 
                                                     // 按基金持仓当日预测逻辑聚合：整体盈亏率 = Σ(占比 × 持仓当日涨跌幅) / Σ(占比)
