@@ -2448,42 +2448,47 @@
             color: var(--text);
         }
 
-        /* 市场行情「当日预测」：全屏覆盖层（由市场头部按钮打开，返回按钮关闭） */
+        /* 市场行情「当日预测」：限宽居中面板覆盖层（由市场头部按钮打开，返回按钮关闭）
+           不再全屏铺满：半透明遮罩 + 680px 白底面板，尺寸对齐市场行情页 */
         .predict-overlay {
             position: fixed;
             inset: 0;
             z-index: 200;
-            background: #f5f7fb;
+            background: rgba(20, 24, 31, .35);
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             display: none;
         }
-        .predict-overlay.open { display: block; }
+        .predict-overlay.open { display: flex; flex-direction: column; align-items: center; }
         .predict-overlay-head {
             position: sticky;
             top: 0;
             z-index: 2;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
             padding: 14px 16px;
             background: #fff;
             border-bottom: 1px solid var(--line, #e7eaf1);
         }
-        .predict-back {
+        .predict-close {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
             border: 0;
-            background: #eef2f7;
-            color: #1c2430;
-            font-size: 15px;
-            font-weight: 600;
-            padding: 8px 14px;
-            border-radius: 10px;
+            background: none;
+            color: var(--text);
+            font-size: 20px;
+            line-height: 1;
             cursor: pointer;
+            padding: 2px 6px;
             font-family: inherit;
         }
-        .predict-back:active { background: #e2e8f0; }
-        .predict-overlay-title { font-size: 17px; font-weight: 700; color: var(--text); }
-        .predict-wrap { max-width: 680px; margin: 0 auto; padding: 12px 16px 40px; }
+        .predict-close:active { opacity: .6; }
+        .predict-overlay-title { flex: 1; text-align: center; font-size: 17px; font-weight: 700; color: var(--text); }
+        .predict-wrap { width: 100%; max-width: 680px; margin: 16px auto; background: #f5f7fb; box-shadow: 0 12px 40px rgba(0, 0, 0, .25); border-radius: 14px; }
         .predict-banner { margin-top: 8px; }
         /* 预测覆盖层顶部「总资产」对齐市场行情 hero：40px 粗体 + 居中列布局 */
         .predict-banner .mp-top { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; margin-top: 2px; }
@@ -2705,7 +2710,7 @@
         <section class="panel" style="max-width:680px;margin:0 auto;">
             <h2 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                 <span>市场行情</span>
-                <div style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400;color:#888;">
+                <div class="market-toolbar" style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400;color:#888;">
                     <input id="marketAddInput" placeholder="如 NVDA" style="width:96px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;outline:none;">
                     <datalist id="marketSymbolList"></datalist>
                     <button id="marketAddBtn" type="button" style="padding:6px 14px;border:none;border-radius:8px;background:#1a73e8;color:#fff;font-size:13px;cursor:pointer;">添加</button>
@@ -4903,10 +4908,7 @@
                                                         cash: null
                                                     }
                                                 }();
-                                                if (!catIcon.pending) catIcon.pending = {
-                                                    n: "Tiger Brokers 老虎",
-                                                    img: __B[12]
-                                                };
+                                                if (!catIcon.pending) catIcon.pending = null;
 
                                                 function saveCatIcon() {
                                                     try {
@@ -5734,195 +5736,85 @@
                                                         return out
                                                     })
                                                 }
-                                                var FUND_HOLDINGS = {
-                                                    "000043": {
-                                                        report: "2026-06-30",
-                                                        items: [{
-                                                            c: "AAPL",
-                                                            m: "us",
-                                                            n: "苹果",
-                                                            p: 8.29
-                                                        }, {
-                                                            c: "NVDA",
-                                                            m: "us",
-                                                            n: "英伟达",
-                                                            p: 7.81
-                                                        }, {
-                                                            c: "GOOGL",
-                                                            m: "us",
-                                                            n: "谷歌-A",
-                                                            p: 5.66
-                                                        }, {
-                                                            c: "AVGO",
-                                                            m: "us",
-                                                            n: "博通",
-                                                            p: 4.58
-                                                        }, {
-                                                            c: "MSFT",
-                                                            m: "us",
-                                                            n: "微软",
-                                                            p: 4.53
-                                                        }, {
-                                                            c: "AMZN",
-                                                            m: "us",
-                                                            n: "亚马逊",
-                                                            p: 4.11
-                                                        }, {
-                                                            c: "WDC",
-                                                            m: "us",
-                                                            n: "西部数据",
-                                                            p: 3.36
-                                                        }, {
-                                                            c: "LRCX",
-                                                            m: "us",
-                                                            n: "拉姆研究",
-                                                            p: 2.69
-                                                        }, {
-                                                            c: "LLY",
-                                                            m: "us",
-                                                            n: "礼来",
-                                                            p: 2.61
-                                                        }, {
-                                                            c: "TSLA",
-                                                            m: "us",
-                                                            n: "特斯拉",
-                                                            p: 2.36
-                                                        }, {
-                                                            c: "GOOG",
-                                                            m: "us",
-                                                            n: "谷歌-C",
-                                                            p: 2.12
-                                                        }]
-                                                    },
-                                                    270023: {
-                                                        report: "2026-06-30",
-                                                        items: [{
-                                                            c: "02513",
-                                                            m: "hk",
-                                                            n: "智谱",
-                                                            p: 9.01
-                                                        }, {
-                                                            c: "MU",
-                                                            m: "us",
-                                                            n: "美光科技",
-                                                            p: 6.16
-                                                        }, {
-                                                            c: "LRCX",
-                                                            m: "us",
-                                                            n: "拉姆研究",
-                                                            p: 4.5
-                                                        }, {
-                                                            c: "ASML",
-                                                            m: "us",
-                                                            n: "阿斯麦",
-                                                            p: 4.35
-                                                        }, {
-                                                            c: "KXIAY",
-                                                            m: "us",
-                                                            n: "KIOXIA",
-                                                            p: 4.07
-                                                        }, {
-                                                            c: "SNDK",
-                                                            m: "us",
-                                                            n: "闪迪",
-                                                            p: 3.89
-                                                        }, {
-                                                            c: "AMD",
-                                                            m: "us",
-                                                            n: "超威半导体",
-                                                            p: 3.74
-                                                        }, {
-                                                            c: "AMAT",
-                                                            m: "us",
-                                                            n: "应用材料",
-                                                            p: 3.5
-                                                        }, {
-                                                            c: "GOOG",
-                                                            m: "us",
-                                                            n: "谷歌-C",
-                                                            p: 3.37
-                                                        }, {
-                                                            c: "300408",
-                                                            m: "sz",
-                                                            n: "三环集团",
-                                                            p: 3.1
-                                                        }]
-                                                    },
-                                                    "021277": {
-                                                        report: "2026-06-30",
-                                                        items: [{
-                                                            c: "02513",
-                                                            m: "hk",
-                                                            n: "智谱",
-                                                            p: 9.01
-                                                        }, {
-                                                            c: "MU",
-                                                            m: "us",
-                                                            n: "美光科技",
-                                                            p: 6.16
-                                                        }, {
-                                                            c: "LRCX",
-                                                            m: "us",
-                                                            n: "拉姆研究",
-                                                            p: 4.5
-                                                        }, {
-                                                            c: "ASML",
-                                                            m: "us",
-                                                            n: "阿斯麦",
-                                                            p: 4.35
-                                                        }, {
-                                                            c: "KXIAY",
-                                                            m: "us",
-                                                            n: "KIOXIA",
-                                                            p: 4.07
-                                                        }, {
-                                                            c: "SNDK",
-                                                            m: "us",
-                                                            n: "闪迪",
-                                                            p: 3.89
-                                                        }, {
-                                                            c: "AMD",
-                                                            m: "us",
-                                                            n: "超威半导体",
-                                                            p: 3.74
-                                                        }, {
-                                                            c: "AMAT",
-                                                            m: "us",
-                                                            n: "应用材料",
-                                                            p: 3.5
-                                                        }, {
-                                                            c: "GOOG",
-                                                            m: "us",
-                                                            n: "谷歌-C",
-                                                            p: 3.37
-                                                        }, {
-                                                            c: "300408",
-                                                            m: "sz",
-                                                            n: "三环集团",
-                                                            p: 3.1
-                                                        }]
-                                                    },
-                                                    "016532": {
-                                                        report: "跟踪纳斯达克100",
-                                                        proxy: true,
-                                                        items: [{
-                                                            c: "QQQ",
-                                                            m: "us",
-                                                            n: "纳斯达克100ETF",
-                                                            p: 100
-                                                        }]
-                                                    },
-                                                    "016533": {
-                                                        report: "跟踪纳斯达克100",
-                                                        proxy: true,
-                                                        items: [{
-                                                            c: "QQQ",
-                                                            m: "us",
-                                                            n: "纳斯达克100ETF",
-                                                            p: 100
-                                                        }]
-                                                    }
-                                                };
+                                                    var FUND_HOLDINGS = {
+                                                        "000043": {
+                                                            "report": "2026-06-30",
+                                                            "items": [
+                                                                { c: "AAPL", n: "苹果", p: 8.29, m: "us" },
+                                                                { c: "NVDA", n: "英伟达", p: 7.81, m: "us" },
+                                                                { c: "GOOGL", n: "谷歌-A", p: 5.66, m: "us" },
+                                                                { c: "AVGO", n: "博通", p: 4.58, m: "us" },
+                                                                { c: "MSFT", n: "微软", p: 4.53, m: "us" },
+                                                                { c: "AMZN", n: "亚马逊", p: 4.11, m: "us" },
+                                                                { c: "WDC", n: "西部数据", p: 3.36, m: "us" },
+                                                                { c: "LRCX", n: "拉姆研究", p: 2.69, m: "us" },
+                                                                { c: "LLY", n: "礼来", p: 2.61, m: "us" },
+                                                                { c: "TSLA", n: "特斯拉", p: 2.36, m: "us" },
+                                                                { c: "GOOG", n: "谷歌-C", p: 2.12, m: "us" },
+                                                            ],
+                                                        },
+                                                        "270023": {
+                                                            "report": "2026-06-30",
+                                                            "items": [
+                                                                { c: "02513", n: "智谱", p: 9.01, m: "hk" },
+                                                                { c: "MU", n: "美光科技", p: 6.16, m: "us" },
+                                                                { c: "LRCX", n: "拉姆研究", p: 4.5, m: "us" },
+                                                                { c: "ASML", n: "阿斯麦", p: 4.35, m: "us" },
+                                                                { c: "285A", n: "KIOXIA", p: 4.07, m: "us" },
+                                                                { c: "SNDK", n: "闪迪", p: 3.89, m: "us" },
+                                                                { c: "AMD", n: "超威半导体", p: 3.74, m: "us" },
+                                                                { c: "AMAT", n: "应用材料", p: 3.5, m: "us" },
+                                                                { c: "GOOG", n: "谷歌-C", p: 3.37, m: "us" },
+                                                                { c: "300408", n: "三环集团", p: 3.1, m: "sz" },
+                                                                { c: "GOOGL", n: "谷歌-A", p: 0.02, m: "us" },
+                                                            ],
+                                                        },
+                                                        "021277": {
+                                                            "report": "2026-06-30",
+                                                            "items": [
+                                                                { c: "02513", n: "智谱", p: 9.01, m: "hk" },
+                                                                { c: "MU", n: "美光科技", p: 6.16, m: "us" },
+                                                                { c: "LRCX", n: "拉姆研究", p: 4.5, m: "us" },
+                                                                { c: "ASML", n: "阿斯麦", p: 4.35, m: "us" },
+                                                                { c: "285A", n: "KIOXIA", p: 4.07, m: "us" },
+                                                                { c: "SNDK", n: "闪迪", p: 3.89, m: "us" },
+                                                                { c: "AMD", n: "超威半导体", p: 3.74, m: "us" },
+                                                                { c: "AMAT", n: "应用材料", p: 3.5, m: "us" },
+                                                                { c: "GOOG", n: "谷歌-C", p: 3.37, m: "us" },
+                                                                { c: "300408", n: "三环集团", p: 3.1, m: "sz" },
+                                                                { c: "GOOGL", n: "谷歌-A", p: 0.02, m: "us" },
+                                                            ],
+                                                        },
+                                                        "016532": {
+                                                            "report": "跟踪纳斯达克100",
+                                                            "proxy": true,
+                                                            "items": [
+                                                                { c: "QQQ", m: "us", n: "纳斯达克100ETF", p: 100 },
+                                                            ],
+                                                        },
+                                                        "016533": {
+                                                            "report": "跟踪纳斯达克100",
+                                                            "proxy": true,
+                                                            "items": [
+                                                                { c: "QQQ", m: "us", n: "纳斯达克100ETF", p: 100 },
+                                                            ],
+                                                        },
+                                                        "539002": {
+                                                            "report": "2026-06-30",
+                                                            "items": [
+                                                                { c: "TSM", n: "台积电", p: 9.68, m: "us" },
+                                                                { c: "NVDA", n: "英伟达", p: 9.38, m: "us" },
+                                                                { c: "000660", n: "SK海力士", p: 8.94, m: "sz" },
+                                                                { c: "005930", n: "三星电子", p: 7.8, m: "sz" },
+                                                                { c: "SNDK", n: "闪迪", p: 7.16, m: "us" },
+                                                                { c: "AVGO", n: "博通", p: 4.18, m: "us" },
+                                                                { c: "WDC", n: "西部数据", p: 4.18, m: "us" },
+                                                                { c: "MU", n: "美光科技", p: 3.99, m: "us" },
+                                                                { c: "LITE", n: "Lumentum Holdings Inc", p: 3.56, m: "us" },
+                                                                { c: "GLW", n: "康宁", p: 3.35, m: "us" },
+                                                            ],
+                                                        },
+                                                    };
 
                                                 function collectHoldingSymbols() {
                                                     var set = {};
@@ -7322,6 +7214,14 @@
                                                     }
                                                     btn.addEventListener("click", openPredict);
                                                     if (back) back.addEventListener("click", closePredict);
+                                                    // 点遮罩空白处（非面板区域）关闭，与功能页弹层一致
+                                                    overlay.addEventListener("click", function(e) {
+                                                        if (e.target === overlay) closePredict();
+                                                    });
+                                                    // ESC 关闭
+                                                    document.addEventListener("keydown", function(e) {
+                                                        if (e.key === "Escape" && overlay.classList.contains("open")) closePredict();
+                                                    });
                                                         }
                                                         if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
                                                         else init();
@@ -10591,10 +10491,10 @@
                                                     setStatus(bad ? "fail" : "live", "")
                                                 }
 
-                                                // 启动时从 GitHub 拉取 fund_holdings.json，覆盖内联兜底数据
-                                                // 默认读取同目录 fund_holdings.json（GitHub Pages 同源，无跨域）；
+                                                // 启动时从同目录拉取 fund_holdings.json，全量采用(新增+覆盖)为成分股数据源；
+                                                // 默认读取同目录 fund_holdings.json（GitHub Pages / 静态托管同源，无跨域）；
                                                 // 如需 raw 源可改为 https://raw.githubusercontent.com/<user>/<repo>/<branch>/fund_holdings.json
-                                                // 读取失败时沿用内联 FUND_HOLDINGS 兜底数据。
+                                                // 内联 FUND_HOLDINGS 仅作 fetch 失败时的兜底；proxy 类基金(走代理源)保持内联不被覆盖。
                                                 const FUND_HOLDINGS_URL = "./fund_holdings.json";
                                                 async function loadFundHoldingsFromGithub() {
                                                     try {
@@ -10603,15 +10503,17 @@
                                                         var obj = await r.json();
                                                         var n = 0;
                                                         Object.keys(obj).forEach(function(code) {
-                                                            if (!FUND_HOLDINGS[code] || FUND_HOLDINGS[code].proxy) return;
                                                             var v = obj[code];
-                                                            if (v && v.items && v.items.length) {
-                                                                FUND_HOLDINGS[code] = {
-                                                                    report: v.report || FUND_HOLDINGS[code].report,
-                                                                    items: v.items
-                                                                };
-                                                                n++
-                                                            }
+                                                            if (!v || !v.items || !v.items.length) return;
+                                                            // proxy 类(走代理源的净值基金,如 016532/016533)保持内联兜底,不被覆盖
+                                                            if (FUND_HOLDINGS[code] && FUND_HOLDINGS[code].proxy) return;
+                                                            // 其余一律采用 json: 新增键(如新加的建信基金)或覆盖已有键
+                                                            FUND_HOLDINGS[code] = {
+                                                                report: v.report || (FUND_HOLDINGS[code] && FUND_HOLDINGS[code].report) || "",
+                                                                items: v.items,
+                                                                proxy: v.proxy === true
+                                                            };
+                                                            n++
                                                         });
                                                         if (n > 0) {
                                                             window._holdQ = await fetchMktQuotes(collectHoldingSymbols());
@@ -12074,14 +11976,34 @@
                                                 .unified-head .uh-sort.active { color: #1a73e8; }
                                                 .unified-head .uh-sort .sort-ind { font-size: 12px; opacity: .7; }
                                                 .unified-head .uh-sort.active .sort-ind { opacity: 1; }
-                                                /* 实时预测：基金+美股(含大宗/加密)+现金 的实时预测市值合计（无填充/无边框，文字转黑，仅盈亏红绿） */
-                                                .market-predict {
-                                                    margin-top: 14px; padding: 10px 0;
-                                                    color: #222; text-align: center;
+                                                /* 实时预测：基金+美股(含大宗/加密)+现金 的实时预测市值合计 —— 全宽横幅条，占满整行 */
+                                                /* 市场行情标题下工具栏：全宽一行（输入框弹性占满、加浅色背景条） */
+                                                .market-toolbar {
+                                                    width: 100%;
+                                                    margin-top: 10px;
+                                                    padding: 10px 12px;
+                                                    background: linear-gradient(180deg, #eef4fe 0%, #e7f0fd 100%);
+                                                    border: 1px solid #dbe6f7;
+                                                    border-radius: 12px;
+                                                    box-sizing: border-box;
                                                 }
-                                                .market-predict .mp-top { display: flex; align-items: baseline; gap: 12px; margin-top: 2px; flex-wrap: wrap; justify-content: center; }
-                                                .market-predict .mp-total { font-size: 26px; font-weight: 700; line-height: 1.2; }
-                                                .market-predict .mp-pnl { font-size: 14px; font-weight: 600; line-height: 1.2; }
+                                                .market-toolbar #marketAddInput { flex: 1 1 auto; min-width: 0; width: auto; font-size: 14px; }
+                                                .market-toolbar #marketAddBtn { padding: 8px 16px; font-size: 14px; }
+                                                .market-toolbar button { padding: 8px 14px; font-size: 14px; }
+                                                .market-predict {
+                                                    margin-top: 14px; padding: 14px 16px;
+                                                    color: #222; text-align: center;
+                                                    background: linear-gradient(180deg, #eef4fe 0%, #e7f0fd 100%);
+                                                    border: 1px solid #dbe6f7;
+                                                    border-radius: 14px;
+                                                }
+                                                .market-predict .mp-top {
+                                                    display: flex; align-items: baseline; gap: 14px;
+                                                    margin-top: 2px; flex-wrap: nowrap;
+                                                    justify-content: center;
+                                                }
+                                                .market-predict .mp-total { font-size: 28px; font-weight: 700; line-height: 1.2; }
+                                                .market-predict .mp-pnl { font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
                                                 .market-predict .mp-pnl.up { color: #2e7d32; }
                                                 .market-predict .mp-pnl.down { color: #c62828; }
 
@@ -12119,6 +12041,8 @@
                                                     display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
                                                     text-align: right; cursor: pointer; user-select: none;
                                                 }
+
+
                                                 .mvp-val, .mvp-amt { font-variant-numeric: tabular-nums; line-height: 1.2; }
                                                 .mvp-main { font-size: 15px; font-weight: 700; color: #222; }
                                                 .mvp-sub { font-size: 11px; font-weight: 500; color: #999; }
@@ -13362,6 +13286,7 @@
                                                         // 展示集合：手动自选 + 美股持仓(us)自动并入，去重
                                                         var showSyms = _marketSymbols.slice();
                                                         var usMap = {}; // SYMBOL -> 持有份额
+                                                        var usBySym = {}; // 清洗后 SYMBOL -> us 持仓对象（用于期权取权利金/份额）
                                                         var fxRate = 1;
                                                         try { fxRate = effFx() || 1; } catch (e) { fxRate = 1; }
                                                         if (typeof us !== "undefined" && us && us.length) {
@@ -13369,6 +13294,7 @@
                                                                 var s = String(u.symbol || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
                                                                 if (!s) return;
                                                                 if (showSyms.indexOf(s) < 0) showSyms.push(s);
+                                                                usBySym[s] = u;
                                                                 try {
                                                                     var hs = getTradeStats(u).holdShares || 0;
                                                                     if (hs > 0) usMap[s] = (usMap[s] || 0) + hs;
@@ -13517,6 +13443,23 @@
                                                                     if (_optTq.prevClose > 0) pct = (_optTq.price - _optTq.prevClose) / _optTq.prevClose * 100;
                                                                     _srcTag = "tencent";
                                                                 }
+                                                                // 期权市值：累加该正股下所有期权的(份额×100×权利金)，用加权权利金覆盖 p，
+                                                                // 使下方通用公式 _hs*p*fxRate 仍能正确产出多期权合计市值；pct 仍用正股当日涨跌(同向近似)
+                                                                var _optTotalHs = 0, _optTotalMv = 0;
+                                                                g.optionSyms.forEach(function(os) {
+                                                                    var _k = String(os).toUpperCase().replace(/[^A-Z0-9]/g, "");
+                                                                    var _ou = usBySym[_k];
+                                                                    var _hsOs = usMap[_k] || 0;
+                                                                    if (!_ou || _hsOs <= 0) return;
+                                                                    var _px = (_ou._usd != null ? _ou._usd : (isFinite(Number(_ou.price)) ? Number(_ou.price) : NaN));
+                                                                    if (!(isFinite(_px) && _px > 0)) return;
+                                                                    _optTotalHs += _hsOs;
+                                                                    _optTotalMv += _hsOs * 100 * _px;
+                                                                });
+                                                                if (_optTotalHs > 0 && fxRate > 0) {
+                                                                    _hs = _optTotalHs * 100;
+                                                                    p = _optTotalMv / (_optTotalHs * 100); // 加权权利金(美元)，外层通用公式再乘 fxRate 得人民币市值
+                                                                }
                                                             }
                                                             var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca" };
                                                             // 涨跌基准实际数据源：回退时按 _srcTag 标注(bybit/alpaca)，否则用主源
@@ -13525,7 +13468,8 @@
                                                             var srcLabel = srcLabelMap[srcKey] || srcKey;
                                                             var srcCls = srcClsMap[srcKey] || "s-none";
                                                             // 美股持仓：实时市值(人民币)与预测盈亏金额
-                                                            var _hs = g.isOption ? 0 : (usMap[sym.toUpperCase()] || 0);
+                                                            // 期权：持有份额×合约乘数(100)作为 _hs，p 已被上方覆盖为加权权利金，通用公式 _hs*p*fxRate 即得期权市值
+                                                            var _hs = g.isOption ? ((usMap[String(g.optionSyms[0]).toUpperCase().replace(/[^A-Z0-9]/g, "")] || 0) * 100) : (usMap[sym.toUpperCase()] || 0);
                                                             var mvTxt = "--", pnlTxt = "--", pnlCls = "";
                                                             if (_hs && _hs > 0 && !isNaN(p)) {
                                                                 var _mktCny = _hs * p * fxRate;
@@ -15126,11 +15070,11 @@
                                             </script>
     <!-- 市场行情「当日预测」覆盖层：移出 page-section，确保任意界面激活时均可全屏弹出 -->
     <div id="predictOverlay" class="predict-overlay" aria-hidden="true">
-        <div class="predict-overlay-head">
-            <button id="predictBackBtn" class="predict-back" type="button" aria-label="返回">‹ 返回</button>
-            <div class="predict-overlay-title">市场行情 · 当日预测</div>
-        </div>
         <div class="predict-wrap">
+        <div class="predict-overlay-head">
+            <div class="predict-overlay-title">市场行情 · 当日预测</div>
+            <button id="predictBackBtn" class="predict-close" type="button" aria-label="关闭">✕</button>
+        </div>
             <div class="predict-banner" id="predictBanner"></div>
             <div class="unified-head u-grid predict-head">
                 <div class="uh-name">名称</div>
