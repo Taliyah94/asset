@@ -232,14 +232,6 @@
             font-variant-numeric: tabular-nums;
         }
 
-        .hero .pred-line {
-            font-size: 13px;
-            color: #1f2733;
-            opacity: 1;
-            margin-top: 8px;
-            font-weight: 400;
-        }
-
         .hero .sub {
             font-size: 13px;
             opacity: .9;
@@ -2487,6 +2479,16 @@
         .predict-overlay-title { font-size: 17px; font-weight: 700; color: var(--text); }
         .predict-wrap { max-width: 680px; margin: 0 auto; padding: 12px 16px 40px; }
         .predict-banner { margin-top: 8px; }
+        /* 预测覆盖层顶部「总资产」对齐市场行情 hero：40px 粗体 + 居中列布局 */
+        .predict-banner .mp-top { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; margin-top: 2px; }
+        .predict-banner .mp-lbl { font-size: 13px; opacity: .85; color: var(--text); }
+        .predict-banner .mp-total { font-size: 40px; font-weight: 700; letter-spacing: .5px; line-height: 1.15; margin: 4px 0 2px; text-shadow: 0 2px 14px rgba(0, 0, 0, .10); font-variant-numeric: tabular-nums; font-family: var(--font-num); color: var(--text); }
+        .predict-banner .mp-pnl { font-size: 14px; font-weight: 600; line-height: 1.2; }
+        .predict-banner .mp-pnl.up { color: #2e7d32; }
+        .predict-banner .mp-pnl.down { color: #c62828; }
+        @media(max-width:760px) {
+            .predict-banner .mp-total { font-size: 32px; }
+        }
         .predict-head { margin-top: 14px; }
         .predict-list { margin-top: 6px; }
         .predict-list .fund-acc-body { background: #fff; }
@@ -2722,7 +2724,6 @@
             <!-- 统一资产列表表头：名称 | 价格 | 涨跌幅 | 市值/盈亏(点击切换主次+排序)，四类资产同列对齐 -->
             <div class="unified-head u-grid" style="margin-top:16px;">
                 <div class="uh-name">名称</div>
-                <div class="uh-price">价格</div>
                 <div class="uh-sort" data-key="chg">涨跌幅<span class="sort-ind">⇅</span></div>
                 <div class="uh-mvpnl uh-sort" data-key="mvpnl">市值/盈亏<span class="sort-ind">▼</span></div>
             </div>
@@ -3752,7 +3753,6 @@
                                                         <button id="heroAllocBtn" class="hero-alloc-btn" type="button" aria-label="个人净资产分布"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:28px;height:28px;display:block;flex:none;"><circle cx="12" cy="12" r="10" fill="#4361ee"/><path d="M12 2a10 10 0 0 1 10 10h-10V2z" fill="#5b7bff"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></button>
                                                         <div class="lbl">总资产</div>
                                                         <div class="val" id="heroTotal">¥1,013,945.41</div>
-                                                        <div class="pred-line" id="heroPredict">预测资产：¥1,031,377.77 <span>+¥17,432</span></div>
                                                     </section>
 
                                                     <section class="cards" id="pnlSummary" style="margin:14px 0 18px;">
@@ -7147,7 +7147,7 @@
                                                     // 构建预测列表：仅基金行 + 美股持仓行（含当日预测口径的基金重算），剔除加密货币/大宗商品/自选
                                                     function buildPredictList() {
                                                         listEl.innerHTML = "";
-                                                        if (banner) banner.innerHTML = '<div class="mp-top"><div class="mp-total">Y--</div><div class="mp-pnl">--</div></div>';
+                                                        if (banner) banner.innerHTML = '<div class="mp-top"><div class="mp-lbl">总资产</div><div class="mp-total">Y--</div><div class="mp-pnl">--</div></div>';
                                                         var src = document.getElementById("unifiedList");
                                                         if (!src) { renderPredictBanner(listEl); return; }
                                                         Array.prototype.slice.call(src.children).forEach(function(el){
@@ -7157,10 +7157,61 @@
                                                             listEl.appendChild(el.cloneNode(true));
                                                         });
                                                         refillFundPredict(listEl);
+                                                        refillPredictHoldings(listEl);
                                                         refillUsPredict(listEl);
                                                         renderPredictBanner(listEl);
                                                     }
                                                     window.buildPredictList = buildPredictList; // [修复] 暴露为全局：自动刷新预测覆盖层需重绘
+                                                    window.refillPredictHoldings = refillPredictHoldings; // 暴露：预测覆盖层基金成分股重算（同源 holdingChg）
+
+                                                    // 预测覆盖层：基金成分股价格/涨跌幅改用「基金总涨跌」同源算法(holdingChg)重算，不再沿用克隆的实时行情
+                                                    function refillPredictHoldings(container) {
+                                                        if (typeof funds === "undefined" || !funds) return;
+                                                        var discDay = (typeof fundDisclosureDay === "function") ? fundDisclosureDay() : null;
+                                                        funds.forEach(function(f){
+                                                            if (!f.code) return;
+                                                            var row = container.querySelector('.fund-row[data-fund-code="' + f.code + '"]');
+                                                            if (!row) return;
+                                                            var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
+                                                            if (!ph || !ph.items || !ph.items.length) return;
+                                                            var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
+                                                            var items = ph.items.slice(0, 10);
+                                                            var hdItems = row.querySelectorAll(".fund-hd-item");
+                                                            items.forEach(function(it, i){
+                                                                var el = hdItems[i];
+                                                                if (!el) return;
+                                                                var mk = it.m || "us";
+                                                                var _qq = window._holdQ && window._holdQ[mk + it.c];
+                                                                var price = (_qq && _qq.price > 0) ? _qq.price : null;
+                                                                var chg = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
+                                                                var src = "none";
+                                                                if (mk === "us") src = "tencent";
+                                                                else if (chg != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) src = "predict";
+                                                                else if (_qq && _qq.price > 0) src = "tencent";
+                                                                var qEl = el.querySelector(".fund-hd-quote");
+                                                                var cEl = el.querySelector(".fund-hd-chg");
+                                                                var srcEl = el.querySelector(".market-src");
+                                                                if (qEl) {
+                                                                    if (price != null && isFinite(price)) qEl.textContent = (price >= 1 ? price.toFixed(2) : price.toFixed(4));
+                                                                    else qEl.textContent = "--";
+                                                                }
+                                                                if (cEl) {
+                                                                    if (chg != null && isFinite(chg)) {
+                                                                        var cls = chg >= 0 ? "up" : "down";
+                                                                        var sign = chg > 0 ? "+" : "";
+                                                                        cEl.textContent = sign + chg.toFixed(2) + "%";
+                                                                        cEl.className = "fund-hd-chg " + cls;
+                                                                    } else { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
+                                                                }
+                                                                if (srcEl) {
+                                                                    var lbl = (src === "predict") ? "预测" : (src === "tencent" ? "QT" : (src === "bybit" ? "BYB" : (src === "alpaca" ? "ALP" : "--")));
+                                                                    var scls = (src === "predict") ? "s-predict" : (src === "tencent" ? "s-tencent" : (src === "bybit" ? "s-bybit" : (src === "alpaca" ? "s-alpaca" : "s-none")));
+                                                                    srcEl.textContent = lbl;
+                                                                    srcEl.className = "market-src " + scls;
+                                                                }
+                                                            });
+                                                        });
+                                                    }
                                                     
                                                     function openPredict() {
                                                         buildPredictList();
@@ -7489,17 +7540,9 @@
                                                     }
                                                 }
 
-                                                function renderHero(cur) {
-                                                    $("heroTotal").textContent = fmt(cur.total);
-                                                    const pp = $("heroPredict");
-                                                    if (pp) {
-                                                        if (cur.predictTotal != null && isFinite(cur.predictTotal)) {
-                                                            const diff = cur.predictTotal - cur.total;
-                                                            const diffCls = diff >= 0 ? "up" : "down";
-                                                            pp.innerHTML = "预测资产：" + fmt(cur.predictTotal) + " <span>" + (diff >= 0 ? "+" : "") + fmt0(diff) + "</span>"
-                                                        } else pp.innerHTML = "预测资产：—"
-                                                    }
-                                                    const ps = $("pnlSummary");
+                                                    function renderHero(cur) {
+                                                        $("heroTotal").textContent = fmt(cur.total);
+                                                        const ps = $("pnlSummary");
                                                     if (ps) {
                                                         const fxNowTop = effFx();
                                                         const ycTop = yitouCashItem();
@@ -8085,6 +8128,7 @@
                                                     }
                                                     return '<span class="item-ic fb" style="background:' + (ic.c || "#888") + '">' + (ic.i || (ic.n || "").slice(0, 2)) + "</span>"
                                                 }
+                                                window.itemIconHtml = itemIconHtml; // 暴露全局：市场/预测列表行名称前复用持仓图标
 
                                                 function assignIconToItem(kind, id, ic) {
                                                     var arr = kind === "fund" ? funds : kind === "us" ? us : cash;
@@ -11911,7 +11955,7 @@
                                                 /* 统一 grid 列：名称(代码+数据源胶囊) | 价格 | 涨跌幅 | 市值盈亏合并 */
                                                 .u-grid {
                                                     display: grid;
-                                                    grid-template-columns: minmax(76px, 1fr) 84px 80px 92px;
+                                                    grid-template-columns: minmax(150px, 1fr) 92px 100px;
                                                     align-items: center;
                                                     column-gap: 6px;
                                                 }
@@ -11921,7 +11965,6 @@
                                                 }
                                                 .unified-head > div { text-align: center; }
                                                 .unified-head .uh-name { justify-self: start; text-align: left; }
-                                                .unified-head .uh-price { justify-self: end; text-align: right; }
                                                 .unified-head .uh-mvpnl {
                                                     justify-self: end; display: inline-flex; align-items: center;
                                                     gap: 10px; cursor: default;
@@ -11959,7 +12002,8 @@
                                                 .u-row.u-row-multi { height: auto; min-height: 60px; overflow: visible; }
                                                 .u-name .un-sym.un-sym-multi { display: block; white-space: normal; gap: 0; }
                                                 .u-name .un-sym.un-sym-multi .opt-code { display: block; line-height: 1.5; }
-                                                .u-name { min-width: 0; }
+                                                .u-name { min-width: 0; display: flex; align-items: center; gap: 8px; }
+                                                .u-name .un-text { min-width: 0; }
                                                 .u-name .un-main {
                                                     font-weight: 600; color: #222; line-height: 1.25;
                                                     display: flex; align-items: center; flex-wrap: nowrap; gap: 2px 6px;
@@ -11986,10 +12030,11 @@
                                                 .mvp-amt.mvp-main.down { color: #c62828; }
                                                 .mvp-amt.up { color: #2e7d32; }
                                                 .mvp-amt.down { color: #c62828; }
-                                                .u-price { text-align: right; font-size: 15px; font-weight: 700; color: #222; font-variant-numeric: tabular-nums; padding-right: 2px; }
+                                                /* 价格移入涨跌幅列下方作小字（红绿配色保留），名称列让出宽度 */
+                                                .u-chg { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 3px; text-align: right; }
+                                                .u-price { font-size: 11px; font-weight: 600; color: #999; font-variant-numeric: tabular-nums; line-height: 1; }
                                                 .u-price.up { color: #2e7d32; }
                                                 .u-price.down { color: #c62828; }
-                                                .u-chg { text-align: right; font-size: 15px; display: flex; justify-content: flex-end; }
                                                 .u-caret { transition: transform .2s; color: #bbb; font-size: 11px; margin-left: 4px; }
                                                 .u-row.open .u-caret { transform: rotate(90deg); }
                                                 .market-src {
@@ -12002,6 +12047,7 @@
                                                 .market-src.s-alpaca { color: #6a1b9a; background: #f3e8fb; border: 1px solid #e0c8f0; }
                                                 .market-src.s-fund { color: #00695c; background: #e0f2f1; border: 1px solid #b2dfdb; }
                                                 .market-src.s-none { color: #999; background: #f5f5f5; border: 1px solid #eee; }
+                                                .market-src.s-predict { color: #b26a00; background: #fff7e6; border: 1px solid #f0d9a8; }
 
                                                 /* 基金行：外层块，内部 .u-fund-grid 为网格行，.fund-acc-body 为展开内容 */
                                                 .fund-row {
@@ -12785,6 +12831,11 @@
                                                     bar.addEventListener("click", function(e) {
                                                         var b = e.target.closest("button[data-page]");
                                                         if (!b) return;
+                                                        // [修复] 覆盖层打开时点悬浮栏：先关闭任意已开的覆盖层(饼图/当日预测)，再切页，使切换后能看到目标页
+                                                        var _ao = document.getElementById("allocOverlay");
+                                                        var _po = document.getElementById("predictOverlay");
+                                                        if (_ao && _ao.classList.contains("open")) { _ao.classList.remove("open"); _ao.setAttribute("aria-hidden", "true"); document.body.style.overflow = ""; }
+                                                        if (_po && _po.classList.contains("open")) { _po.classList.remove("open"); _po.setAttribute("aria-hidden", "true"); document.body.style.overflow = ""; }
                                                         showPage(b.dataset.page)
                                                     });
                                                     var floatRefresh = document.getElementById("floatRefresh");
@@ -13248,6 +13299,14 @@
                                                                 _groups.push({ sym: sym, isOption: false, root: null, optionSyms: [] });
                                                             }
                                                         });
+                                                        // 名称前缀图标：复用持仓图标(us 数组按 symbol 映射)，与持仓页一致
+                                                        var symToIcon = {};
+                                                        if (typeof us !== "undefined" && us && us.length) {
+                                                            us.forEach(function(u) {
+                                                                var s = String(u.symbol || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+                                                                if (s) symToIcon[s] = (u.icon || null);
+                                                            });
+                                                        }
 
                                                         var html = "";
                                                         _groups.forEach(function(g) {
@@ -13378,15 +13437,23 @@
                                                             var _symHtml = g.isOption
                                                                 ? g.optionSyms.map(function(os) { return '<span class="opt-code">' + shortOptionCode(os) + '</span>'; }).join("")
                                                                 : sym;
+                                                            var _icKey = (g.isOption ? g.root : sym).toUpperCase();
+                                                            var _ic = symToIcon[_icKey] || null;
+                                                            var _icHtml = _ic ? window.itemIconHtml(_ic) : "";
                                                             html += '<div class="u-row u-grid market-item' + (_hs ? " market-item-us" : "") + (_isMultiOpt ? " u-row-multi" : "") + '" data-symbol="' + key + '"' + dataAttr + chgAttr + '>'
                                                                 + '<div class="u-name">'
-                                                                    + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _nfs + 'px">' + name + '</span></div>'
-                                                                    + '<div class="un-sym' + (_isMultiOpt ? " un-sym-multi" : "") + '">' + _symHtml
-                                                                        + ' <span class="market-src ' + srcCls + '">' + srcLabel + '</span>'
+                                                                    + _icHtml
+                                                                    + '<div class="un-text">'
+                                                                        + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _nfs + 'px">' + name + '</span></div>'
+                                                                        + '<div class="un-sym' + (_isMultiOpt ? " un-sym-multi" : "") + '">' + _symHtml
+                                                                            + ' <span class="market-src ' + srcCls + '">' + srcLabel + '</span>'
+                                                                        + '</div>'
                                                                     + '</div>'
                                                                 + '</div>'
-                                                                + '<div class="u-price ' + pctCls + '">' + price + '</div>'
-                                                                + '<div class="u-chg"><span class="fas-chg-mkt fund-chg-pill ' + pctCls + '">' + pctTxt + '</span></div>'
+                                                                + '<div class="u-chg">'
+                                                                    + '<span class="fas-chg-mkt fund-chg-pill ' + pctCls + '">' + pctTxt + '</span>'
+                                                                    + '<div class="u-price ' + pctCls + '">' + price + '</div>'
+                                                                + '</div>'
                                                                 + '<div class="u-mvpnl">'
                                                                     + '<span class="mvp-val fas-val">' + mvTxt + '</span>'
                                                                     + '<span class="mvp-amt fas-amt ' + pnlCls + '">' + pnlTxt + '</span>'
@@ -13698,14 +13765,19 @@
                                                             html += '<div class="fund-row" data-fund-code="' + code + '" data-name="' + esc(name) + '" data-amount="' + (Number(f.amount) || 0) + '" onclick="this.classList.toggle(\'open\')">'
                                                                 + '<div class="u-grid u-fund-grid">'
                                                                     + '<div class="u-name">'
-                                                                        + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _fnfs + 'px" title="' + esc(name) + '">' + esc(_dispName) + '</span>'
+                                                                        + (f.icon ? window.itemIconHtml(f.icon) : "")
+                                                                        + '<div class="un-text">'
+                                                                            + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _fnfs + 'px" title="' + esc(name) + '">' + esc(_dispName) + '</span>'
+                                                                                + '</div>'
+                                                                            + '<div class="un-sym">' + code
+                                                                                + ' <span class="market-src ' + _fundSrcCls + '">' + _fundSrcLabel + '</span>' + caret
                                                                             + '</div>'
-                                                                        + '<div class="un-sym">' + code
-                                                                            + ' <span class="market-src ' + _fundSrcCls + '">' + _fundSrcLabel + '</span>' + caret
                                                                         + '</div>'
                                                                     + '</div>'
-                                                                    + '<div class="u-price"><span class="fund-acc-nav">--</span></div>'
-                                                                    + '<div class="u-chg"><span class="fas-chg fund-chg-pill">--</span></div>'
+                                                                    + '<div class="u-chg">'
+                                                                        + '<span class="fas-chg fund-chg-pill">--</span>'
+                                                                        + '<div class="u-price"><span class="fund-acc-nav">--</span></div>'
+                                                                    + '</div>'
                                                                     + '<div class="u-mvpnl">'
                                                                         + '<span class="mvp-val fas-val">--</span>'
                                                                         + '<span class="mvp-amt fas-amt">--</span>'
@@ -14828,7 +14900,6 @@
             <div class="predict-banner" id="predictBanner"></div>
             <div class="unified-head u-grid predict-head">
                 <div class="uh-name">名称</div>
-                <div class="uh-price">价格</div>
                 <div class="uh-sort" data-key="chg">涨跌幅</div>
                 <div class="uh-mvpnl uh-sort" data-key="mvpnl">市值/盈亏</div>
             </div>
