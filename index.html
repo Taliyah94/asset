@@ -6072,12 +6072,18 @@
                                                     })
                                                 }
 
-                                                /* 东方财富（push2his）K 线：港股+A股成分股专用数据源
-                                                   港股 secid=116.代码；深A=0.代码；沪A=1.代码 */
+                                                /* 东方财富（push2his）K 线：港股+A股+日股+韩股成分股专用数据源
+                                                   secid 前缀（实测）：港股=116 / 深A=0 / 沪A=1 / 日股=176 / 韩股=177
+                                                   日股 176.285A(铠侠)、韩股 177.000660(SK海力士)、177.005930(三星电子) 均返回完整日K，
+                                                   含当日实时K，且与腾讯 qt.gtimg.cn 实时价交叉校验一致。
+                                                   日韩股比美股早 13 小时，不能用「现价 vs 昨收」当目标日涨跌，必须按目标日取历史K线。 */
+                                                var EM_MKTS = { hk: 1, sz: 1, sh: 1, jp: 1, kr: 1 };
                                                 function emSecid(mk, code) {
                                                     if (mk === "hk") return "116." + code;
                                                     if (mk === "sz") return "0." + code;
                                                     if (mk === "sh") return "1." + code;
+                                                    if (mk === "jp") return "176." + code;
+                                                    if (mk === "kr") return "177." + code;
                                                     return null
                                                 }
                                                 async function fetchEMKline(mk, code) {
@@ -6130,8 +6136,9 @@
                                                         if (!ph || !ph.items) return;
                                                         ph.items.forEach(function(it) {
                                                             var mk = it.m || "us";
-                                                            // us/jp/kr 走腾讯实时行情（holdingChg 直读 _holdQ），无需再抓日K
-                                                            if (mk === "us" || mk === "jp" || mk === "kr") return;
+                                                            // us 走腾讯实时行情（holdingChg 直读 _holdQ），无需再抓日K
+                                                            // 注：jp/kr 已改走东方财富历史K线（按目标日取），不再依赖腾讯实时
+                                                            if (mk === "us") return;
                                                             var sym = mk + it.c;
                                                             if (!need[sym]) need[sym] = {};
                                                             need[sym][pd] = 1
@@ -6151,9 +6158,10 @@
                                                         })
                                                     }, 4)
 
-                                                    /* 东方财富：港股(hk)+A股(sz/sh)成分股，按美东窗口目标日抓取，覆盖腾讯K线路径 */
+                                                    /* 东方财富：港股(hk)+A股(sz/sh)+日股(jp)+韩股(kr)成分股，按美东窗口目标日抓取 */
                                                     if (!window._holdEMPrice) window._holdEMPrice = {};
                                                     if (!window._holdEMChg) window._holdEMChg = {};
+                                                    if (!window._holdEMPrevClose) window._holdEMPrevClose = {}; // 目标日的「前一日收盘」（=上上日基准）
                                                     if (!window._emKline) window._emKline = {};
                                                     var emTarget = (typeof emTargetDate === "function") ? emTargetDate() : null;
                                                     var emNeed = {};
@@ -6163,7 +6171,7 @@
                                                         if (!ph || !ph.items) return;
                                                         ph.items.forEach(function(it) {
                                                             var mk = it.m || "us";
-                                                            if (mk !== "hk" && mk !== "sz" && mk !== "sh") return;
+                                                            if (!EM_MKTS[mk]) return;
                                                             var secid = emSecid(mk, it.c);
                                                             if (!secid) return;
                                                             emNeed[secid] = { mk: mk, code: it.c, target: emTarget }
@@ -6190,7 +6198,8 @@
                                                         var key = info.mk + info.code;
                                                         window._holdEMPrice[key] = closeT;
                                                         if (bars[ti - 1].close > 0) {
-                                                            window._holdEMChg[key] = (closeT - bars[ti - 1].close) / bars[ti - 1].close * 100
+                                                            window._holdEMChg[key] = (closeT - bars[ti - 1].close) / bars[ti - 1].close * 100;
+                                                            window._holdEMPrevClose[key] = bars[ti - 1].close   // 前一交易日收盘（前日/上上日基准）
                                                         }
                                                         } catch(e) {}
                                                     }
@@ -6198,17 +6207,23 @@
 
                                                 function holdingChg(it, predictDay) {
                                                     var mk = it.m || "us";
-                                                    // 美股 / 日本(jp) / 韩国(kr)：腾讯 qt.gtimg.cn 实时价，字段位置一致(现价/昨收)，实测均可读
-                                                    if (mk === "us" || mk === "jp" || mk === "kr") {
+                                                    /* 港股/A股/日股/韩股：仅用东方财富（按美东窗口目标日取历史K线）。
+                                                       日股/韩股时区比美东早 13 小时，「腾讯现价 vs 昨收」是当地当天涨跌，会比目标日多走一天
+                                                       （实测：目标日 8-27 铠侠应为 +5.00%，腾讯实时给出 8-28 的 -8.76%，方向都相反）。
+                                                       因此日韩股与港股同口径走东财历史K线；东财缺失时才回落腾讯实时。 */
+                                                    if (EM_MKTS[mk]) {
+                                                        var ek = window._holdEMChg && window._holdEMChg[mk + it.c];
+                                                        if (ek != null && isFinite(ek)) return ek;
+                                                        if (mk === "hk" || mk === "sz" || mk === "sh") return null; // 港股/A股缺失不回落，避免显示错值
+                                                        var _q2 = window._holdQ && window._holdQ[mk + it.c];        // 日/韩股回落腾讯实时
+                                                        return (_q2 && _q2.price > 0 && _q2.prevClose > 0) ? (_q2.price - _q2.prevClose) / _q2.prevClose * 100 : null
+                                                    }
+                                                    // 美股：腾讯 qt.gtimg.cn 实时价（盘前=上一交易日收盘 vs 前收，恰好等于目标日涨跌）
+                                                    if (mk === "us") {
                                                         var _qq = window._holdQ && window._holdQ[mk + it.c];
                                                         var _rt = null;
                                                         if (_qq && _qq.price > 0 && _qq.prevClose > 0) _rt = (_qq.price - _qq.prevClose) / _qq.prevClose * 100;
                                                         return _rt != null ? _rt : null
-                                                    }
-                                                    // 港股/A股：仅用东方财富（按美东窗口目标日）；缺失不回落，避免显示错值
-                                                    if (mk === "hk" || mk === "sz" || mk === "sh") {
-                                                        var ek = window._holdEMChg && window._holdEMChg[mk + it.c];
-                                                        return (ek != null && isFinite(ek)) ? ek : null
                                                     }
                                                     if (predictDay != null && window._holdKline) {
                                                         var kk = window._holdKline[(it.m || "") + it.c + "|" + predictDay];
@@ -6987,12 +7002,15 @@
                                                     // 成分股涨跌实际取自哪个数据源（与下方 refillPredictHoldings 判定口径完全一致）
                                                     function holdingSrcOf(it, pd, ch) {
                                                         var mk = it.m || "us";
-                                                        if (mk === "us" || mk === "jp" || mk === "kr") return "tencent"; // 腾讯 gtimg 实时价（美股/日股/韩股）
-                                                        var isEM = (mk === "hk" || mk === "sz" || mk === "sh");
+                                                        var isEM = !!EM_MKTS[mk];
                                                         if (isEM) {
                                                             var emPrice = (window._holdEMPrice) ? window._holdEMPrice[mk + it.c] : null;
-                                                            return (emPrice != null && isFinite(emPrice)) ? "em" : "none";
+                                                            // 日/韩股东财缺失时回落腾讯实时，此时符号应标腾讯
+                                                            if (emPrice != null && isFinite(emPrice)) return "em";
+                                                            var _qf = window._holdQ && window._holdQ[mk + it.c];
+                                                            return (_qf && _qf.price > 0) ? "tencent" : "none";
                                                         }
+                                                        if (mk === "us") return "tencent"; // 腾讯 gtimg 实时价（美股）
                                                         if (ch != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) return "predict";
                                                         var _qq = window._holdQ && window._holdQ[mk + it.c];
                                                         return (_qq && _qq.price > 0) ? "tencent" : "none";
@@ -7217,15 +7235,16 @@
                                                                 if (!el) return;
                                                                 var mk = it.m || "us";
                                                                 var _qq = window._holdQ && window._holdQ[mk + it.c];
-                                                                var isEM = (mk === "hk" || mk === "sz" || mk === "sh");
+                                                                var isEM = !!EM_MKTS[mk];
                                                                 var emPrice = (isEM && window._holdEMPrice) ? window._holdEMPrice[mk + it.c] : null;
-                                                                /* 港股/A股：价格仅取东方财富收盘价，不回落腾讯实时价，避免与涨跌幅数据源不一致 */
+                                                                /* 港股/A股/日股/韩股：价格取东方财富目标日收盘价，与涨跌幅同源，避免口径打架；
+                                                                   日韩股东财缺失时才回落腾讯实时价 */
                                                                 var price = (isEM && emPrice != null && isFinite(emPrice)) ? emPrice
-                                                                         : ((mk === "us" || mk === "jp" || mk === "kr") && _qq && _qq.price > 0 ? _qq.price : null);
+                                                                         : (_qq && _qq.price > 0 ? _qq.price : null);
                                                                 var chg = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
                                                                 var src = "none";
-                                                                if (mk === "us" || mk === "jp" || mk === "kr") src = "tencent";
-                                                                else if (isEM) src = (emPrice != null && isFinite(emPrice)) ? "em" : "none";
+                                                                if (isEM) src = (emPrice != null && isFinite(emPrice)) ? "em" : ((_qq && _qq.price > 0) ? "tencent" : "none");
+                                                                else if (mk === "us") src = "tencent";
                                                                 else if (chg != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) src = "predict";
                                                                 else if (_qq && _qq.price > 0) src = "tencent";
                                                                 var qEl = el.querySelector(".fund-hd-quote");
@@ -13889,7 +13908,7 @@
                                                             if (_fundMkts["us"]) {
                                                                 _fundSrcKey = (typeof marketStockUseBybit === "function" && marketStockUseBybit()) ? "bybit"
                                                                     : ((typeof isUsRegularSession === "function" && isUsRegularSession()) ? "tencent" : "alpaca");
-                                                            } else if (_fundMkts["hk"] || _fundMkts["jp"]) {
+                                                            } else if (_fundMkts["hk"] || _fundMkts["jp"] || _fundMkts["kr"]) {
                                                                 _fundSrcKey = "tencent";
                                                             }
                                                             var _srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", fund: "基金" };
