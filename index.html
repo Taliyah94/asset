@@ -5812,6 +5812,7 @@
                                                                 { c: "MU", n: "美光科技", p: 3.99, m: "us" },
                                                                 { c: "LITE", n: "Lumentum Holdings Inc", p: 3.56, m: "us" },
                                                                 { c: "GLW", n: "康宁", p: 3.35, m: "us" },
+                                                                { c: "SITM", n: "SiTime Corp", p: 3.21, m: "us" },
                                                             ],
                                                         },
                                                     };
@@ -14034,9 +14035,9 @@
                                                             var cEl = row.querySelector(".fund-hd-chg");
                                                             var srcEl = row.querySelector(".market-src");
                                                             if (!qEl || !cEl) return;
-                                                            // —— 无 Bybit 标的（A股 sh/sz、港股普通）：走 qt.gtimg.cn 实时价 ——
+                                                            // —— 无 Bybit 标的（A股 sh/sz、港股普通、日股 jp、韩股 kr）：走 qt.gtimg.cn 实时价 ——
                                                             if (!it) {
-                                if (mkt === "sz" || mkt === "sh" || mkt === "hk") {
+                                if (mkt === "sz" || mkt === "sh" || mkt === "hk" || mkt === "jp" || mkt === "kr") {
                                     qtRows.push({ row: row, mkt: mkt, code: code, qEl: qEl, cEl: cEl, srcEl: srcEl });
                                 }
                                 return;
@@ -14123,7 +14124,8 @@
                                                         // 去重收集查询代码（小写前缀：hk02513 / sh600519 / sz300408）
                                                         var need = {};
                                                         qtRows.forEach(function(r) {
-                                                            var q = (r.mkt === "hk" ? "hk" : r.mkt) + String(r.code).toLowerCase();
+                                                            // 保留代码原始大小写：日股如 285A 末尾为大写字母，腾讯对大小写敏感（jp285a 查不到，jp285A 才可）
+                                                            var q = (r.mkt === "hk" ? "hk" : r.mkt) + String(r.code);
                                                             r._q = q; need[q] = r;
                                                         });
                                                         var keys = Object.keys(need);
@@ -14140,8 +14142,9 @@
                                                                     var m = txt.match(new RegExp("v_" + k + '="([^"]*)"'));
                                                                     if (m) {
                                                                         var p = m[1].split("~");
-                                                                        var pr = parseFloat(p[3]);
-                                                                        if (!isNaN(pr) && pr > 0) out[k] = pr;
+                                                                        var pr = parseFloat(p[3]);   // 现价
+                                                                        var pc = parseFloat(p[4]);   // 昨收（日股/韩股无东财价，用它算涨跌）
+                                                                        if (!isNaN(pr) && pr > 0) out[k] = { price: pr, prevClose: (isNaN(pc) ? 0 : pc) };
                                                                     }
                                                                 });
                                                             };
@@ -14164,8 +14167,9 @@
                                                                         var raw = window["v_" + k];
                                                                         if (typeof raw === "string") {
                                                                             var p = raw.split("~");
-                                                                            var pr = parseFloat(p[3]);
-                                                                            if (!isNaN(pr) && pr > 0) out[k] = pr;
+                                                                            var pr = parseFloat(p[3]);   // 现价
+                                                                            var pc = parseFloat(p[4]);   // 昨收
+                                                                            if (!isNaN(pr) && pr > 0) out[k] = { price: pr, prevClose: (isNaN(pc) ? 0 : pc) };
                                                                         }
                                                                     });
                                                                     setTimeout(function() { next(idx + 1); }, 60);
@@ -14176,16 +14180,23 @@
                                                         })(0);
                                                         function finishQt() {
                                                             qtRows.forEach(function(r) {
-                                                                var price = out[r._q];
+                                                                var rec = out[r._q];
+                                                                var price = rec ? rec.price : null;
+                                                                var prevClose = rec ? rec.prevClose : 0;
                                                                 var emKey = r.mkt + r.code; // 如 sz300408 / hk02513
                                                                 var emPrice = (window._holdEMPrice && window._holdEMPrice[emKey] != null) ? Number(window._holdEMPrice[emKey]) : NaN;
                                                                 if (!price || !isFinite(price)) { if (r.srcEl) { r.srcEl.textContent = "--"; r.srcEl.className = "market-src s-none"; } return; }
                                                                 if (r.qEl) {
-                                                                    var txt = (r.mkt === "hk" ? "HK$" : (r.mkt === "sz" || r.mkt === "sh" ? "¥" : "")) + price.toFixed(2);
-                                                                    r.qEl.textContent = txt;
+                                                                    // 港股 HK$ / A股 ¥ / 韩股 ₩；日股与美股显示裸数字（日元符号 ¥ 易与人民币混淆）
+                                                                    var cur = (r.mkt === "hk") ? "HK$" : (r.mkt === "sz" || r.mkt === "sh") ? "¥" : (r.mkt === "kr") ? "₩" : "";
+                                                                    r.qEl.textContent = cur + price.toFixed(2);
                                                                 }
-                                                                if (r.cEl && emPrice > 0) {
-                                                                    var ch = (price / emPrice - 1) * 100;
+                                                                // 涨跌基准：A股/港股用东方财富收盘价（东财只抓 hk/sz/sh）；
+                                                                // 日股 jp / 韩股 kr 没有东财价，改用腾讯自带昨收 (现价-昨收)/昨收
+                                                                var ch = null;
+                                                                if (emPrice > 0) ch = (price / emPrice - 1) * 100;
+                                                                else if (prevClose > 0) ch = (price - prevClose) / prevClose * 100;
+                                                                if (r.cEl && ch != null && isFinite(ch)) {
                                                                     var cls = ch >= 0 ? "up" : "down";
                                                                     var sign = ch > 0 ? "+" : "";
                                                                     r.cEl.textContent = sign + ch.toFixed(2) + "%";

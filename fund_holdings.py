@@ -19,7 +19,7 @@
 字段含义
   report : 季报日期，格式 YYYY-MM-30（季末）；代理基金为文字说明
   items  : 十大持仓列表
-           c = 证券代码, n = 名称, p = 占净值比例(%), m = 市场(us/hk/sh/sz)
+           c = 证券代码, n = 名称, p = 占净值比例(%), m = 市场(us/hk/sh/sz/jp/kr)
   proxy  : true 表示用代理（如纳斯达克100ETF联接用 QQQ 代理，不抓东方财富）
 
 用法
@@ -77,8 +77,77 @@ BASE_URL = "https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=
 # ---------------------------------------------------------------------------
 # 工具函数
 # ---------------------------------------------------------------------------
-def market_of(code):
-    """根据证券代码判断市场。"""
+# 东方财富行情链接里的市场前缀（//quote.eastmoney.com/unify/r/<前缀>.<代码>）。
+# 这是最可靠的市场线索：A股/港股/美股都会被东财收录并带链接；
+# 日股/韩股东财【未收录】（无链接、data-texch 为空），只能靠代码格式或名称推断。
+EM_MARKET_MAP = {
+    "105": "us",   # 纳斯达克（NVDA / MU / AVGO ...）
+    "106": "us",   # 纽交所（TSM / LLY / GLW ...）
+    "116": "hk",   # 港股（02513 智谱 ...）
+    "0": "sz",     # 深圳（300408 三环集团 ...）
+    "1": "sh",     # 上海（600519 贵州茅台 ...）
+}
+
+# 东财未收录时的兜底名单（韩国6位代码与A股6位代码格式完全相同，无法从格式区分）
+KNOWN_JP_CODES = {"285A"}              # 铠侠 KIOXIA（东京证交所）
+KNOWN_KR_CODES = {"000660", "005930"}  # SK海力士 / 三星电子（韩国交易所）
+JP_NAME_KEYS = ("kioxia", "铠侠")
+KR_NAME_KEYS = ("海力士", "三星", "sk hynix", "samsung")
+
+# 未收录且名单未命中时，是否用腾讯行情接口反查市场（可识别新增日韩股，需联网）
+ENABLE_QT_PROBE = True
+
+
+def probe_market(code, timeout=6):
+    """用腾讯行情反查代码所属市场：依次试 kr/jp/hk/sh/sz，返回首个有行情的市场。
+
+    看板最终就是用 qt.gtimg.cn 读这些代码，所以以它为准最可靠；失败返回 None。
+    """
+    for mk in ("kr", "jp", "hk", "sh", "sz"):
+        try:
+            req = urllib.request.Request(
+                "https://qt.gtimg.cn/q=%s%s" % (mk, code),
+                headers={"User-Agent": USER_AGENT},
+            )
+            txt = urllib.request.urlopen(req, timeout=timeout).read().decode("gbk", "ignore")
+            if ('v_%s%s="' % (mk, code)) in txt and "pv_none_match" not in txt:
+                return mk
+        except Exception:  # noqa: BLE001 - 探测失败即换下一个市场
+            continue
+    return None
+
+
+def market_of(code, name="", em_prefix=None):
+    """判断证券市场，返回 us/hk/sh/sz/jp/kr。
+
+    判定优先级：
+      1. 东财行情链接前缀（最可靠，A股/港股/美股均被收录）
+      2. 日股/韩股代码格式与已知名单（东财未收录的场景）
+      3. 腾讯行情反查（解决韩国6位代码与A股6位代码格式冲突）
+      4. 纯代码格式兜底（完全没有东财线索时的旧逻辑）
+    """
+    code = (code or "").strip()
+    nm = (name or "").lower()
+
+    # 1) 东财行情链接前缀
+    if em_prefix and str(em_prefix) in EM_MARKET_MAP:
+        return EM_MARKET_MAP[str(em_prefix)]
+
+    # 2) 东财未收录：多为日股/韩股。日股代码形如 285A（4位数字+字母）
+    if re.match(r"^\d{4}[A-Za-z]$", code):
+        return "jp"
+    if code in KNOWN_JP_CODES or any(k in nm for k in JP_NAME_KEYS):
+        return "jp"
+    if code in KNOWN_KR_CODES or any(k in nm for k in KR_NAME_KEYS):
+        return "kr"
+
+    # 3) 6位数字：韩股与A股格式完全相同，用腾讯行情反查（失败则回落第 4 步）
+    if ENABLE_QT_PROBE and re.match(r"^\d{6}$", code):
+        probed = probe_market(code)
+        if probed:
+            return probed
+
+    # 4) 纯代码格式兜底
     if re.match(r"^[A-Za-z]+$", code):
         return "us"
     if re.match(r"^\d{5}$", code) or re.match(r"^\d{4}[A-Za-z]$", code):
@@ -130,7 +199,10 @@ class _TableParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.rows = []
+        self.row_markets = []       # 每行从行情链接里解析出的东财市场前缀（未收录则为 None）
         self._tds = []
+        self._td_markets = []
+        self._td_market = None
         self._in_td = False
         self._buf = ""
         self._table_depth = 0       # 当前 <table> 嵌套深度
@@ -141,9 +213,16 @@ class _TableParser(HTMLParser):
             self._table_depth += 1
         elif tag == "tr" and self._table_depth == 1 and not self._first_done:
             self._tds = []
+            self._td_markets = []
         elif tag == "td" and self._table_depth == 1 and not self._first_done:
             self._in_td = True
             self._buf = ""
+            self._td_market = None
+        elif tag == "a" and self._in_td:
+            # 行情链接形如 //quote.eastmoney.com/unify/r/105.MU，前缀即市场
+            m = re.search(r"unify/r/(\d+)\.", dict(attrs).get("href", "") or "")
+            if m:
+                self._td_market = m.group(1)
 
     def handle_data(self, data):
         if self._in_td:
@@ -156,10 +235,12 @@ class _TableParser(HTMLParser):
             self._table_depth = max(0, self._table_depth - 1)
         elif tag == "td" and self._table_depth == 1 and not self._first_done:
             self._tds.append(self._buf.strip())
+            self._td_markets.append(self._td_market)
             self._in_td = False
         elif tag == "tr" and self._table_depth == 1 and not self._first_done:
             if self._tds:
                 self.rows.append(self._tds)
+                self.row_markets.append(self._td_markets)
 
 
 def parse(content):
@@ -167,7 +248,7 @@ def parse(content):
     p = _TableParser()
     p.feed(content)
     items = []
-    for r in p.rows:
+    for i, r in enumerate(p.rows):
         if len(r) < 7:
             continue
         seq, code, name, pct = r[0], r[1], r[2], r[6]
@@ -179,8 +260,12 @@ def parse(content):
             ratio = float(pct.replace("%", "").replace(",", ""))
         except ValueError:
             continue
+        # 东财市场前缀：取本行首个行情链接的前缀；为 None 表示东财未收录（多为日股/韩股）
+        mkts = p.row_markets[i] if i < len(p.row_markets) else []
+        em_prefix = next((x for x in mkts if x), None)
         items.append(
-            {"c": code, "n": name, "p": round(ratio, 2), "m": market_of(code)}
+            {"c": code, "n": name, "p": round(ratio, 2),
+             "m": market_of(code, name, em_prefix)}
         )
     return items
 
