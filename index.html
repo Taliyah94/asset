@@ -3544,7 +3544,7 @@
             <div class="setting-row collapsible collapsed" id="setSrcBtn">
                 <div class="label"><span class="li-ic">📡</span>数据源</div>
                 <span class="arrow">›</span>
-                <div class="src-detail">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权（按美东时间）：盘中 9:30–16:00 取 Alpaca 实时；周五收盘 16:00–周六 0:00 取 Alpaca；周六 0:00–周一开盘前及工作日盘前/盘后，盈透录入日期≥T-1 则取盈透（卡内显示日期如 08-22），否则取 Alpaca（卡内显示"实时"）</div>
+                <div class="src-detail">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权（按美东时间）：盘中 9:30–16:00 取 Alpaca 实时；非盘中统一按盈透新鲜度判定——录入日期≥美东昨天(T-1) 则取盈透（卡内显示日期如 08-22），否则取 Alpaca（卡内显示"实时"）</div>
             </div>
             <div class="setting-row" id="setIconBrowserBtn">
                 <div class="label"><span class="li-ic">🎨</span>图标浏览</div><span class="arrow">›</span>
@@ -4736,12 +4736,10 @@
                                                     if (holdSh <= 0 || !(fx > 0)) return { dash: true };
                                                     if (inSession || isOpt) return { dash: true };
                                                     var predPrice = null, predPct = null;
-                                                    var nas = window._nas100Predict;
-                                                    if (nas && typeof nas.pct === "number" && !isOpt && (symUp === "QQQ" || symUp === "TQQQ")) {
-                                                        var m3 = (symUp === "TQQQ") ? 3 : 1;
-                                                        predPct = nas.pct * m3;
-                                                        predPrice = usd * (1 + nas.pct * m3 / 100);
-                                                    } else if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
+                                                    /* [变更] 已移除「Bybit NAS100(QQQUSDT) 涨跌 ×3 杠杆推断 TQQQ」规则：
+                                                       QQQ / TQQQ 在 Bybit 均有可直接读取的合约，市场行情已直读，无需指数近似。
+                                                       盘外持仓预测统一走 Alpaca 快照价，取不到则画杠。 */
+                                                    if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
                                                         predPrice = u._alpacaPrice;
                                                         predPct = (u._alpacaPrice - usd) / usd * 100;
                                                     } else {
@@ -5629,11 +5627,11 @@
                                                             return x.symbol === sym
                                                         }) : null
                                                     }
-                                                    // 美东分界：周五收盘(16:00)~周六0点 强制 Alpaca；周六0点~周一开盘前 及 其余非盘中时段 按 T-1 盈透记录判断
+                                                    /* 非盘中统一规则：盈透记录日期 ≥ 美东昨天 → 盈透；否则 Alpaca 收盘价。
+                                                       [变更] 已移除「周五 16:00 ET ~ 周六 0:00 强制 Alpaca」特例，周五盘后同样按盈透新鲜度判定。 */
                                                     var p = null;
                                                     try { p = etNowCached(); } catch (e) { p = null; }
                                                     if (p) {
-                                                        if (p.wd === "Fri" && p.h >= 16) return "close";   // 周五收盘(16:00 ET)~周六0点：强制 Alpaca
                                                         if (u && u._ibkrMarkDate) {
                                                             var _etYest = ymdAddDays(p.ymd, -1);      // 美东昨天
                                                             if (u._ibkrMarkDate >= _etYest) return "ibkr";  // 盈透记录为昨天(或更新) → 盈透
@@ -6311,6 +6309,20 @@
                                                 }
 
                                                 /* 美股常规时段：美东 9:30–16:00（自动夏令时/冬令时），周末休市 */
+                                                /* 美国夏令时规则(2007 起)：3 月第 2 个周日 02:00 当地起 → 11 月第 1 个周日 02:00 当地止
+   仅用于 etNowCached() 取不到美东时间时的兜底换算，不依赖 Intl */
+                                                function usEtIsDst(now) {
+                                                    function nthSundayUtc(y, m, nth) {
+                                                        var first = Date.UTC(y, m, 1);
+                                                        var dow = new Date(first).getUTCDay();
+                                                        return Date.UTC(y, m, 1 + ((7 - dow) % 7) + (nth - 1) * 7);
+                                                    }
+                                                    var y = now.getUTCFullYear();
+                                                    var start = nthSundayUtc(y, 2, 2) + 7 * 36e5; // 02:00 EST = 07:00 UTC
+                                                    var end = nthSundayUtc(y, 10, 1) + 6 * 36e5; // 02:00 EDT = 06:00 UTC
+                                                    var t = now.getTime();
+                                                    return t >= start && t < end;
+                                                }
                                                 function isUsRegularSession() {
                                                     var p = null;
                                                     try { p = etNowCached(); } catch (e) { p = null; }
@@ -6319,13 +6331,19 @@
                                                         var mi = p.h * 60 + p.m;
                                                         return mi >= 9 * 60 + 30 && mi < 16 * 60;
                                                     }
-                                                    var b = beijingNow();
-                                                    var mi2 = b.getHours() * 60 + b.getMinutes();
-                                                    return mi2 >= 21 * 60 + 30 || mi2 < 4 * 60;
+                                                    /* 兜底：按美东真实偏移换算(夏令时 UTC-4 / 冬令时 UTC-5)，避免冬令时整体错 1 小时 */
+                                                    var n = new Date();
+                                                    var offMin = (usEtIsDst(n) ? 4 : 5) * 60;
+                                                    var utcMin = n.getUTCHours() * 60 + n.getUTCMinutes();
+                                                    var etRaw = utcMin - offMin;
+                                                    var etMin = ((etRaw % 1440) + 1440) % 1440;
+                                                    var etDow = (((n.getUTCDay() + (etRaw < 0 ? -1 : 0)) % 7) + 7) % 7;
+                                                    if (etDow === 0 || etDow === 6) return false;
+                                                    return etMin >= 9 * 60 + 30 && etMin < 16 * 60;
                                                 }
 
                                                 /* 美股周末间隙：美东 周五盘后收盘(20:00 ET) 之后 → 周日夜盘开盘(20:00 ET) 之前
-                                                   此窗口内美股休市，用 Bybit NAS100 永续合约作为 QQQ/TQQQ 当日预测数据源 */
+                                                   此窗口内美股休市（原用于启用 Bybit NAS100 预测，该规则已移除：QQQ/TQQQ 走 Bybit 直读 + Alpaca 兜底） */
                                                 function inUsWeekendGap() {
                                                     var p = null;
                                                     try { p = etNowCached(); } catch (e) { p = null; }
@@ -6477,27 +6495,6 @@
                                                 }
                                                 /* Bybit NAS100 永续合约行情：周末间隙的 QQQ/TQQQ 当日预测数据源（7x24 交易）
                                                    返回 { pct(百分比, 24h涨跌幅), price, time }；失败返回 null */
-                                                async function fetchBybitNas100() {
-                                                    try {
-                                                        var r = await Promise.race([
-                                                            fetch("https://api.bybit.kz/v5/market/tickers?category=linear&symbol=QQQUSDT"),
-                                                            new Promise(function (_, rej) { setTimeout(function () { rej(new Error("to")); }, 8000); })
-                                                        ]);
-                                                        if (!r || !r.ok) return null;
-                                                        var d = await r.json();
-                                                        if (!d || d.retCode !== 0 || !d.result || !d.result.list || !d.result.list.length) return null;
-                                                        var it = d.result.list[0];
-                                                        var pct = parseFloat(it.price24hPcnt);
-                                                        if (isNaN(pct)) return null;
-                                                        return {
-                                                            pct: pct * 100,
-                                                            price: parseFloat(it.lastPrice),
-                                                            time: it.updatedTime ? new Date(Number(it.updatedTime)).toISOString() : ""
-                                                        };
-                                                    } catch (e) {
-                                                        return null;
-                                                    }
-                                                }
 
                                                 async function fetchFx() {
                                                     try {
@@ -7053,7 +7050,7 @@
                                                             var predNav = nav * (1 + predPct / 100);
                                                             var predMv = predNav * holdSh;
                                                             var predPnl = base * predPct / 100;
-                                                            return { dash: false, nav: nav, holdSh: holdSh, base: base, predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl, src: majoritySrc(srcTally) };
+                                                            return { dash: false, nav: nav, holdSh: holdSh, base: base, rawBase: rawBase, predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl, deltaPnl: predMv - rawBase, src: majoritySrc(srcTally) };
                                                         }
                                                         function computeUsPrediction(u, fx) {
                                                             if (typeof u !== "object" || !u) return { dash: true };
@@ -7067,12 +7064,10 @@
                                                             if (holdSh <= 0 || !(fx > 0)) return { dash: true };
                                                             if (inSession || isOpt) return { dash: true };
                                                             var predPrice = null, predPct = null;
-                                                            var nas = window._nas100Predict;
-                                                            if (nas && typeof nas.pct === "number" && !isOpt && (symUp === "QQQ" || symUp === "TQQQ")) {
-                                                                var m3 = (symUp === "TQQQ") ? 3 : 1;
-                                                                predPct = nas.pct * m3;
-                                                                predPrice = usd * (1 + nas.pct * m3 / 100);
-                                                            } else if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
+                                                            /* [变更] 已移除「Bybit NAS100(QQQUSDT) 涨跌 ×3 杠杆推断 TQQQ」规则：
+                                                               QQQ / TQQQ 在 Bybit 均有可直接读取的合约，市场行情已直读，无需指数近似。
+                                                               盘外持仓预测统一走 Alpaca 快照价，取不到则画杠。 */
+                                                            if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
                                                                 predPrice = u._alpacaPrice;
                                                                 predPct = (u._alpacaPrice - usd) / usd * 100;
                                                             } else {
@@ -7111,9 +7106,10 @@
                                                                 if (navEl) { navEl.textContent = (predNav >= 1 ? predNav.toFixed(3) : predNav.toFixed(4)); var ncls = (predNav > nav) ? "up" : (predNav < nav ? "down" : ""); navEl.className = "fund-acc-nav" + (ncls ? " " + ncls : ""); }
                                                                 if (chgEl) { var ccls = predPct >= 0 ? "up" : "down"; var csgn = predPct > 0 ? "+" : ""; chgEl.textContent = csgn + predPct.toFixed(2) + "%"; chgEl.className = "fas-chg fund-chg-pill " + ccls; }
                                                                 if (valEl) { valEl.textContent = "\u00a5" + Math.round(predMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
-                                                                if (amtEl) { var acls = predPnl >= 0 ? "up" : "down"; var asgn = predPnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(predPnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
+                                                                var _fdPnl = (r.rawBase != null && isFinite(r.rawBase)) ? (predMv - r.rawBase) : predPnl;
+                                                                if (amtEl) { var acls = _fdPnl >= 0 ? "up" : "down"; var asgn = _fdPnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(_fdPnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
                                                                 row.setAttribute("data-mv", Math.round(predMv));
-                                                                row.setAttribute("data-pnl", Math.round(predPnl));
+                                                                row.setAttribute("data-pnl", Math.round(_fdPnl));
                                                             });
                                                         }
 
@@ -7223,6 +7219,21 @@
                                                         }
                                                     
                                                     // 横幅：仅统计持仓（基金预测口径 + 美股持仓实时）+ 现金，剔除加密货币/大宗商品
+                                                    // 盘外(美股休市/盘前盘后)：美股与期权盈亏画杠且不计入横幅合计（仅保留基金预测盈亏）
+                                                    // 盘中：维持原样全加（基金预测盈亏 + 美股/期权实时当日盈亏）
+                                                    function dashUsPnlOffSession(container) {
+                                                        var inSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
+                                                        if (inSession || !container) return;
+                                                        Array.prototype.slice.call(container.querySelectorAll(".market-item-us")).forEach(function(el) {
+                                                            el.setAttribute("data-pnl", 0);
+                                                            var amtEl = el.querySelector(".mvp-amt") || el.querySelector(".fas-amt");
+                                                            if (amtEl) {
+                                                                amtEl.textContent = "\u2014";
+                                                                amtEl.className = amtEl.className.replace(/ ?(up|down)/g, "").trim();
+                                                            }
+                                                        });
+                                                    }
+
                                                     function renderPredictBanner(container) {
                                                         if (!banner) return;
                                                         var fundMv = 0, fundPnl = 0, mktMv = 0, mktPnl = 0;
@@ -7279,6 +7290,7 @@
                                                         refillFundPredict(listEl);
                                                         refillPredictHoldings(listEl);
                                                         refillUsPredict(listEl);
+                                                        dashUsPnlOffSession(listEl); // 盘外：美股/期权盈亏画杠、不计入横幅；盘中：全加
                                                         renderPredictBanner(listEl);
                                                     }
                                                     window.buildPredictList = buildPredictList; // [修复] 暴露为全局：自动刷新预测覆盖层需重绘
@@ -10096,7 +10108,7 @@
                                                     const _pUsHistory = fetchUsHistory(symList);
                                                     const _pFx        = fetchFx();
                                                     const _pHoldQ     = fetchMktQuotes(collectHoldingSymbols());
-                                                    const _pBybit = inUsWeekendGap() ? fetchBybitNas100().catch(function () { return null; }) : Promise.resolve(null);
+                                                    /* [变更] 移除 Bybit NAS100 预测源：不再按周末间隙启用指数推断 */
                                                     // 基金净值必须串行抓取（concurrency=1）：东财 pingzhongdata 脚本把净值写入
                                                     // 同一个全局变量 window.Data_netWorthTrend，浏览器里该 var 声明无法被拦截/隔离，
                                                     // 并发多只时后加载的脚本会覆盖先到的值，导致部分基金稳定读不到。串行可彻底消除竞态。
@@ -10133,7 +10145,6 @@
                                                         return f
                                                     }, 1);
                                                     const usRes = await _pUsQuotes;
-                                                    window._nas100Predict = await _pBybit;
                                                     const usHist = await _pUsHistory;
                                                     let okU = 0,
                                                         failU = 0;
@@ -13585,9 +13596,15 @@
                                                                     price = _optTq.price >= 1 ? _optTq.price.toFixed(2) : _optTq.price.toFixed(4);
                                                                     _priceRaw = _optTq.price; _optPxSrc = "tencent";
                                                                 }
-                                                                // 期权行涨跌以正股前收为基准（与股票日涨跌口径一致），优先 Alpaca，其次腾讯；都没有才回退 Bybit 永续 24h
+                                                                // 期权行涨跌基准：现价来自 Bybit(盘外) 时，与美股/ETF 行口径统一 ——
+                                                                //   (Bybit 实时价 ÷ 腾讯现价[周五收盘]) − 1，不用 Bybit 永续 24h、也不用腾讯昨收。
+                                                                // 腾讯拿不到现价才依次回退：Alpaca 前收 → 腾讯昨收 → Bybit 永续 24h
                                                                 if (!isNaN(_priceRaw) && _priceRaw > 0) {
-                                                                    if (_optApPrev > 0) { pct = (_priceRaw - _optApPrev) / _optApPrev * 100; _srcTag = "alpaca"; }
+                                                                    if (_optPxSrc === "bybit" && _optTq && _optTq.price > 0) {
+                                                                        pct = (_priceRaw - _optTq.price) / _optTq.price * 100;
+                                                                        _srcTag = "tencent"; // 涨跌基准来自腾讯现价
+                                                                    }
+                                                                    else if (_optApPrev > 0) { pct = (_priceRaw - _optApPrev) / _optApPrev * 100; _srcTag = "alpaca"; }
                                                                     else if (_optTq && _optTq.prevClose > 0) { pct = (_priceRaw - _optTq.prevClose) / _optTq.prevClose * 100; _srcTag = "tencent"; }
                                                                     else if (_optItem) {
                                                                         var _ch = parseFloat(_optItem._ch24);
@@ -14470,10 +14487,10 @@
                                                         }
                                                     }
 
-                                                    // 股票是否改用 Bybit：美东 周五盘后 20:00 ~ 周日夜盘开盘 20:00 之前读 Bybit；其余走美股当日预测（腾讯基准）
-                                                    // 直接复用项目现有的 inUsWeekendGap() 判断（周五盘后20:00后、周六全天、周日20:00前）
-                                                    // 美股在市场行情页的主数据源：盘中=腾讯财经；盘前/盘后/夜盘/周末间隙=Bybit indexPrice
-                                                    // （与"自动模式各行情源"说明一致：盘中腾讯，其余 Bybit，Alpaca 仅作兜底）
+                                                    // 股票是否改用 Bybit：非美东常规时段（盘前 / 盘后 / 夜盘 / 周末间隙）一律走 Bybit indexPrice，盘中走腾讯
+                                                    // 美股在市场行情页的主数据源：盘中=腾讯财经；其余时段=Bybit indexPrice（Alpaca 仅作最终兜底）
+                                                    // 注：此前按 inUsWeekendGap() 启用「Bybit NAS100(QQQUSDT) ×3 推断 TQQQ」的规则已移除，
+                                                    //     QQQ / TQQQ 在 Bybit 均有可直接读取的合约，无需再用指数近似
                                                     function marketStockUseBybit() {
                                                         try {
                                                             // 非美东常规时段（含盘前/盘后/夜盘/周末）一律走 Bybit
