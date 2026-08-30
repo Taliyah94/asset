@@ -4987,22 +4987,14 @@
                                                 let calDayMonth = null;
                                                 let calYearPage = 99999;
 
+                                                /* [幂等] 强制 seed 覆盖，只保留 1 行。
+                                                   历史上这里有 16 行完全相同的副本：来源是「导出带数据」功能向 load() 开头注入，
+                                                   导出的 HTML 又被存回 index.html，每轮循环 +4 行。16 行与 1 行功能完全等价，已精简。
+                                                   导出功能已改为幂等注入（见 btnExportData），此后不会再累积。
+                                                   语义不变：只要 Asset_parsed.json 带 seed，读值一律以 seed 为准，localStorage 不生效。
+                                                   ⚠ 注释必须留在函数体外：导出功能的幂等正则只吞 `{` 之后的 if 语句，
+                                                     若注释写在 `{` 与 if 之间，正则会匹配失败，注入行将重新逐轮累积。 */
                                                 function load(k, def) {
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
-                                                    if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
                                                     if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];
                                                     try {
                                                         var v = JSON.parse(localStorage.getItem(k));
@@ -6342,8 +6334,10 @@
                                                     return etMin >= 9 * 60 + 30 && etMin < 16 * 60;
                                                 }
 
-                                                /* 美股周末间隙：美东 周五盘后收盘(20:00 ET) 之后 → 周日夜盘开盘(20:00 ET) 之前
-                                                   此窗口内美股休市（原用于启用 Bybit NAS100 预测，该规则已移除：QQQ/TQQQ 走 Bybit 直读 + Alpaca 兜底） */
+                                                /* 美股周末间隙：美东 周五盘后收盘(20:00 ET) 之后 → 周日夜盘开盘(20:00 ET) 之前，此窗口内美股休市。
+                                                   [有意保留] 删除 Bybit NAS100 预测规则后，该函数已无调用者；
+                                                   但「周末休市窗口」是通用判定，后续做「周末跳过行情刷新 / 隐藏实时徽标 / 提示休市」时可直接复用，
+                                                   故保留而非删除 —— 请勿当成死代码清理。 */
                                                 function inUsWeekendGap() {
                                                     var p = null;
                                                     try { p = etNowCached(); } catch (e) { p = null; }
@@ -6645,6 +6639,24 @@
                                                         var qqUp = window._holdQ && symUp ? window._holdQ["us" + symUp] : null;
                                                         if (qqUp && qqUp.price > 0) usd = qqUp.price;
                                                         else if (u._usdCn != null && !isOptionSymbol(u.symbol)) usd = u._usdCn;
+                                                        // ===== 期权现价解析（必须在 usVal 累加之前完成，否则市值会用旧价）=====
+                                                        // [修复] Alpaca 取不到价（已到期 / 停牌 / 周末）时，此前会退回 seed 里的陈旧价
+                                                        //        （如 ORCL P138 用 0.18，而 8/28 真实收盘是 0.0421），与涨跌基准 optBase 不同源，
+                                                        //        算出 −327% / −609% 这类不可能的涨跌幅，市值也同步虚高。
+                                                        //        改为回退 optBase 同快照价，保证「现价」与「涨跌基准」同源。
+                                                        var _optPx = null, _optPxFromBase = false, _optBase = null;
+                                                        if (isOptionSymbol(u.symbol)) {
+                                                            var _obA = OPT_BASE && OPT_BASE.A && OPT_BASE.A.prices ? OPT_BASE.A.prices[u.symbol] : null;
+                                                            var _obB = OPT_BASE && OPT_BASE.B && OPT_BASE.B.prices ? OPT_BASE.B.prices[u.symbol] : null;
+                                                            var _ob = isUsRegularSession() ? (_obB != null ? _obB : _obA) : (_obA != null ? _obA : _obB);
+                                                            _optBase = (_ob != null && isFinite(Number(_ob)) && Number(_ob) > 0) ? Number(_ob) : null;
+                                                            var _alp = (u._alpacaPrice != null && isFinite(Number(u._alpacaPrice)) && Number(u._alpacaPrice) > 0) ? Number(u._alpacaPrice) : null;
+                                                            var _seed = (u.price != null && isFinite(Number(u.price)) && Number(u.price) > 0) ? Number(u.price) : null;
+                                                            if (_alp != null) _optPx = _alp;                                          // Alpaca 实时/收盘价优先
+                                                            else if (_optBase != null) { _optPx = _optBase; _optPxFromBase = true; }  // 回退 optBase 快照（与基准同源）
+                                                            else if (_seed != null) _optPx = _seed;                                   // 最后才用 seed 旧值
+                                                            if (_optPx != null) usd = _optPx;
+                                                        }
                                                         usVal += holdSh * mult * usd * fx;
                                                         if (st.avgCost > 0) usCost += holdSh * mult * st.avgCost * fx;
                                                         var realizedPnlCny = st.realizedPnl * fx;
@@ -6663,19 +6675,15 @@
                                                         }
                                                         dTime = u._quoteTime && u._quoteTime !== "" ? "实时" : hist.length ? ymd(hist[hist.length - 1].t) : "—";
                                                         if (isOptionSymbol(u.symbol)) {
-                                                            var _obA = OPT_BASE && OPT_BASE.A && OPT_BASE.A.prices ? OPT_BASE.A.prices[u.symbol] : null;
-                                                            var _obB = OPT_BASE && OPT_BASE.B && OPT_BASE.B.prices ? OPT_BASE.B.prices[u.symbol] : null;
-                                                            var _obase = isUsRegularSession() ? (_obB != null ? _obB : _obA) : (_obA != null ? _obA : _obB);
-                                                            // 期权当日涨跌幅用 Alpaca 读取的报价（live/close 为 Alpaca 价；ibkr 不拉 Alpaca 时回退 u.price）
-                                                            var _optAlp = u.price != null ? u.price : (u._alpacaPrice != null ? u._alpacaPrice : null);
-                                                            if (_optAlp != null && _obase > 0 && isFinite(_obase)) {
-                                                                dRet = (_optAlp - _obase) / _obase;
-                                                                dPnl = holdSh * mult * (_optAlp - _obase) * fx;
-                                                                dPrev = holdSh * mult * _obase * fx;
-                                                                usPrevVal += dPrev
-                                                            } else {
+                                                            // 现价来自 optBase 快照 → 与涨跌基准同源，涨跌恒为 0、无信息量，直接画杠
+                                                            if (_optPxFromBase || _optPx == null || !(_optBase > 0)) {
                                                                 dRet = null;
                                                                 dPnl = null
+                                                            } else {
+                                                                dRet = (_optPx - _optBase) / _optBase;
+                                                                dPnl = holdSh * mult * (_optPx - _optBase) * fx;
+                                                                dPrev = holdSh * mult * _optBase * fx;
+                                                                usPrevVal += dPrev
                                                             }
                                                         }
                                                         u._dayRet = dRet;
@@ -10841,7 +10849,7 @@
                                                     const seedScript = "<script>window.__SEED__=" + seedJson + ";window.__FORCE_SEED__=true;<\/script>";
                                                     html = html.replace(/<script>\s*window\.__SEED__\s*=\{[\s\S]*?<\/script>/gi, "");
                                                     html = html.replace(/<\/head>/i, m => seedScript + m);
-                                                    html = html.replace(/function load\(k, def\)\{/, "function load(k, def){ if(window.__FORCE_SEED__&&window.__SEED__&&window.__SEED__[k]!=null) return window.__SEED__[k]; if(window.__FORCE_SEED__&&window.__SEED__&&window.__SEED__[k]!=null) return window.__SEED__[k]; if(window.__FORCE_SEED__&&window.__SEED__&&window.__SEED__[k]!=null) return window.__SEED__[k]; if(window.__FORCE_SEED__&&window.__SEED__&&window.__SEED__[k]!=null) return window.__SEED__[k];");
+                                                    html = html.replace(/function load\(k, def\)\s*\{(?:\s*if\s*\(\s*window\.__FORCE_SEED__\s*&&\s*window\.__SEED__\s*&&\s*window\.__SEED__\[k\]\s*!=\s*null\s*\)\s*return window\.__SEED__\[k\];)*/, "function load(k, def) { if (window.__FORCE_SEED__ && window.__SEED__ && window.__SEED__[k] != null) return window.__SEED__[k];");
                                                     const blob = new Blob([html], {
                                                         type: "text/html"
                                                     });
@@ -13611,14 +13619,20 @@
                                                                         if (!isNaN(_ch)) { pct = _ch * 100; _srcTag = "bybit"; }
                                                                     }
                                                                 }
-                                                                // 期权市值：直接采用美股持仓同款口径（holdSh × 合约乘数 × 现价 × 汇率），
+                                                                // 期权市值：采用美股持仓同款口径（holdSh × 合约乘数 × 现价 × 汇率），
                                                                 // 现价优先实时 _usd，缺失时回退 IBKR 快照价(u.price)；盈亏在下方一律画杠(—)
+                                                                // [修复] 空头期权(holdShares < 0)此前被 usMap 的 `hs > 0` 过滤掉，市值恒为 0 → 显示 --。
+                                                                //        这里直接从 usBySym + getTradeStats 重算份额，允许负值（做空期权市值为负）。
                                                                 var optMvCny = 0;
+                                                                var optFirstSh = 0;
                                                                 g.optionSyms.forEach(function(os) {
                                                                     var _k = String(os).toUpperCase().replace(/[^A-Z0-9]/g, "");
                                                                     var _ou = usBySym[_k];
-                                                                    var _hsOs = usMap[_k] || 0;
-                                                                    if (!_ou || _hsOs <= 0) return;
+                                                                    if (!_ou) return;
+                                                                    var _hsOs = 0;
+                                                                    try { _hsOs = getTradeStats(_ou).holdShares || 0; } catch (e) { _hsOs = 0; }
+                                                                    if (!isFinite(_hsOs) || _hsOs === 0) return;  // 只跳过无持仓，空头(负)照常计入
+                                                                    if (!optFirstSh) optFirstSh = _hsOs;
                                                                     var _usd = (_ou._usd != null && isFinite(Number(_ou._usd))) ? Number(_ou._usd)
                                                                              : ((_ou.price != null && isFinite(Number(_ou.price))) ? Number(_ou.price) : NaN);
                                                                     if (!isFinite(_usd)) return;
@@ -13635,11 +13649,14 @@
                                                             var srcCls = srcClsMap[srcKey] || "s-none";
                                                             // 美股持仓：实时市值(人民币)与预测盈亏金额
                                                             // 期权：市值/盈亏已在上方 isOption 分支单独处理(optMvCny / 画杠)，_hs 仅用于非期权分支
-                                                            var _hs = g.isOption ? ((usMap[String(g.optionSyms[0]).toUpperCase().replace(/[^A-Z0-9]/g, "")] || 0) * 100) : (usMap[sym.toUpperCase()] || 0);
+                                                            // 期权行份额直接用上面重算的 optFirstSh（可为负），保证 market-item-us 标记正确
+                                                            var _hs = g.isOption ? (optFirstSh * 100) : (usMap[sym.toUpperCase()] || 0);
                                                             var mvTxt = "--", pnlTxt = "--", pnlCls = "";
                                                             if (g.isOption) {
-                                                                // 期权：市值取美股持仓同款口径，盈亏画杠(—)
-                                                                if (isFinite(optMvCny) && optMvCny > 0) mvTxt = "¥" + Math.round(optMvCny).toLocaleString("zh-CN");
+                                                                // 期权：市值取美股持仓同款口径（空头为负市值，如 -¥533），盈亏画杠(—)
+                                                                mvTxt = (isFinite(optMvCny) && optMvCny !== 0)
+                                                                    ? (optMvCny < 0 ? "-¥" : "¥") + Math.round(Math.abs(optMvCny)).toLocaleString("zh-CN")
+                                                                    : "--";
                                                                 pnlTxt = "—";
                                                             } else if (_hs && _hs > 0 && !isNaN(p)) {
                                                                 var _mktCny = _hs * p * fxRate;
@@ -13653,7 +13670,8 @@
                                                             var pctTxt = (pct != null && !isNaN(pct)) ? (pct > 0 ? "+" : "") + pct.toFixed(2) + "%" : "--";
                                                             var dataAttr;
                                                             if (g.isOption) {
-                                                                dataAttr = (isFinite(optMvCny) && optMvCny > 0) ? ' data-mv="' + Math.round(optMvCny) + '" data-pnl="0"' : '';
+                                                                // 市值计入总额（空头为负），盈亏恒为 0（画杠、不参与当日盈亏合计）
+                                                                dataAttr = (isFinite(optMvCny) && optMvCny !== 0) ? ' data-mv="' + Math.round(optMvCny) + '" data-pnl="0"' : '';
                                                             } else if (_hs && _hs > 0 && !isNaN(p)) {
                                                                 dataAttr = ' data-mv="' + Math.round(_hs * p * fxRate) + '" data-pnl="' + Math.round((pct != null ? _hs * p * fxRate * pct / 100 : 0)) + '"';
                                                             } else {
