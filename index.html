@@ -6158,7 +6158,10 @@
                                                     var emTarget = (typeof emTargetDate === "function") ? emTargetDate() : null;
                                                     var emNeed = {};
                                                     (funds || []).forEach(function(f) {
-                                                        if (!fundNeedsPredict(f, discDay)) return;
+                                                        /* [修复] 东财目标日收盘价是市场行情页「现价 ÷ 基准 − 1」的通用基准，
+                                                           不再只给「需要预测」的基金抓取：否则已披露净值的基金(如 539002，含韩股 000660/005930)
+                                                           拿不到东财基准，会回落腾讯昨收，休市日显示成上一交易日的涨跌(如 -4.45%)，
+                                                           与 A股(三环 300408)同口径本应显示 0.00%。 */
                                                         var ph = FUND_HOLDINGS[f.code];
                                                         if (!ph || !ph.items) return;
                                                         ph.items.forEach(function(it) {
@@ -13957,19 +13960,23 @@
                                                             renderUnifiedList();
                                                             return;
                                                         }
-                                                        // [兜底] 若东方财富基准价(_holdEMPrice)尚未抓取，且存在 A股/港股成分股，
+                                                        // [兜底] 若东方财富基准价(_holdEMPrice)尚未抓取，且存在 A股/港股/日股/韩股成分股，
                                                         // 先异步 collectHoldingKline 抓取后再渲染，确保市场行情基金成分股涨跌幅有基准价。
+                                                        // [修复] 逐个 key 判断是否缺失（原逻辑是「_holdEMPrice 非空就跳过」，
+                                                        // 于是只抓到 A股(三环)后，韩股 000660/005930 缺失也不会补抓）。
                                                         var _needEM = false;
                                                         try {
                                                             (fs || []).forEach(function(f) {
                                                                 var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
                                                                 (ph && ph.items || []).forEach(function(it) {
                                                                     var mk = it.m || "us";
-                                                                    if (mk === "sz" || mk === "sh" || mk === "hk") _needEM = true;
+                                                                    var isEM = (typeof EM_MKTS !== "undefined") ? !!EM_MKTS[mk] : (mk === "sz" || mk === "sh" || mk === "hk");
+                                                                    if (!isEM) return;
+                                                                    if (!(window._holdEMPrice && window._holdEMPrice[mk + it.c] != null)) _needEM = true;
                                                                 });
                                                             });
                                                         } catch (e) {}
-                                                        if (_needEM && !window.__fundHdEmFetched && (!window._holdEMPrice || !Object.keys(window._holdEMPrice).length)) {
+                                                        if (_needEM && !window.__fundHdEmFetched) {
                                                             window.__fundHdEmFetched = true;
                                                             try {
                                 collectHoldingKline(fs).then(function() { renderFundHoldings(); }).catch(function() { renderFundHoldings(); });
@@ -14260,7 +14267,13 @@
                                                             r._q = q; need[q] = r;
                                                         });
                                                         var keys = Object.keys(need);
-                                                        var out = {}; // q -> price
+                                                        var out = {}; // q -> { price, prevClose, date }
+                                                        /* 腾讯行情时间字段 p[30]：A股 "20260828161406"、日/韩股 "2026-08-28 14:30:29"，
+                                                           统一归一化为 YYYYMMDD（字符串比较即可判断先后），用于判断行情是否已刷新到目标日 */
+                                                        function qtDateOf(p) {
+                                                            var d = String((p && p[30]) || "").replace(/[^0-9]/g, "").slice(0, 8);
+                                                            return /^\d{8}$/.test(d) ? d : null;
+                                                        }
                                                         var chunks = [];
                                                         for (var i = 0; i < keys.length; i += MKT_QUOTE_CHUNK) chunks.push(keys.slice(i, i + MKT_QUOTE_CHUNK));
                                                         var failed = false;
@@ -14275,7 +14288,7 @@
                                                                         var p = m[1].split("~");
                                                                         var pr = parseFloat(p[3]);   // 现价
                                                                         var pc = parseFloat(p[4]);   // 昨收（日股/韩股无东财价，用它算涨跌）
-                                                                        if (!isNaN(pr) && pr > 0) out[k] = { price: pr, prevClose: (isNaN(pc) ? 0 : pc) };
+                                                                        if (!isNaN(pr) && pr > 0) out[k] = { price: pr, prevClose: (isNaN(pc) ? 0 : pc), date: qtDateOf(p) };
                                                                     }
                                                                 });
                                                             };
@@ -14300,7 +14313,7 @@
                                                                             var p = raw.split("~");
                                                                             var pr = parseFloat(p[3]);   // 现价
                                                                             var pc = parseFloat(p[4]);   // 昨收
-                                                                            if (!isNaN(pr) && pr > 0) out[k] = { price: pr, prevClose: (isNaN(pc) ? 0 : pc) };
+                                                                            if (!isNaN(pr) && pr > 0) out[k] = { price: pr, prevClose: (isNaN(pc) ? 0 : pc), date: qtDateOf(p) };
                                                                         }
                                                                     });
                                                                     setTimeout(function() { next(idx + 1); }, 60);
@@ -14322,11 +14335,21 @@
                                                                     var cur = (r.mkt === "hk") ? "HK$" : (r.mkt === "sz" || r.mkt === "sh") ? "¥" : (r.mkt === "kr") ? "₩" : "";
                                                                     r.qEl.textContent = cur + price.toFixed(2);
                                                                 }
-                                                                // 涨跌基准：A股/港股用东方财富收盘价（东财只抓 hk/sz/sh）；
-                                                                // 日股 jp / 韩股 kr 没有东财价，改用腾讯自带昨收 (现价-昨收)/昨收
+                                                                /* 涨跌基准：A股/港股/日股/韩股统一用东方财富目标日收盘价 emPrice。
+                                                                   [修复] 日股 jp / 韩股 kr 拿不到东财价时，不再无条件回落到「腾讯现价 vs 昨收」——
+                                                                   那是当地上一交易日的涨跌，休市/周末会显示成 -4.45% 这种早已发生过的幅度，
+                                                                   与 A股(三环 300408)「现价 = 目标日收盘 → 0.00%」的口径不一致。
+                                                                   现按腾讯行情时间戳判断：行情日期已到东财目标日（当日确有交易）才用昨收算当日涨跌，
+                                                                   否则视为目标日后无新增交易日 → 0.00%。 */
                                                                 var ch = null;
                                                                 if (emPrice > 0) ch = (price / emPrice - 1) * 100;
-                                                                else if (prevClose > 0) ch = (price - prevClose) / prevClose * 100;
+                                                                else if (prevClose > 0) {
+                                                                    if (r.mkt === "jp" || r.mkt === "kr") {
+                                                                        var _tg = (typeof emTargetDate === "function") ? String(emTargetDate() || "").replace(/-/g, "") : "";
+                                                                        var _qd = rec ? rec.date : null;
+                                                                        ch = (_qd && _tg && _qd >= _tg) ? (price - prevClose) / prevClose * 100 : 0;
+                                                                    } else ch = (price - prevClose) / prevClose * 100;
+                                                                }
                                                                 if (r.cEl && ch != null && isFinite(ch)) {
                                                                     var cls = ch >= 0 ? "up" : "down";
                                                                     var sign = ch > 0 ? "+" : "";
