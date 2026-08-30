@@ -2340,54 +2340,6 @@
           "n": "ProShares",
           "img": "@b64:3"
         }
-      },
-      {
-        "id": "3bru295",
-        "symbol": "ORCL  260828P00138000",
-        "name": "",
-        "price": 0.18,
-        "histText": "",
-        "trades": [
-          {
-            "date": "2026-08-27",
-            "type": "buy",
-            "price": 2.26294734,
-            "shares": -2,
-            "amount": -4.53,
-            "_json": true
-          }
-        ],
-        "icon": {
-          "n": "Deutsche Bank",
-          "img": "@b64:24",
-          "c": "#0072C6",
-          "i": "DB",
-          "cat": "western"
-        }
-      },
-      {
-        "id": "13m1lof",
-        "symbol": "ORCL  260828P00141000",
-        "name": "",
-        "price": 0.43,
-        "histText": "",
-        "trades": [
-          {
-            "date": "2026-08-27",
-            "type": "buy",
-            "price": 1.75952784,
-            "shares": -1,
-            "amount": -1.76,
-            "_json": true
-          }
-        ],
-        "icon": {
-          "n": "Deutsche Bank",
-          "img": "@b64:24",
-          "c": "#0072C6",
-          "i": "DB",
-          "cat": "western"
-        }
       }
     ],
     "pa_cash": [
