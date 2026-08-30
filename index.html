@@ -2504,6 +2504,65 @@
         .predict-list { margin-top: 6px; }
         .predict-list .fund-acc-body { background: #fff; }
 
+        /* ===== 7×24 快讯页（华尔街见闻，底部悬浮栏第 4 个页签） ===== */
+        #pageNews { background: #f1f3f5; padding-bottom: 96px; }
+        .news-page { max-width: 680px; margin: 0 auto; }
+        .news-head {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: #fff;
+            border-bottom: 1px solid var(--line);
+            padding: 12px 14px 10px;
+            border-radius: 0 0 14px 14px;
+            box-shadow: 0 2px 10px rgba(16, 24, 40, .05);
+        }
+        .news-head-row { display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; }
+        .news-title { font-size: 17px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 7px; }
+        .news-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); animation: newsPulse 1.6s infinite; }
+        @keyframes newsPulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+        .news-src { font-size: 11px; font-weight: 400; color: var(--muted); }
+        .news-body { padding: 10px 12px 24px; }
+        .news-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .news-tabs::-webkit-scrollbar { display: none; }
+        .news-tabs button {
+            flex: 0 0 auto; border: 1px solid var(--line); background: #fff; color: var(--text);
+            padding: 5px 14px; border-radius: 16px; font-size: 13px; cursor: pointer; font-family: inherit;
+        }
+        .news-tabs button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+        .news-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 2px 10px; }
+        .news-bar label { display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+        .news-bar .kwlink { color: var(--brand); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+        .news-list { display: flex; flex-direction: column; gap: 8px; }
+        .news-item { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+        .news-item.hit { border-left: 3px solid #f0b429; }
+        .news-item .ni-t { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+        .news-item .ni-t a { background: #eef2f7; color: #5f6b7a; border-radius: 4px; padding: 0 5px; font-size: 11px; text-decoration: none; }
+        .news-item .ni-h { font-weight: 600; margin: 5px 0 3px; font-size: 15px; line-height: 1.45; color: var(--text); }
+        .news-item .ni-c { font-size: 13.5px; color: #3c4043; line-height: 1.62; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .news-item .ni-c.open { -webkit-line-clamp: unset; }
+        .news-item .ni-more { font-size: 12px; color: var(--brand); cursor: pointer; margin-top: 4px; display: inline-block; }
+        .news-item mark { background: #fff3cd; color: #7a4b00; border-radius: 3px; padding: 0 2px; font-weight: 600; }
+        .news-empty, .news-err { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
+        .news-err { color: var(--down); }
+        .news-foot { text-align: center; color: var(--muted); font-size: 11px; padding: 14px 0 4px; }
+        .news-kwbox { margin: 8px 2px 0; padding: 8px 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; color: var(--muted); display: none; line-height: 1.9; }
+        .news-kwbox.open { display: block; }
+        .news-kwbox b { color: var(--text); font-weight: 600; }
+        .news-kwbox span { display: inline-block; background: #eef2f7; border-radius: 4px; padding: 1px 6px; margin: 0 4px 4px 0; color: #5f6b7a; }
+        @media (max-width: 420px) {
+            .news-item .ni-h { font-size: 14.5px; }
+            .news-body { padding: 8px 10px 24px; }
+        }
+        /* 底栏加入「快讯」后共 5 个页签：窄屏收紧内边距，防止挤出屏幕 */
+        @media (max-width: 400px) {
+            .floating-bar { gap: 1px; padding: 7px; }
+            .floating-bar button[data-page] { padding: 11px 10px; }
+            .floating-bar button[data-page] .ic { width: 22px; height: 22px; }
+            .floating-bar .float-sep { margin: 0 2px; }
+            .floating-bar #floatRefresh { padding: 11px 11px; }
+        }
+
         .alloc-wrap {
             display: flex;
             flex-wrap: wrap;
@@ -2755,6 +2814,29 @@
                 </div>
             </div>
         </section>
+    </section>
+
+    <!-- 7×24 快讯：独立页面（底部悬浮栏第 4 个页签），华尔街见闻公开接口 -->
+    <section class="page-section page-news" id="pageNews">
+        <div class="news-page">
+            <div class="news-head">
+                <div class="news-head-row">
+                    <div class="news-title"><span class="news-dot"></span>7×24 快讯<span class="news-src" id="newsSrc">华尔街见闻</span></div>
+                </div>
+                <div class="news-tabs" id="newsTabs"></div>
+                <div class="news-bar">
+                    <span id="newsStat">加载中…</span>
+                    <label><input type="checkbox" id="newsAuto" checked> 自动刷新(60s)</label>
+                    <label><input type="checkbox" id="newsOnlyHit"> 只看持仓相关</label>
+                    <span class="kwlink" id="newsKwLink">关键词</span>
+                </div>
+                <div class="news-kwbox" id="newsKwBox"></div>
+            </div>
+            <div class="news-body">
+                <div class="news-list" id="newsList"><div class="news-empty">加载中…</div></div>
+                <div class="news-foot">数据源：华尔街见闻公开接口 · 仅供个人看板使用</div>
+            </div>
+        </div>
     </section>
 
     <section class="page-section page-chart" id="pageChart">
@@ -3732,6 +3814,15 @@
                 <line x1="3" y1="12" x2="21" y2="12"></line>
                 <path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"></path>
                 <path d="M12 3a15 15 0 0 0 0 18 15 15 0 0 0 0-18z"></path>
+            </svg>
+        </button>
+        <button data-page="news" class="" title="7×24 快讯">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 5h13a1 1 0 0 1 1 1v12a2 2 0 0 0 2 2H5a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1z"></path>
+                <path d="M17 8h1a2 2 0 0 1 2 2v8a1 1 0 0 1-1 1h-1"></path>
+                <line x1="7" y1="9" x2="13" y2="9"></line>
+                <line x1="7" y1="13" x2="13" y2="13"></line>
+                <line x1="7" y1="17" x2="10" y2="17"></line>
             </svg>
         </button>
         <button data-page="settings" class="">
@@ -12950,6 +13041,7 @@
                                                     var chart = document.getElementById("pageChart");
                                                     var settings = document.getElementById("pageSettings");
                                                     var market = document.getElementById("pageMarket");
+                                                    var newsPage = document.getElementById("pageNews");
                                                     var chartSection = document.getElementById("chartSection");
                                                     var nxSection = document.getElementById("nxSection");
                                                     if (chartSection) chart.appendChild(chartSection);
@@ -12959,7 +13051,9 @@
                                                     var nodes = [];
                                                     for (var i = 0; i < document.body.childNodes.length; i++) {
                                                         var n = document.body.childNodes[i];
-                                                        if (n === bar || n === chart || n === settings || n === market || n === iconBrowser || n === ghSyncModal) continue;
+                                                        /* [修复] 快讯页与图表/设置/市场同为一级页面，必须排除，
+                                                           否则会被当作「资产页」内容吞进 #pageAssets，导致切过去时是 display:none 的空白页 */
+                                                        if (n === bar || n === chart || n === settings || n === market || n === newsPage || n === iconBrowser || n === ghSyncModal) continue;
                                                         if (n.nodeType === 8) continue;
                                                         nodes.push(n)
                                                     }
@@ -15310,6 +15404,302 @@
             <div id="predictList" class="predict-list"></div>
         </div>
     </div>
+
+    <script>
+    /* ==================== 7×24 快讯（华尔街见闻 + 新浪兜底） ====================
+       接口：https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=<ch>&client=pc&limit=N
+       CORS 完全开放，静态页面可直接 fetch；失败时回退新浪 JSONP。
+       高亮关键词自动从 FUND_HOLDINGS（基金持仓中文名）+ us（美股持仓名）生成，
+       无需手工维护。 */
+    (function () {
+        var CHANNELS = [
+            { key: 'global-channel',   name: '全部' },
+            { key: 'us-stock-channel', name: '美股' },
+            { key: 'hk-stock-channel', name: '港股' },
+            { key: 'a-stock-channel',  name: 'A股'  }
+        ];
+        var API = 'https://api-one-wscn.awtmt.com/apiv1/content/lives';
+        var LIMIT = 50, REFRESH = 60000;
+
+        /* 代码 -> 常用中文说法（覆盖自选里的商品/指数与常见美股别名） */
+        var SYM_ALIAS = {
+            CL: '原油', OIL: '原油', XAU: '黄金', GOLD: '黄金', XAG: '白银',
+            BTC: '比特币', ETH: '以太坊', SOL: 'Solana',
+            NVDA: '英伟达', AAPL: '苹果', GOOGL: '谷歌', GOOG: '谷歌', MSFT: '微软',
+            AMZN: '亚马逊', AVGO: '博通', LLY: '礼来', MU: '美光', SNDK: '闪迪',
+            WDC: '西部数据', LRCX: '拉姆研究', AMAT: '应用材料', ASML: '阿斯麦',
+            AMD: '超威半导体', TSLA: '特斯拉', TSM: '台积电', ORCL: '甲骨文',
+            GLW: '康宁', INTC: '英特尔', QCOM: '高通', SMCI: '超微电脑',
+            META: 'Meta', NFLX: '奈飞', COST: '好市多', PLTR: 'Palantir',
+            KIOXIA: '铠侠', '285A': '铠侠', '000660': '海力士', '005930': '三星电子',
+            '300408': '三环集团', '02513': '智谱'
+        };
+        /* 固定关注的宏观/行业词 */
+        var MACRO = ['美联储', '降息', '加息', 'CPI', 'PPI', '非农', '关税', '存储芯片', 'HBM', '半导体', '晶圆', '光刻机', 'AI芯片'];
+
+        var WATCH = [];
+
+        var HAS_CN = /[\u4e00-\u9fa5]/;
+        /* 去掉公司后缀生成短词，便于命中「三环」「美光」这类简称 */
+        function addWord(set, out, w) {
+            w = String(w == null ? '' : w).trim();
+            if (!w || w.length < 2 || set[w]) return;
+            // 剔掉纯符号/数字（如 "-"、"100"），避免误高亮
+            if (!HAS_CN.test(w) && !/[A-Za-z]/.test(w)) return;
+            set[w] = 1; out.push(w);
+        }
+        function addWithBase(set, out, name) {
+            var s = String(name == null ? '' : name).trim();
+            if (!s) return;
+            if (HAS_CN.test(s)) {
+                // 中文名：先去 -A/-C 之类的份额后缀，再加全称与去后缀简称
+                var t = s.replace(/-[A-Z]$/, '');
+                addWord(set, out, t);
+                var base = t.replace(/(集团|科技|电子|半导体|股份|有限公司|公司|国际|控股|医药|生物)$/g, '').trim();
+                if (base.length >= 2) addWord(set, out, base);
+            } else {
+                // 英文名（如 "Lumentum Holdings Inc"）：取首段作为关键词，兼顾 "Lumentum" 这类原文提及
+                addWord(set, out, s.split(/\s+/)[0]);
+            }
+        }
+
+        function buildWatch() {
+            var set = {}, out = [];
+            // 1) 基金持仓（含 A股/港股/日股/韩股/美股中文名）
+            try {
+                var FH = (typeof FUND_HOLDINGS !== 'undefined' && FUND_HOLDINGS) ? FUND_HOLDINGS : (window.FUND_HOLDINGS || null);
+                if (FH) Object.keys(FH).forEach(function (code) {
+                    ((FH[code] && FH[code].items) || []).forEach(function (it) {
+                        addWithBase(set, out, it.n);
+                        if (SYM_ALIAS[it.c]) addWithBase(set, out, SYM_ALIAS[it.c]);
+                    });
+                });
+            } catch (e) {}
+            // 2) 美股/期权持仓
+            try {
+                var U = (typeof us !== 'undefined' && us) ? us : (window.__paUs || []);
+                (U || []).forEach(function (u) {
+                    addWithBase(set, out, u.name);
+                    var s = String(u.symbol || '').toUpperCase();
+                    if (SYM_ALIAS[s]) addWithBase(set, out, SYM_ALIAS[s]);
+                });
+            } catch (e) {}
+            // 3) 市场自选（商品/指数等）
+            try {
+                var syms = (typeof getMarketSymbols === 'function') ? getMarketSymbols() : [];
+                (syms || []).forEach(function (s) {
+                    var k = String(s || '').toUpperCase();
+                    if (SYM_ALIAS[k]) addWithBase(set, out, SYM_ALIAS[k]);
+                });
+            } catch (e) {}
+            // 4) 宏观/行业词
+            MACRO.forEach(function (w) { addWord(set, out, w); });
+            return out;
+        }
+
+        /* ---------------- 工具 ---------------- */
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+        function hl(s) {
+            var t = esc(s);
+            WATCH.forEach(function (w) {
+                if (t.indexOf(w) >= 0) t = t.split(w).join('<mark>' + w + '</mark>');
+            });
+            return t;
+        }
+        function isHit(it) {
+            var t = (it.title || '') + (it.content_text || '');
+            for (var i = 0; i < WATCH.length; i++) if (t.indexOf(WATCH[i]) >= 0) return true;
+            return false;
+        }
+        function hhmm(ts) {
+            var d = new Date(ts * 1000), p = function (n) { return String(n).padStart(2, '0'); };
+            return p(d.getHours()) + ':' + p(d.getMinutes());
+        }
+        function ago(ts) {
+            var s = Math.floor(Date.now() / 1000 - ts);
+            if (s < 60) return '刚刚';
+            if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
+            if (s < 86400) return Math.floor(s / 3600) + ' 小时前';
+            return Math.floor(s / 86400) + ' 天前';
+        }
+
+        /* ---------------- 拉取 ---------------- */
+        function fetchNews(ch) {
+            var url = API + '?channel=' + encodeURIComponent(ch) + '&client=pc&limit=' + LIMIT;
+            return fetch(url, { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function (j) {
+                    if (j.code !== 20000) throw new Error(j.message || '接口返回异常');
+                    return j.data.items || [];
+                });
+        }
+        function fetchSina() {
+            return new Promise(function (resolve, reject) {
+                var cb = '__sina_' + Date.now();
+                var s = document.createElement('script');
+                var tid = setTimeout(function () { cleanup(); reject(new Error('新浪超时')); }, 12000);
+                function cleanup() { clearTimeout(tid); try { delete window[cb]; } catch (e) {} if (s.parentNode) s.parentNode.removeChild(s); }
+                window[cb] = function (d) {
+                    cleanup();
+                    try {
+                        var list = (d.result && d.result.data && d.result.data.feed && d.result.data.feed.list) || [];
+                        resolve(list.map(function (it) {
+                            return {
+                                id: it.id, title: '',
+                                content_text: String(it.rich_text || '').replace(/<[^>]+>/g, ''),
+                                display_time: Math.floor(new Date(String(it.create_time).replace(/-/g, '/')).getTime() / 1000),
+                                uri: 'https://finance.sina.com.cn/7x24/'
+                            };
+                        }));
+                    } catch (e) { reject(e); }
+                };
+                s.onerror = function () { cleanup(); reject(new Error('新浪加载失败')); };
+                s.src = 'https://zhibo.sina.com.cn/api/zhibo/feed?page=1&page_size=' + LIMIT +
+                        '&zhibo_id=152&tag_id=0&dire=f&dpc=1&callback=' + cb;
+                document.head.appendChild(s);
+            });
+        }
+
+        /* ---------------- 渲染 ---------------- */
+        function render(items, srcName) {
+            var listEl = document.getElementById('newsList');
+            if (!listEl) return;
+            var onlyHit = (document.getElementById('newsOnlyHit') || {}).checked;
+            var rows = onlyHit ? items.filter(isHit) : items;
+            var srcEl = document.getElementById('newsSrc');
+            var statEl = document.getElementById('newsStat');
+            if (srcEl) srcEl.textContent = srcName;
+            if (statEl) {
+                statEl.textContent = rows.length + ' 条 · 更新于 ' +
+                    new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            }
+            if (!rows.length) { listEl.innerHTML = '<div class="news-empty">没有匹配的新闻</div>'; return; }
+
+            listEl.innerHTML = rows.map(function (it) {
+                var text = (it.content_text || '').trim();
+                var title = (it.title || '').trim();
+                var long = text.length > 90;
+                return '<div class="news-item' + (isHit(it) ? ' hit' : '') + '">'
+                    + '<div class="ni-t"><span>' + hhmm(it.display_time) + '</span>'
+                    + '<span>' + ago(it.display_time) + '</span>'
+                    + (it.uri ? '<a href="' + esc(it.uri) + '" target="_blank" rel="noopener">原文</a>' : '')
+                    + '</div>'
+                    + (title ? '<div class="ni-h">' + hl(title) + '</div>' : '')
+                    + '<div class="ni-c' + (long ? '' : ' open') + '">' + hl(text) + '</div>'
+                    + (long ? '<span class="ni-more">展开</span>' : '')
+                    + '</div>';
+            }).join('');
+
+            Array.prototype.forEach.call(listEl.querySelectorAll('.ni-more'), function (btn) {
+                btn.addEventListener('click', function () {
+                    var c = btn.previousElementSibling;
+                    c.classList.toggle('open');
+                    btn.textContent = c.classList.contains('open') ? '收起' : '展开';
+                });
+            });
+        }
+
+        /* ---------------- 状态与主流程 ---------------- */
+        var cur = CHANNELS[0].key, timer = null, cache = {}, loaded = false;
+
+        function pageActive() {
+            var p = document.getElementById('pageNews');
+            return !!(p && p.classList.contains('active'));
+        }
+        function load(force) {
+            var statEl = document.getElementById('newsStat');
+            if (cache[cur] && !force) { render(cache[cur], '华尔街见闻'); return; }
+            if (statEl) statEl.textContent = '加载中…';
+            fetchNews(cur)
+                .then(function (items) { cache[cur] = items; render(items, '华尔街见闻'); })
+                .catch(function (e1) {
+                    return fetchSina().then(function (items) { render(items, '新浪(备用)'); })
+                        .catch(function (e2) {
+                            var el = document.getElementById('newsList');
+                            if (el) el.innerHTML = '<div class="news-err">加载失败：' + esc(e1.message) + ' / ' + esc(e2.message) + '</div>';
+                        });
+                });
+        }
+
+        /* 首次切到快讯页时初始化关键词并拉数据；之后每次进入都刷新一次 */
+        function onEnter() {
+            if (!WATCH.length) { WATCH = buildWatch(); renderKwBox(); }
+            if (!loaded) { loaded = true; load(); }
+            else load(true);
+        }
+        function renderKwBox() {
+            var box = document.getElementById('newsKwBox');
+            if (!box) return;
+            box.innerHTML = '<b>高亮关键词（' + WATCH.length + ' 个，自动取自持仓）</b><br>'
+                + WATCH.map(function (w) { return '<span>' + esc(w) + '</span>'; }).join('');
+        }
+
+        function init() {
+            var page = document.getElementById('pageNews');
+            if (!page) return;
+
+            // 频道 Tab
+            var tabs = document.getElementById('newsTabs');
+            CHANNELS.forEach(function (c, i) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = c.name;
+                if (i === 0) b.className = 'on';
+                b.addEventListener('click', function () {
+                    Array.prototype.forEach.call(tabs.children, function (x) { x.classList.remove('on'); });
+                    b.classList.add('on');
+                    cur = c.key;
+                    load();
+                });
+                tabs.appendChild(b);
+            });
+
+            var onlyHit = document.getElementById('newsOnlyHit');
+            if (onlyHit) onlyHit.addEventListener('change', function () {
+                if (cache[cur]) render(cache[cur], '华尔街见闻');
+            });
+
+            var kwLink = document.getElementById('newsKwLink');
+            var kwBox = document.getElementById('newsKwBox');
+            if (kwLink && kwBox) kwLink.addEventListener('click', function () { kwBox.classList.toggle('open'); });
+
+            var autoEl = document.getElementById('newsAuto');
+            function setAuto(on) {
+                if (timer) { clearInterval(timer); timer = null; }
+                // 只在快讯页可见时才轮询，切走不浪费请求
+                if (on) timer = setInterval(function () { if (pageActive()) load(true); }, REFRESH);
+            }
+            if (autoEl) autoEl.addEventListener('change', function () { setAuto(this.checked); });
+            setAuto(!autoEl || autoEl.checked);
+
+            /* 进入页面的触发：监听 #pageNews 的 class 变化。
+               用 MutationObserver 而不是绑底栏 click，是因为导出/重置默认页等场景
+               也会直接改 class，这样任何途径切进来都能自动加载。 */
+            var wasActive = pageActive();
+            function checkActive() {
+                var now = pageActive();
+                if (now && !wasActive) onEnter();
+                wasActive = now;
+            }
+            if (window.MutationObserver) {
+                new MutationObserver(checkActive).observe(page, { attributes: true, attributeFilter: ['class'] });
+            }
+            // 兜底：底栏点击（冒泡到 document 时 showPage 已执行完）
+            var bar = document.getElementById('floatingBar');
+            if (bar) bar.addEventListener('click', function (e) {
+                var b = e.target.closest ? e.target.closest('button[data-page]') : null;
+                if (b && b.dataset.page === 'news') setTimeout(checkActive, 0);
+            });
+            checkActive();
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+        else init();
+    })();
+    </script>
 </body>
 
 </html>
