@@ -2212,6 +2212,10 @@
             border-color: var(--brand-soft);
             color: var(--brand);
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
         }
 
         .btn-quote:hover {
@@ -2253,6 +2257,119 @@
         .tbl-scroll>table {
             table-layout: fixed;
         }
+
+        /* 基金/美股：操作列抽离为独立「操作」按钮切换（默认数据视图隐藏操作列，操作模式仅显操作列） */
+        .btn-ops-toggle.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+        .tbl-scroll>table { width: 100%; }
+        /* 基金/美股：解除表格自动最小尺寸(=min-content)的撑开，允许收缩到容器宽度，
+           否则 nowrap 内容会把表格顶到 min-content（手机上实测 760px，是现金表的两倍） */
+        #pane-fund .tbl-scroll>table, #pane-us .tbl-scroll>table { min-width: 0; }
+        .tbl-scroll table th, .tbl-scroll table td { overflow: hidden; vertical-align: middle; }
+        /* 基金/美股：列宽严格由 col 控制（max-width:0 抵消 nowrap 内容的 min-content 撑开），
+           保证表格总宽 = 容器宽，与现金持仓同宽、手机上不再被撑到两倍宽而裁切 */
+        #pane-fund .tbl-scroll table th, #pane-fund .tbl-scroll table td,
+        #pane-us .tbl-scroll table th, #pane-us .tbl-scroll table td { max-width: 0; }
+        .tbl-scroll table th { text-overflow: ellipsis; white-space: nowrap; }
+        .tbl-scroll table td .cell-main, .tbl-scroll table td .cell-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* 默认数据视图：隐藏操作列，数据列撑满 100% */
+        #pane-fund[data-ops="off"] thead th:nth-child(5), #pane-fund[data-ops="off"] tbody td:nth-child(5) { display: none; }
+        #pane-us[data-ops="off"] thead th:nth-child(6), #pane-us[data-ops="off"] tbody td:nth-child(6) { display: none; }
+        #pane-fund[data-ops="off"] col:nth-child(1){ width:40% !important; }
+        #pane-fund[data-ops="off"] col:nth-child(2){ width:20% !important; }
+        #pane-fund[data-ops="off"] col:nth-child(3){ width:20% !important; }
+        #pane-fund[data-ops="off"] col:nth-child(4){ width:20% !important; }
+        #pane-fund[data-ops="off"] col:nth-child(5){ width:0 !important; }
+        #pane-us[data-ops="off"] col:nth-child(1){ width:30% !important; }
+        #pane-us[data-ops="off"] col:nth-child(2){ width:18% !important; }
+        #pane-us[data-ops="off"] col:nth-child(3){ width:17% !important; }
+        #pane-us[data-ops="off"] col:nth-child(4){ width:15% !important; }
+        #pane-us[data-ops="off"] col:nth-child(5){ width:20% !important; }
+        #pane-us[data-ops="off"] col:nth-child(6){ width:0 !important; }
+        /* 操作视图：仅显示操作列（100%），数据列隐藏 */
+        #pane-fund[data-ops="on"] thead th:nth-child(2), #pane-fund[data-ops="on"] thead th:nth-child(3), #pane-fund[data-ops="on"] thead th:nth-child(4), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(4) { display: none; }
+        #pane-fund[data-ops="on"] col:nth-child(1){ width:55% !important; }
+        #pane-fund[data-ops="on"] col:nth-child(2){ width:45% !important; }
+        #pane-fund[data-ops="on"] col:not(:nth-child(1)):not(:nth-child(2)){ width:0 !important; }
+        #pane-us[data-ops="on"] thead th:nth-child(2), #pane-us[data-ops="on"] thead th:nth-child(3), #pane-us[data-ops="on"] thead th:nth-child(4), #pane-us[data-ops="on"] thead th:nth-child(5), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(4), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(5) { display: none; }
+        #pane-us[data-ops="on"] col:nth-child(1){ width:55% !important; }
+        #pane-us[data-ops="on"] col:nth-child(2){ width:45% !important; }
+        #pane-us[data-ops="on"] col:not(:nth-child(1)):not(:nth-child(2)){ width:0 !important; }
+        /* 操作视图下操作列按钮横向铺满居中 */
+        #pane-fund[data-ops="on"] .ops-cell, #pane-us[data-ops="on"] .ops-cell { justify-content: center; }
+        /* 基金/美股：取消首列「名称/代码」横向滚动时的 sticky 固定，并禁止表格横向滚动（不再左右滑动） */
+        #pane-fund .tbl-scroll, #pane-us .tbl-scroll { overflow-x: hidden !important; }
+        #pane-fund .tbl-scroll>table>thead>tr>th:first-child,
+        #pane-fund .tbl-scroll>table tbody tr.us-row-toggle>td:first-child,
+        #pane-us .tbl-scroll>table>thead>tr>th:first-child,
+        #pane-us .tbl-scroll>table tbody tr.us-row-toggle>td:first-child { position: static !important; }
+        /* 首列不再固定后，其右侧阴影分隔线无意义，隐藏避免 absolute 错位 */
+        #pane-fund .tbl-scroll>table>thead>tr>th:first-child::after,
+        #pane-fund .tbl-scroll>table tbody tr.us-row-toggle>td:first-child::after,
+        #pane-us .tbl-scroll>table>thead>tr>th:first-child::after,
+        #pane-us .tbl-scroll>table tbody tr.us-row-toggle>td:first-child::after { display: none !important; }
+        /* 展开的明细行内容超宽时在自己内部滚动，不撑开外层持仓表 */
+        .us-trade-detail .trade-inner { max-width: 100%; overflow-x: auto; }
+        /* 基金/美股首列「名称」：解除 nowrap，允许自动换行，最多 3 行（超出以省略号收尾）
+           字号由渲染时的 nmFs() 按名称长短分档下发，字越多字号越小 */
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-main,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-main {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+        }
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-main > *:first-child,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-main > *:first-child { flex: 0 0 auto; }
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .nm-text,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .nm-text {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            overflow: hidden;
+            white-space: normal;
+            text-overflow: clip;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.32;
+        }
+        /* 名称下方的「代码 + 时间」始终锁在同一行，绝不折行 */
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub > *,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub > * { flex: 0 0 auto; }
+        /* 名称列下方的「代码+时间」在 30% 列宽下很容易顶满，把内部字号/padding 再收一点 */
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub { font-size: 10px; gap: 2px; }
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub .tag,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub .tag { padding: 1px 4px; font-size: 10px; }
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub .time-bar,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:first-child .cell-sub .time-bar { padding: 2px 4px; font-size: 10px; }
+        /* 收紧基金/美股表的左右内边距（10px → 5px），把省下的宽度让给名称列 */
+        #pane-fund .tbl-scroll>table th, #pane-us .tbl-scroll>table th,
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td { padding-left: 5px; padding-right: 5px; }
+        /* 数字列字号收小一档（主值 11px、副值 10px），保证名称列加宽后数字仍完整显示 */
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-main,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-main { font-size: 11px; }
+        #pane-fund .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-sub,
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-sub { font-size: 10px; }
+        /* 表头同步收小：字号 10.5px、排序箭头 9px，避免窄列表头被截成「现/…」 */
+        #pane-fund .tbl-scroll>table thead th,
+        #pane-us .tbl-scroll>table thead th { font-size: 10px; padding-left: 3px; padding-right: 3px; }
+        #pane-fund .tbl-scroll>table thead th .sort-ind,
+        #pane-us .tbl-scroll>table thead th .sort-ind { font-size: 9px; margin-left: 1px; }
+
 
         .tbl-scroll>table>thead>tr>th:nth-child(6),
         .tbl-scroll>table>tbody>tr>td:nth-child(6) {
@@ -2405,6 +2522,7 @@
             z-index: 200;
             background: #f5f7fb;
             overflow-y: auto;
+            overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
             display: none;
         }
@@ -2426,22 +2544,32 @@
         }
 
         .alloc-back {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            z-index: 3;
             border: 0;
-            background: #eef2f7;
-            color: #1c2430;
-            font-size: 15px;
-            font-weight: 600;
-            padding: 8px 14px;
+            background: transparent;
+            color: #44506a;
+            font-size: 24px;
+            line-height: 1;
+            width: 40px;
+            height: 40px;
             border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
             font-family: inherit;
         }
 
         .alloc-back:active {
-            background: #e2e8f0;
+            background: rgba(20, 30, 50, .08);
         }
 
         .alloc-overlay-title {
+            flex: 1;
+            text-align: center;
             font-size: 17px;
             font-weight: 700;
             color: var(--text);
@@ -2455,6 +2583,7 @@
             z-index: 200;
             background: rgba(20, 24, 31, .35);
             overflow-y: auto;
+            overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
             display: none;
         }
@@ -2750,7 +2879,7 @@
     <!-- 个人净资产分布：覆盖层（由 hero 饼图按钮打开，返回按钮关闭） -->
     <div id="allocOverlay" class="alloc-overlay" aria-hidden="true">
         <div class="alloc-overlay-head">
-            <button id="allocBackBtn" class="alloc-back" type="button" aria-label="返回">‹ 返回</button>
+            <button id="allocBackBtn" class="alloc-back" type="button" aria-label="关闭">✕</button>
             <div class="alloc-overlay-title">个人净资产分布</div>
         </div>
         <div class="alloc-wrap">
@@ -3914,9 +4043,10 @@
                                                         <button data-tab="pending" class="active"><span class="item-ic"><img data-b64="30" alt="" onerror="this.parentNode.innerHTML='&lt;span class=&quot;item-ic fb&quot; style=&quot;background:#888&quot;&gt;St&lt;/span&gt;';"></span> 挂单</button>
                                                     </div>
 
-                                                    <section class="tabpane" id="pane-fund" style="display: none;">
+                                                    <section class="tabpane" id="pane-fund" style="display: none;" data-ops="off">
                                                         <div class="pane-head">
                                                             <strong style="font-size:14px;">基金持仓（人民币）</strong>
+                                                            <button class="ghost sm btn-ops-toggle" data-ops-toggle="fund">操作</button>
                                                             <button class="primary sm" data-add="fund">+ 添加基金</button>
                                                         </div>
                                                         <div class="tbl-scroll">
@@ -3942,10 +4072,11 @@
                                                         </div>
                                             </section>
 
-                                            <section class="tabpane" id="pane-us" style="display: none;">
+                                            <section class="tabpane" id="pane-us" style="display: none;" data-ops="off">
                                                 <div class="pane-head">
                                                     <strong style="font-size:14px;">美股持仓（美元换算人民币）</strong>
 
+                                                    <button class="ghost sm btn-ops-toggle" data-ops-toggle="us">操作</button>
                                                     <button class="primary sm" data-add="us">+ 添加美股</button>
                                                 </div>
                                                 <div class="tbl-scroll">
@@ -5260,6 +5391,23 @@
                                                         ">": "&gt;",
                                                         '"': "&quot;"
                                                     } [m]))
+                                                }
+
+                                                // 名称列字号自适应：先算「视觉宽度」（中日韩/全角字符记 1，拉丁字母与数字记 .55），
+                                                // 再按档位缩小字号，配合最多 3 行的截断，让长基金名尽量完整显示而不是被一刀切
+                                                function nmFs(s) {
+                                                    var t = String(s == null ? "" : s),
+                                                        w = 0;
+                                                    for (var i = 0; i < t.length; i++) {
+                                                        var c = t.charCodeAt(i);
+                                                        w += c > 0x2e80 ? 1 : .55
+                                                    }
+                                                    if (w <= 9) return 13.5;
+                                                    if (w <= 13) return 13;
+                                                    if (w <= 18) return 12.8;
+                                                    if (w <= 25) return 12.5;
+                                                    if (w <= 32) return 12;
+                                                    return 11.5
                                                 }
 
                                                 function buildDateGroup(containerId, dateStr) {
@@ -8299,7 +8447,7 @@
                                                             var predSubTxt = predPct == null ? "—" : predPct.toFixed(2) + "%";
                                                             var realizedTxt = fst.realizedPnl !== 0 ? (fst.realizedPnl >= 0 ? "+" : "") + fmt0(fst.realizedPnl) : "—";
                                                             var realizedCls = fst.realizedPnl > 0 ? "up" : fst.realizedPnl < 0 ? "down" : "";
-                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(f.icon) + "<span>" + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> ▸</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>已实现收益</b> <span class="' + realizedCls + '">' + realizedTxt + "</span></span><span><b>总交易</b> " + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
+                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>已实现收益</b> <span class="' + realizedCls + '">' + realizedTxt + "</span></span><span><b>总交易</b> " + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
                                                         }).join("")
                                                     }
                                                     const tu = $("tbUs");
@@ -8336,7 +8484,7 @@
                                                             var usSrcTxt = u._dayPredictSource === "bybit" ? "Bybit·预测" : usAlpPriceTxt;
                                                             var _optMode = isOptionSymbol(u.symbol) ? optionAlpacaMode(u) : null;
                                                             var _isIbkr = _optMode === "ibkr";
-                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="行情时间">${esc(ymdShort(u._dayTime)||"—")}</span>`} ▸</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
+                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main">${itemIconHtml(u.icon)}<span class="nm-text" style="font-size:${nmFs(uName)}px">${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc((uSym||'').split(' ')[0])}</span> ${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="行情时间">${esc(ymdShort(u._dayTime)||"—")}</span>`} &gt;</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
                                                         }).join("")
                                                     }
                                                     var tc = $("tbCash");
@@ -11363,6 +11511,16 @@
                                                         if (pfPop) pfPop.style.display = "none";
                                                         pendingPage = 1;
                                                         renderPending();
+                                                        return
+                                                    }
+                                                    var opsToggle = e.target.closest("[data-ops-toggle]");
+                                                    if (opsToggle) {
+                                                        var otype = opsToggle.dataset.opsToggle;
+                                                        var pane = document.getElementById(otype === "fund" ? "pane-fund" : "pane-us");
+                                                        if (!pane) return;
+                                                        var on = pane.getAttribute("data-ops") === "on";
+                                                        pane.setAttribute("data-ops", on ? "off" : "on");
+                                                        opsToggle.classList.toggle("active", !on);
                                                         return
                                                     }
                                                     var add = e.target.closest("[data-add]");
