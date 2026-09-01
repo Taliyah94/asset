@@ -2410,14 +2410,6 @@
             "price": 49.56,
             "shares": 55,
             "amount": 2725.8
-          },
-          {
-            "date": "2026-08-27",
-            "type": "buy",
-            "price": 70.23170557,
-            "shares": 100,
-            "amount": 7023.17,
-            "_json": true
           }
         ],
         "icon": {
