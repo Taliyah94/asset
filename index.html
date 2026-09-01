@@ -1657,12 +1657,7 @@
             padding-right: 0 !important;
         }
 
-        /* 明细表「时间栏」：实时=绿，非实时=红（替代原「状态」列） */
-        .time-cell {
-            text-align: center;
-            vertical-align: middle;
-        }
-
+        /* 明细表「时间栏」：实时=绿，非实时=红（现已并入名称单元格的「代码」之后） */
         .time-bar {
             display: inline-block;
             max-width: 100%;
@@ -1687,8 +1682,12 @@
             background: #3b6ef5;
         }
 
-        /* 基金「时间」列：短格式 MM-DD 保持单行不换行 */
-        #pane-fund .time-bar {
+        /* 时间标签已并入「代码」副行：缩小字号与内边距，避免把副行撑高 */
+        .cell-sub .time-bar {
+            padding: 1px 6px;
+            font-size: 10px;
+            border-radius: 5px;
+            vertical-align: 1px;
             white-space: nowrap;
         }
 
@@ -3626,7 +3625,22 @@
             <div class="setting-row collapsible collapsed" id="setSrcBtn">
                 <div class="label"><span class="li-ic">📡</span>数据源</div>
                 <span class="arrow">›</span>
-                <div class="src-detail">自动模式各行情源（北京时间）：<br>· 基金：天天基金 / 东方财富（净值）<br>· 美股：美东 9:30–16:00（盘中，自动区分夏/冬令时）腾讯/东方财富；其余时段（盘外）Alpaca（延迟约15分钟）<br>· 期权（按美东时间）：盘中 9:30–16:00 取 Alpaca 实时；非盘中统一按盈透新鲜度判定——录入日期≥美东昨天(T-1) 则取盈透（卡内显示日期如 08-22），否则取 Alpaca（卡内显示"实时"）</div>
+                <div class="src-detail">自动模式各行情源（行情时段均按美东时区，自动区分夏/冬令时）：<br>
+                    <b>① 资产页面</b><br>
+                    · 基金净值：腾讯基金行情（qt.gtimg.cn）+ 东方财富 pingzhongdata（历史净值 / 季报持仓 / 盘中估值）<br>
+                    · 美股、ETF：腾讯财经实时价；同时请求 Alpaca 作为对照与兜底<br>
+                    · 期权：Alpaca 实时价优先；按录入新鲜度判定回落盈透 markPrice 快照——时间栏显示快照日期（如 08-22），走 Alpaca 则显示“实时”<br>
+                    · 汇率：open.er-api，一次请求同时取 USD/CNY 与 USD/HKD，末尾为该数据的更新日期（非当天实时）<br>
+                    · 现金、挂单：手工录入，不联网<br>
+                    <b>② 市场行情</b><br>
+                    · 美股、ETF：盘中（9:30–16:00）走腾讯财经；盘前 / 盘后 / 夜盘 / 周末走 Bybit 指数价；两者都取不到才回退 Alpaca<br>
+                    · 加密、大宗（BTC / XAU / CL 等）：Bybit 永续合约，涨跌幅取 24 小时变动<br>
+                    · 基金持仓明细：A股、港股普通走腾讯；港 / 日 / 韩股走东方财富历史 K 线（按目标日取值）<br>
+                    · 行名后的徽标即该行实际数据源：BYB / QT / ALP / 盈透 / 东方<br>
+                    <b>③ 市场预测覆盖层</b><br>
+                    · 基金行：按成分股当日涨跌加权推算，徽标取成分股中用得最多的那个源；净值已披露到当日则不预测，画杠（—）<br>
+                    · 美股、ETF 行：现价与涨跌幅沿用「市场行情」口径，只把市值 / 盈亏换成持仓口径<br>
+                    · 期权行：现价与涨跌幅取正股口径（Bybit → Alpaca → 腾讯），徽标按合约真实来源标注 ALP 或盈透</div>
             </div>
             <div class="setting-row" id="setIconBrowserBtn">
                 <div class="label"><span class="li-ic">🎨</span>图标浏览</div><span class="arrow">›</span>
@@ -3674,7 +3688,7 @@
                     <div class="value" id="fundInvestVal">¥483,199.29</div>
                 </div>
                 <div class="setting-row" id="usInvestSetRow" style="cursor:default;">
-                    <div class="label"><span class="li-ic">🇺🇸</span>美股总投入</div>
+                    <div class="label">美股总投入</div>
                     <div class="value" id="usInvestVal">¥167,600.00</div>
                 </div>
                 <div class="setting-row">
@@ -3687,7 +3701,7 @@
                 </div>
                 <div class="setting-row">
                     <div class="label"><span class="li-ic">💱</span>美元港币汇率</div>
-                    <div class="value" id="fxHkdVal">1$≈HK$7.8000 <span style="color:#1aa84b;font-weight:600;">实时</span></div>
+                    <div class="value" id="fxHkdVal">1$≈HK$7.8000 <span style="color:#1aa84b;font-weight:600;">2026-08-14</span></div>
                 </div>
             </div>
         </div>
@@ -3908,12 +3922,11 @@
                                                         <div class="tbl-scroll">
                                                             <table>
                                                                 <colgroup>
-                                                                    <col style="width:22%">
-                                                                    <col style="width:10%">
-                                                                    <col style="width:11%">
-                                                                    <col style="width:11%">
+                                                                    <col style="width:26%">
+                                                                    <col style="width:12%">
                                                                     <col style="width:13%">
-                                                                    <col style="width:33%">
+                                                                    <col style="width:13%">
+                                                                    <col style="width:36%">
                                                                 </colgroup>
                                                                 <thead>
                                                                     <tr>
@@ -3921,7 +3934,6 @@
                                                                         <th class="sortable sorted" data-sort="mv">市值<span class="sort-ind">▼</span></th>
                                                                         <th class="sortable" data-sort="pnl">浮动<span class="sort-ind">⇅</span></th>
                                                                         <th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th>
-                                                                        <th class="sortable" data-sort="time">时间<span class="sort-ind">⇅</span></th>
                                                                         <th class="op-center">操作</th>
                                                                     </tr>
                                                                 </thead>
@@ -3939,13 +3951,12 @@
                                                 <div class="tbl-scroll">
                                                     <table>
                                                         <colgroup>
-                                                            <col style="width:18%">
+                                                            <col style="width:20%">
+                                                            <col style="width:14%">
+                                                            <col style="width:14%">
                                                             <col style="width:12%">
-                                                            <col style="width:12%">
-                                                            <col style="width:11%">
-                                                            <col style="width:12%">
-                                                            <col style="width:13%">
-                                                            <col style="width:22%">
+                                                            <col style="width:14%">
+                                                            <col style="width:26%">
                                                         </colgroup>
                                                         <thead>
                                                             <tr>
@@ -3954,7 +3965,6 @@
                                                                 <th class="sortable" data-sort="pnl">浮动<span class="sort-ind">⇅</span></th>
                                                                 <th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th>
                                                                 <th class="sortable" data-sort="usd">现/均价<span class="sort-ind">⇅</span></th>
-                                                                <th class="sortable" data-sort="time">时间<span class="sort-ind">⇅</span></th>
                                                                 <th>操作</th>
                                                             </tr>
                                                         </thead>
@@ -6798,10 +6808,14 @@
                                                         var a = calcCashAmount(c);
                                                         cashVal += c.currency === "usd" ? a * fx : a
                                                     });
-                                                    const fundDayPnl = funds.reduce((s, f) => s + (f._dayPnl || 0), 0);
+                                                    // 基金卡片「当日」以各基金最新更新日期为基准：仅更新到该最新日的基金才计入当日盈亏
+                                                    const fundDayTimes = funds.map(f => f._dayTime).filter(t => t && /^\d{4}-\d{2}-\d{2}$/.test(t));
+                                                    const fundLatestDay = fundDayTimes.length ? fundDayTimes.reduce((a, b) => b > a ? b : a) : null;
+                                                    const fundDayPnl = funds.reduce((s, f) => (fundLatestDay && f._dayTime === fundLatestDay) ? s + (f._dayPnl || 0) : s, 0);
+                                                    const fundDayPrev = funds.reduce((s, f) => (fundLatestDay && f._dayTime === fundLatestDay) ? s + (f._dayPrevVal || 0) : s, 0);
                                                     const usDayPnl = us.reduce((s, u) => s + (u._dayPnl || 0), 0);
-                                                    const fundHasData = targetFundPrevVal > 0;
-                                                    let fTime = fundHasData ? fundTargetDate : "—";
+                                                    const fundHasData = fundDayPrev > 0;
+                                                    let fTime = fundLatestDay || "\u2014";
                                                     let uTime = "实时";
                                                     const dayPnlSum = targetFundDayPnl + usDayPnl;
                                                     const dayPrevSum = targetFundPrevVal + usPrevVal;
@@ -6819,7 +6833,7 @@
                                                         pnl: fundVal - fundCost + (usVal - usCost),
                                                         fundDayPnl: fundDayPnl,
                                                         usDayPnl: usDayPnl,
-                                                        fundDayRet: fundPrevVal > 0 ? fundDayPnl / fundPrevVal : null,
+                                                        fundDayRet: fundDayPrev > 0 ? fundDayPnl / fundDayPrev : null,
                                                         usDayRet: usPrevVal > 0 ? usDayPnl / usPrevVal : null,
                                                         dayPnl: dayPnlSum,
                                                         dayRet: dayRetVal,
@@ -8285,7 +8299,7 @@
                                                             var predSubTxt = predPct == null ? "—" : predPct.toFixed(2) + "%";
                                                             var realizedTxt = fst.realizedPnl !== 0 ? (fst.realizedPnl >= 0 ? "+" : "") + fmt0(fst.realizedPnl) : "—";
                                                             var realizedCls = fst.realizedPnl > 0 ? "up" : fst.realizedPnl < 0 ? "down" : "";
-                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(f.icon) + "<span>" + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + "</span> ▸</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="time-cell"><span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '">' + esc(ymdShort(f._dayTime) || "—") + "</span></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="6"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>已实现收益</b> <span class="' + realizedCls + '">' + realizedTxt + "</span></span><span><b>总交易</b> " + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
+                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(f.icon) + "<span>" + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> ▸</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>已实现收益</b> <span class="' + realizedCls + '">' + realizedTxt + "</span></span><span><b>总交易</b> " + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
                                                         }).join("")
                                                     }
                                                     const tu = $("tbUs");
@@ -8322,7 +8336,7 @@
                                                             var usSrcTxt = u._dayPredictSource === "bybit" ? "Bybit·预测" : usAlpPriceTxt;
                                                             var _optMode = isOptionSymbol(u.symbol) ? optionAlpacaMode(u) : null;
                                                             var _isIbkr = _optMode === "ibkr";
-                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ▸</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td class="time-cell">${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}">${esc(ymdShort(u._dayTime)||"—")}</span>`}</td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="7"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
+                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">${itemIconHtml(u.icon)}<span>${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc(uSym)}</span> ${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="行情时间">${esc(ymdShort(u._dayTime)||"—")}</span>`} ▸</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
                                                         }).join("")
                                                     }
                                                     var tc = $("tbCash");
@@ -10521,13 +10535,20 @@
                                                 }
 
                                                 // 美元港币汇率：只读展示，复用实时源(fxHkdLive)，刷新时同步到 #fxHkdVal
+                                                // 后缀与美元人民币汇率同口径：成功显示数据日期，失败显示红色「失败」，未取到显示「—」
                                                 window.__renderFxHkd = function() {
                                                     const el = document.getElementById("fxHkdVal");
                                                     if (!el) return;
+                                                    if (fxLastOk === false) {
+                                                        el.innerHTML = '<span style="color:#e23b3b;font-weight:600;">失败</span>';
+                                                        el.style.color = "";
+                                                        return;
+                                                    }
                                                     const v = effHkd();
                                                     let html = "1$≈HK$" + (!isNaN(v) ? Number(v).toFixed(4) : "—");
-                                                    html += ' <span style="color:#1aa84b;font-weight:600;">实时</span>';
+                                                    if (fxLastDate) html += ' <span style="color:#1aa84b;font-weight:600;">' + fxLastDate + "</span>";
                                                     el.innerHTML = html;
+                                                    el.style.color = ""
                                                 };
                                                 window.__renderFxHkd();
 
@@ -10547,7 +10568,9 @@
                                                         el.textContent = "—";
                                                         el.style.color = ""
                                                     }
-                                                    renderFxStatus()
+                                                    renderFxStatus();
+                                                    // 日期/状态变化时同步刷新港币行，保持两行口径一致
+                                                    if (typeof window.__renderFxHkd === "function") window.__renderFxHkd()
                                                 }
 
                                                 function renderBasicData(cur) {
@@ -12998,6 +13021,16 @@
                                                 }
                                                 #setSrcBtn:not(.collapsed) .src-detail {
                                                     display: block;
+                                                }
+                                                /* 数据源说明里的三个模块小标题 */
+                                                #setSrcBtn .src-detail b {
+                                                    display: block;
+                                                    color: #5b6678;
+                                                    font-weight: 600;
+                                                    margin-top: 6px;
+                                                }
+                                                #setSrcBtn .src-detail b:first-of-type {
+                                                    margin-top: 2px;
                                                 }
                                                 #setSrcBtn .arrow {
                                                     transition: transform .15s ease;
