@@ -1097,6 +1097,13 @@
             margin-bottom: 10px;
         }
 
+        /* 操作 / 添加 按钮成组右对齐，操作紧邻添加到按钮 */
+        .pane-head .ph-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         .pending-filter-pop {
             display: none;
             flex-direction: column;
@@ -1990,9 +1997,14 @@
             margin-bottom: 6px;
         }
 
+        .us-trade-detail .trade-table {
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
         .us-trade-detail .trade-table th,
         .us-trade-detail .trade-table td {
-            padding: 6px 8px;
+            padding: 4px 6px;
             text-align: right;
             border-bottom: 1px solid #eef1f6;
         }
@@ -2000,13 +2012,23 @@
         .us-trade-detail .trade-table th:first-child,
         .us-trade-detail .trade-table td:first-child {
             text-align: left;
+            white-space: nowrap;
         }
+
+        /* 交易明细「数量」列：买入标绿、卖出标红，跟随设置页「涨绿跌红/涨红跌绿」切换 */
+        .us-trade-detail .trade-table td.qty-buy { color: var(--up); }
+        .us-trade-detail .trade-table td.qty-sell { color: var(--down); }
 
         .us-trade-detail .trade-table th {
             color: var(--text);
             font-weight: 500;
-            font-size: 11px;
+            font-size: 10px;
             background: #fbfcfe;
+        }
+
+        .us-trade-detail .trade-table .btn-trade-sm {
+            padding: 3px 8px;
+            font-size: 11px;
         }
 
         .us-trade-detail .trade-table td:last-child {
@@ -2259,7 +2281,6 @@
         }
 
         /* 基金/美股：操作列抽离为独立「操作」按钮切换（默认数据视图隐藏操作列，操作模式仅显操作列） */
-        .btn-ops-toggle.active { background: var(--brand); color: #fff; border-color: var(--brand); }
         .tbl-scroll>table { width: 100%; }
         /* 基金/美股：解除表格自动最小尺寸(=min-content)的撑开，允许收缩到容器宽度，
            否则 nowrap 内容会把表格顶到 min-content（手机上实测 760px，是现金表的两倍） */
@@ -2359,16 +2380,16 @@
         #pane-fund .tbl-scroll>table th, #pane-us .tbl-scroll>table th,
         #pane-fund .tbl-scroll>table tr.us-row-toggle>td,
         #pane-us .tbl-scroll>table tr.us-row-toggle>td { padding-left: 5px; padding-right: 5px; }
-        /* 数字列字号收小一档（主值 11px、副值 10px），保证名称列加宽后数字仍完整显示 */
+        /* 数字列字号与现金持仓对齐（主值 13px、副值 11px），不额外缩小 */
         #pane-fund .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-main,
-        #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-main { font-size: 11px; }
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-main { font-size: 13px; }
         #pane-fund .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-sub,
-        #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-sub { font-size: 10px; }
-        /* 表头同步收小：字号 10.5px、排序箭头 9px，避免窄列表头被截成「现/…」 */
+        #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-sub { font-size: 11px; }
+        /* 表头字号与现金对齐（12px）、居中对齐，排序箭头 10px */
         #pane-fund .tbl-scroll>table thead th,
-        #pane-us .tbl-scroll>table thead th { font-size: 10px; padding-left: 3px; padding-right: 3px; }
+        #pane-us .tbl-scroll>table thead th { font-size: 12px; text-align: center; padding-left: 3px; padding-right: 3px; }
         #pane-fund .tbl-scroll>table thead th .sort-ind,
-        #pane-us .tbl-scroll>table thead th .sort-ind { font-size: 9px; margin-left: 1px; }
+        #pane-us .tbl-scroll>table thead th .sort-ind { font-size: 10px; margin-left: 1px; }
 
 
         .tbl-scroll>table>thead>tr>th:nth-child(6),
@@ -4046,8 +4067,10 @@
                                                     <section class="tabpane" id="pane-fund" style="display: none;" data-ops="off">
                                                         <div class="pane-head">
                                                             <strong style="font-size:14px;">基金持仓（人民币）</strong>
-                                                            <button class="ghost sm btn-ops-toggle" data-ops-toggle="fund">操作</button>
+                                                            <span class="ph-actions">
+                                                            <button class="primary sm btn-ops-toggle" data-ops-toggle="fund">操作</button>
                                                             <button class="primary sm" data-add="fund">+ 添加基金</button>
+                                                            </span>
                                                         </div>
                                                         <div class="tbl-scroll">
                                                             <table>
@@ -4073,12 +4096,13 @@
                                             </section>
 
                                             <section class="tabpane" id="pane-us" style="display: none;" data-ops="off">
-                                                <div class="pane-head">
-                                                    <strong style="font-size:14px;">美股持仓（美元换算人民币）</strong>
-
-                                                    <button class="ghost sm btn-ops-toggle" data-ops-toggle="us">操作</button>
-                                                    <button class="primary sm" data-add="us">+ 添加美股</button>
-                                                </div>
+                                                    <div class="pane-head">
+                                                        <strong style="font-size:14px;">美股持仓（美元换算人民币）</strong>
+                                                        <span class="ph-actions">
+                                                        <button class="primary sm btn-ops-toggle" data-ops-toggle="us">操作</button>
+                                                        <button class="primary sm" data-add="us">+ 添加美股</button>
+                                                        </span>
+                                                    </div>
                                                 <div class="tbl-scroll">
                                                     <table>
                                                         <colgroup>
@@ -4094,9 +4118,9 @@
                                                                 <th class="sortable" data-sort="name">名称/代码<span class="sort-ind">⇅</span></th>
                                                                 <th class="sortable sorted" data-sort="mv">市值(¥)<span class="sort-ind">▼</span></th>
                                                                 <th class="sortable" data-sort="pnl">浮动<span class="sort-ind">⇅</span></th>
-                                                                <th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th>
-                                                                <th class="sortable" data-sort="usd">现/均价<span class="sort-ind">⇅</span></th>
-                                                                <th>操作</th>
+                                                            <th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th>
+                                                            <th class="sortable" data-sort="usd">现/均价<span class="sort-ind">⇅</span></th>
+                                                            <th>操作</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody id="tbUs"></tbody>
@@ -5339,7 +5363,7 @@
                                                 function ymdShort(s) {
                                                     if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
                                                     var p = s.split("-");
-                                                    return p[1] + "-" + p[2]
+                                                    return p[1] + p[2]
                                                 }
 
                                                 function ymdCompact(s) {
@@ -8447,7 +8471,7 @@
                                                             var predSubTxt = predPct == null ? "—" : predPct.toFixed(2) + "%";
                                                             var realizedTxt = fst.realizedPnl !== 0 ? (fst.realizedPnl >= 0 ? "+" : "") + fmt0(fst.realizedPnl) : "—";
                                                             var realizedCls = fst.realizedPnl > 0 ? "up" : fst.realizedPnl < 0 ? "down" : "";
-                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>已实现收益</b> <span class="' + realizedCls + '">' + realizedTxt + "</span></span><span><b>总交易</b> " + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
+                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>总交易</b> ' + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
                                                         }).join("")
                                                     }
                                                     const tu = $("tbUs");
@@ -8484,7 +8508,7 @@
                                                             var usSrcTxt = u._dayPredictSource === "bybit" ? "Bybit·预测" : usAlpPriceTxt;
                                                             var _optMode = isOptionSymbol(u.symbol) ? optionAlpacaMode(u) : null;
                                                             var _isIbkr = _optMode === "ibkr";
-                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main">${itemIconHtml(u.icon)}<span class="nm-text" style="font-size:${nmFs(uName)}px">${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc((uSym||'').split(' ')[0])}</span> ${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="行情时间">${esc(ymdShort(u._dayTime)||"—")}</span>`} &gt;</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>已实现收益</b> <span class="${realizedCls}">${realizedTxt}</span></span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button><button class="sm" data-trade-dividend="${u.id}">+ 分红</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
+                                                            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main">${itemIconHtml(u.icon)}<span class="nm-text" style="font-size:${nmFs(uName)}px">${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc((uSym||'').split(' ')[0])}</span> ${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="行情时间">${esc(ymdShort(u._dayTime)||"—")}</span>`} &gt;</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
                                                         }).join("")
                                                     }
                                                     var tc = $("tbCash");
@@ -8688,9 +8712,8 @@
                                                         return a.date < b.date ? -1 : a.date > a.date ? 1 : 0
                                                     });
                                                     if (!trades.length) return '<div class="empty">暂无交易记录</div>';
-                                                    var html = '<table class="trade-table"><thead><tr><th>日期</th><th>类型</th><th>价格($)</th><th>数量</th><th>金额($)</th><th></th></tr></thead><tbody>';
+                                                    var html = '<table class="trade-table"><thead><tr><th>日期</th><th>价格($)</th><th>数量</th><th></th></tr></thead><tbody>';
                                                     trades.forEach(function(t, i) {
-                                                        var typeTag = t.type === "buy" ? '<span class="tag ok">买入</span>' : t.type === "sell" ? '<span class="tag err">卖出</span>' : '<span class="tag div">分红</span>';
                                                         var priceTd, amtTd, qty, amt;
                                                         if (t.type === "dividend") {
                                                             priceTd = '<span class="sub2">—</span>';
@@ -8703,9 +8726,11 @@
                                                             amt = t.shares * usUnitMult(u) * t.price;
                                                             amtTd = "$" + Number(amt).toFixed(2)
                                                         }
-                                                        var editTag = t.type === "dividend" ? "data-dividend-edit" : "data-trade-edit";
+                                                        // 买入标绿、卖出标红，颜色随设置页「涨绿跌红 / 涨红跌绿」切换（buy=涨、sell=跌）
+                                                        var qtyCls = t.type === "buy" ? "qty-buy" : (t.type === "sell" ? "qty-sell" : "");
                                                         var delTag = t.type === "dividend" ? "data-dividend-del" : "data-trade-del";
-                                                        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + typeTag + "</td><td>" + priceTd + "</td><td>" + qty + "</td><td>" + amtTd + "</td>" + '<td><button class="btn-trade-sm" ' + editTag + '="' + u.id + '" data-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" ' + delTag + '="' + u.id + '" data-trade-idx="' + i + '">删</button></td></tr>'
+                                                        var editTag = t.type === "dividend" ? "data-dividend-edit" : "data-trade-edit";
+                                                        html += "<tr><td>" + esc(ymdCompact(t.date) || "") + "</td><td>" + priceTd + "</td><td class=\"" + qtyCls + "\">" + qty + "</td>" + '<td><button class="btn-trade-sm" ' + editTag + '="' + u.id + '" data-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" ' + delTag + '="' + u.id + '" data-trade-idx="' + i + '">删</button></td></tr>'
                                                     });
                                                     html += "</tbody></table>";
                                                     return html
@@ -8728,11 +8753,11 @@
                                                         return a.date < b.date ? -1 : a.date > b.date ? 1 : 0
                                                     });
                                                     if (!trades.length) return '<div class="empty">暂无交易记录</div>';
-                                                    var html = '<table class="trade-table"><thead><tr><th>日期</th><th>类型</th><th>净值</th><th>数量(份)</th><th>金额</th><th></th></tr></thead><tbody>';
+                                                    var html = '<table class="trade-table"><thead><tr><th>日期</th><th>净值</th><th>数量(份)</th><th></th></tr></thead><tbody>';
                                                     trades.forEach(function(t, i) {
-                                                        var typeTag = t.type === "buy" ? '<span class="tag ok">买入</span>' : '<span class="tag err">卖出</span>';
                                                         var amt = t.shares * t.price;
-                                                        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + typeTag + "</td><td>" + fmt0(t.price) + "</td><td>" + Number(t.shares).toFixed(2) + "</td><td>" + fmt0(amt) + "</td>" + '<td><button class="btn-trade-sm" data-fund-trade-edit="' + f.id + '" data-fund-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-fund-trade-del="' + f.id + '" data-fund-trade-idx="' + i + '">删</button></td></tr>'
+                                                        var qtyCls = t.type === "buy" ? "qty-buy" : (t.type === "sell" ? "qty-sell" : "");
+                                                        html += "<tr><td>" + esc(ymdCompact(t.date) || "") + "</td><td>" + fmt0(t.price) + "</td><td class=\"" + qtyCls + "\">" + Number(t.shares).toFixed(2) + "</td>" + '<td><button class="btn-trade-sm" data-fund-trade-edit="' + f.id + '" data-fund-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-fund-trade-del="' + f.id + '" data-fund-trade-idx="' + i + '">删</button></td></tr>'
                                                     });
                                                     html += "</tbody></table>";
                                                     return html
