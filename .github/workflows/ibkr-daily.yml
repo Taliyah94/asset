@@ -2,10 +2,9 @@ name: IBKR 每日资产同步
 
 on:
   schedule:
-    # 北京时间 12:10 / 14:10 两次触发
-    # （UTC 04:10 / 06:10，中国 UTC+8 无夏令时）
-    - cron: "10 4 * * *"   # 北京 12:10
-    - cron: "10 6 * * *"   # 北京 14:10
+    # 每天 UTC 05:10 跑一次（北京时间 13:10）
+    # cron 固定按 UTC 执行，无时区概念，不再绑定美东时区，无需随夏令时/冬令时切换。
+    - cron: "10 5 * * *"   # UTC 05:10 = 北京时间 13:10
   workflow_dispatch:
     inputs:
       force:
@@ -23,13 +22,13 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    # 单次运行轻量：1 次查询 +（失败则 30s 后重试 1 次）；留 1 分钟余量足够
-    timeout-minutes: 1
+    # 单次轻量：每个阶段最多 2 次尝试（首次 + 退避 20s 重试 1 次），最坏约 1 分钟。
+    # 给 5 分钟余量，足以覆盖 IBKR 接口抖动与 Actions 自身调度延迟。
+    timeout-minutes: 5
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
         with:
-          # 用仓库默认 token 提交，避免 PAT 额外配置
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 设置 Python
@@ -37,19 +36,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: 运行 IBKR 1day 解析脚本（失败重试 1 次）
+      - name: 运行 IBKR 1day 解析脚本
         env:
           IBKR_TOKEN: ${{ secrets.IBKR_TOKEN }}
           IBKR_QUERY_ID_1DAY: ${{ secrets.IBKR_QUERY_ID_1DAY }}
           JSON_PATH: ${{ github.workspace }}/Asset_parsed.json
           FORCE_ARG: ${{ github.event.inputs.force == 'true' && '--force' || '' }}
         run: |
-          if python parse_ibkr_asset1day.py $FORCE_ARG; then
-            echo "IBKR 同步成功"
-          else
-            echo "首次运行失败，30 秒后重试 1 次..."
-            sleep 30
-            python parse_ibkr_asset1day.py $FORCE_ARG
+          set -o pipefail
+          OUT=$(python parse_ibkr_asset1day.py $FORCE_ARG 2>&1); RC=$?
+          echo "$OUT"
+          if [ $RC -ne 0 ]; then
+            echo "::error::脚本报错（退出码 $RC）"
+            exit $RC
+          fi
+          if echo "$OUT" | grep -q "\[ok\] 同步成功"; then
+            echo "✅ 本次已写入数据"
+          elif echo "$OUT" | grep -q "\[skip\] 今日"; then
+            echo "ℹ️ 今日已同步过，跳过（正常）"
+          elif echo "$OUT" | grep -q "\[warn\] 拉取失败"; then
+            echo "::warning::IBKR 报表未就绪，本次未写入（次日 05:10 UTC 再试）"
           fi
 
       - name: 提交并推送更新后的 JSON
