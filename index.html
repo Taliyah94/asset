@@ -2687,24 +2687,17 @@
         .news-tabs button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
         .news-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 2px 10px; }
         .news-bar label { display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
-        .news-bar .kwlink { color: var(--brand); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
         .news-list { display: flex; flex-direction: column; gap: 8px; }
         .news-item { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-        .news-item.hit { border-left: 3px solid #f0b429; }
         .news-item .ni-t { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
         .news-item .ni-t a { background: #eef2f7; color: #5f6b7a; border-radius: 4px; padding: 0 5px; font-size: 11px; text-decoration: none; }
         .news-item .ni-h { font-weight: 600; margin: 5px 0 3px; font-size: 15px; line-height: 1.45; color: var(--text); }
         .news-item .ni-c { font-size: 13.5px; color: #3c4043; line-height: 1.62; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .news-item .ni-c.open { -webkit-line-clamp: unset; }
         .news-item .ni-more { font-size: 12px; color: var(--brand); cursor: pointer; margin-top: 4px; display: inline-block; }
-        .news-item mark { background: #fff3cd; color: #7a4b00; border-radius: 3px; padding: 0 2px; font-weight: 600; }
         .news-empty, .news-err { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
         .news-err { color: var(--down); }
         .news-foot { text-align: center; color: var(--muted); font-size: 11px; padding: 14px 0 4px; }
-        .news-kwbox { margin: 8px 2px 0; padding: 8px 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; color: var(--muted); display: none; line-height: 1.9; }
-        .news-kwbox.open { display: block; }
-        .news-kwbox b { color: var(--text); font-weight: 600; }
-        .news-kwbox span { display: inline-block; background: #eef2f7; border-radius: 4px; padding: 1px 6px; margin: 0 4px 4px 0; color: #5f6b7a; }
         @media (max-width: 420px) {
             .news-item .ni-h { font-size: 14.5px; }
             .news-body { padding: 8px 10px 24px; }
@@ -2982,10 +2975,7 @@
                 <div class="news-bar">
                     <span id="newsStat">加载中…</span>
                     <label><input type="checkbox" id="newsAuto" checked> 自动刷新(60s)</label>
-                    <label><input type="checkbox" id="newsOnlyHit"> 只看持仓相关</label>
-                    <span class="kwlink" id="newsKwLink">关键词</span>
                 </div>
-                <div class="news-kwbox" id="newsKwBox"></div>
             </div>
             <div class="news-body">
                 <div class="news-list" id="newsList"><div class="news-empty">加载中…</div></div>
@@ -8504,7 +8494,7 @@
                                                         }) + "</td>" + "</tr>"
                                                     }).join("");
                                                     renderPendingPager(pendingPages, pendingPage)
-                                                    fitNumCells();
+                                                    if (window.fitNumCells) window.fitNumCells();
                                                 }
 
                                                 function renderPendingPager(pages, cur) {
@@ -8573,7 +8563,7 @@
                                                             var predSubTxt = predPct == null ? "—" : predPct.toFixed(2) + "%";
                                                             var realizedTxt = fst.realizedPnl !== 0 ? (fst.realizedPnl >= 0 ? "+" : "") + fmt0(fst.realizedPnl) : "—";
                                                             var realizedCls = fst.realizedPnl > 0 ? "up" : fst.realizedPnl < 0 ? "down" : "";
-                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + "<td>" + (mv != null ? fmt0(mv) : "—") + "</td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>总交易</b> ' + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
+                                                            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + '<td><div class="cell-main">' + (mv != null ? fmt0(mv) : "—") + '</div><div class="cell-sub">' + holdSh.toFixed(2) + " 份</div></td>" + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>总交易</b> ' + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
                                                         }).join("")
                                                     }
                                                     const tu = $("tbUs");
@@ -8648,7 +8638,8 @@
                                                             return '<tr class="us-row-toggle" data-cash-row="' + c.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(c.icon) + "<span>" + esc(c.note || c.id) + '</span></div></td>' + '<td class="' + amtCls + '">' + amtHtml + "</td>" + '<td><button class="sm" data-edit="cash" data-id="' + c.id + '">编辑</button>' + '<button class="sm danger" data-del="cash" data-id="' + c.id + '">删</button></td></tr>' + '<tr class="us-trade-detail hidden" id="cash-detail-' + c.id + '"><td colspan="3"><div class="trade-inner">' + '<div class="trade-stats cash-stats"><span><b>收</b> ' + fmt0(isUsd ? totalIn * fx : totalIn) + "</span><span><b>支</b> " + fmt0(isUsd ? totalOut * fx : totalOut) + "</span><span><b>净</b> " + fmt0(amt >= 0 ? amt : -amt) + "</span><span><b>笔数</b> " + txs.length + "</span></div>" + '<div class="trade-actions"><button class="sm primary" data-cash-trade-in="' + c.id + '">+ 收入</button><button class="sm danger" data-cash-trade-out="' + c.id + '">- 支出</button></div>' + renderCashTradeTable(c) + "</div></td></tr>"
                                                         }).join("")
                                                     }
-                                                    renderPending()
+                                                    renderPending();
+                                                    if (window.fitNumCells) window.fitNumCells();
                                                 }
 
                                                 function itemIconHtml(ic) {
@@ -11429,7 +11420,9 @@
                                                     document.querySelectorAll("#tabs button").forEach(x => x.classList.remove("active"));
                                                     b.classList.add("active");
                                                     document.querySelectorAll(".tabpane").forEach(p => p.style.display = "none");
-                                                    $("pane-" + b.dataset.tab).style.display = "block"
+                                                    $("pane-" + b.dataset.tab).style.display = "block";
+                                                    // tab 切换后当前 pane 才可见，此时重新收缩数字/日期
+                                                    if (window.fitNumCells) window.fitNumCells();
                                                 });
                                                 $("viewToggle").addEventListener("click", e => {
                                                     const b = e.target.closest("button");
@@ -12464,8 +12457,8 @@
                                                 }
 
                                                 /* ============ 市场页面（统一资产列表） ============ */
-                                                /* 市场页面整体改浅灰底，告别全白；面板透出灰底，列表行用白卡片突出 */
-                                                #pageMarket { background: #f1f3f5; padding-bottom: 80px; }
+                                                /* 市场页面背景与全局(body)一致：浅蓝渐变，告别灰色底 */
+                                                #pageMarket { background: var(--bg-grad); background-attachment: fixed; padding-bottom: 80px; }
                                                 #pageMarket .panel { background: transparent; border-color: transparent; box-shadow: none; padding: 16px; }
                                                 #pageMarket .u-row, #pageMarket .fund-row { background: #fff; }
                                                 #pageMarket .u-row:hover, #pageMarket .fund-row:hover { background: #fafafa; }
@@ -13696,8 +13689,8 @@
 
                                                 /* 数字/日期溢出收缩：持仓数字(cell-main/cell-sub)与挂单日期(cls-date)
                                                    显示不全(被 ellipsis 截断或撑出可用宽)时逐级缩小字号，下限 9px。
-                                                   挂载在统一列表渲染(renderUnifiedList)与挂单渲染(renderPending)末尾，
-                                                   同步与异步刷新均会触发。 */
+                                                   挂载在统一列表渲染(renderUnifiedList)、详情表格渲染(renderTables)与挂单渲染(renderPending)末尾，
+                                                   同步与异步刷新均会触发。挂到 window 便于控制台调试与外部调用。 */
                                                 function fitNumCells() {
                                                     var MIN_FS = 9;
                                                     var STEP = 0.5;
@@ -13722,6 +13715,7 @@
                                                         else el.style.whiteSpace = "nowrap";
                                                     });
                                                 }
+                                                window.fitNumCells = fitNumCells; // 便于控制台调试/外部调用
                                                     function renderUnifiedList() {
                                                         if (!window.__paLayoutSeeded) { ensureLayoutSeeded(); window.__paLayoutSeeded = true; }
                                                         var listEl = document.getElementById("unifiedList");
@@ -13765,7 +13759,7 @@
                                                         updateUnifiedHead();
                                                         applyMvpnlMode();
                                                         fitMarketNames();
-                                                        fitNumCells();
+                                                        if (window.fitNumCells) window.fitNumCells();
                                                     }
                                                     function updateUnifiedHead() {
                                                         var head = document.querySelector("#pageMarket .unified-head");
@@ -15712,99 +15706,11 @@
         var API = 'https://api-one-wscn.awtmt.com/apiv1/content/lives';
         var LIMIT = 50, REFRESH = 60000;
 
-        /* 代码 -> 常用中文说法（覆盖自选里的商品/指数与常见美股别名） */
-        var SYM_ALIAS = {
-            CL: '原油', OIL: '原油', XAU: '黄金', GOLD: '黄金', XAG: '白银',
-            BTC: '比特币', ETH: '以太坊', SOL: 'Solana',
-            NVDA: '英伟达', AAPL: '苹果', GOOGL: '谷歌', GOOG: '谷歌', MSFT: '微软',
-            AMZN: '亚马逊', AVGO: '博通', LLY: '礼来', MU: '美光', SNDK: '闪迪',
-            WDC: '西部数据', LRCX: '拉姆研究', AMAT: '应用材料', ASML: '阿斯麦',
-            AMD: '超威半导体', TSLA: '特斯拉', TSM: '台积电', ORCL: '甲骨文',
-            GLW: '康宁', INTC: '英特尔', QCOM: '高通', SMCI: '超微电脑',
-            META: 'Meta', NFLX: '奈飞', COST: '好市多', PLTR: 'Palantir',
-            KIOXIA: '铠侠', '285A': '铠侠', '000660': '海力士', '005930': '三星电子',
-            '300408': '三环集团', '02513': '智谱'
-        };
-        /* 固定关注的宏观/行业词 */
-        var MACRO = ['美联储', '降息', '加息', 'CPI', 'PPI', '非农', '关税', '存储芯片', 'HBM', '半导体', '晶圆', '光刻机', 'AI芯片'];
-
-        var WATCH = [];
-
-        var HAS_CN = /[\u4e00-\u9fa5]/;
-        /* 去掉公司后缀生成短词，便于命中「三环」「美光」这类简称 */
-        function addWord(set, out, w) {
-            w = String(w == null ? '' : w).trim();
-            if (!w || w.length < 2 || set[w]) return;
-            // 剔掉纯符号/数字（如 "-"、"100"），避免误高亮
-            if (!HAS_CN.test(w) && !/[A-Za-z]/.test(w)) return;
-            set[w] = 1; out.push(w);
-        }
-        function addWithBase(set, out, name) {
-            var s = String(name == null ? '' : name).trim();
-            if (!s) return;
-            if (HAS_CN.test(s)) {
-                // 中文名：先去 -A/-C 之类的份额后缀，再加全称与去后缀简称
-                var t = s.replace(/-[A-Z]$/, '');
-                addWord(set, out, t);
-                var base = t.replace(/(集团|科技|电子|半导体|股份|有限公司|公司|国际|控股|医药|生物)$/g, '').trim();
-                if (base.length >= 2) addWord(set, out, base);
-            } else {
-                // 英文名（如 "Lumentum Holdings Inc"）：取首段作为关键词，兼顾 "Lumentum" 这类原文提及
-                addWord(set, out, s.split(/\s+/)[0]);
-            }
-        }
-
-        function buildWatch() {
-            var set = {}, out = [];
-            // 1) 基金持仓（含 A股/港股/日股/韩股/美股中文名）
-            try {
-                var FH = (typeof FUND_HOLDINGS !== 'undefined' && FUND_HOLDINGS) ? FUND_HOLDINGS : (window.FUND_HOLDINGS || null);
-                if (FH) Object.keys(FH).forEach(function (code) {
-                    ((FH[code] && FH[code].items) || []).forEach(function (it) {
-                        addWithBase(set, out, it.n);
-                        if (SYM_ALIAS[it.c]) addWithBase(set, out, SYM_ALIAS[it.c]);
-                    });
-                });
-            } catch (e) {}
-            // 2) 美股/期权持仓
-            try {
-                var U = (typeof us !== 'undefined' && us) ? us : (window.__paUs || []);
-                (U || []).forEach(function (u) {
-                    addWithBase(set, out, u.name);
-                    var s = String(u.symbol || '').toUpperCase();
-                    if (SYM_ALIAS[s]) addWithBase(set, out, SYM_ALIAS[s]);
-                });
-            } catch (e) {}
-            // 3) 市场自选（商品/指数等）
-            try {
-                var syms = (typeof getMarketSymbols === 'function') ? getMarketSymbols() : [];
-                (syms || []).forEach(function (s) {
-                    var k = String(s || '').toUpperCase();
-                    if (SYM_ALIAS[k]) addWithBase(set, out, SYM_ALIAS[k]);
-                });
-            } catch (e) {}
-            // 4) 宏观/行业词
-            MACRO.forEach(function (w) { addWord(set, out, w); });
-            return out;
-        }
-
         /* ---------------- 工具 ---------------- */
         function esc(s) {
             return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
                 return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
             });
-        }
-        function hl(s) {
-            var t = esc(s);
-            WATCH.forEach(function (w) {
-                if (t.indexOf(w) >= 0) t = t.split(w).join('<mark>' + w + '</mark>');
-            });
-            return t;
-        }
-        function isHit(it) {
-            var t = (it.title || '') + (it.content_text || '');
-            for (var i = 0; i < WATCH.length; i++) if (t.indexOf(WATCH[i]) >= 0) return true;
-            return false;
         }
         function hhmm(ts) {
             var d = new Date(ts * 1000), p = function (n) { return String(n).padStart(2, '0'); };
@@ -15859,8 +15765,7 @@
         function render(items, srcName) {
             var listEl = document.getElementById('newsList');
             if (!listEl) return;
-            var onlyHit = (document.getElementById('newsOnlyHit') || {}).checked;
-            var rows = onlyHit ? items.filter(isHit) : items;
+            var rows = items;
             var srcEl = document.getElementById('newsSrc');
             var statEl = document.getElementById('newsStat');
             if (srcEl) srcEl.textContent = srcName;
@@ -15874,13 +15779,13 @@
                 var text = (it.content_text || '').trim();
                 var title = (it.title || '').trim();
                 var long = text.length > 90;
-                return '<div class="news-item' + (isHit(it) ? ' hit' : '') + '">'
+                return '<div class="news-item">'
                     + '<div class="ni-t"><span>' + hhmm(it.display_time) + '</span>'
                     + '<span>' + ago(it.display_time) + '</span>'
                     + (it.uri ? '<a href="' + esc(it.uri) + '" target="_blank" rel="noopener">原文</a>' : '')
                     + '</div>'
-                    + (title ? '<div class="ni-h">' + hl(title) + '</div>' : '')
-                    + '<div class="ni-c' + (long ? '' : ' open') + '">' + hl(text) + '</div>'
+                    + (title ? '<div class="ni-h">' + esc(title) + '</div>' : '')
+                    + '<div class="ni-c' + (long ? '' : ' open') + '">' + esc(text) + '</div>'
                     + (long ? '<span class="ni-more">展开</span>' : '')
                     + '</div>';
             }).join('');
@@ -15918,15 +15823,8 @@
 
         /* 首次切到快讯页时初始化关键词并拉数据；之后每次进入都刷新一次 */
         function onEnter() {
-            if (!WATCH.length) { WATCH = buildWatch(); renderKwBox(); }
             if (!loaded) { loaded = true; load(); }
             else load(true);
-        }
-        function renderKwBox() {
-            var box = document.getElementById('newsKwBox');
-            if (!box) return;
-            box.innerHTML = '<b>高亮关键词（' + WATCH.length + ' 个，自动取自持仓）</b><br>'
-                + WATCH.map(function (w) { return '<span>' + esc(w) + '</span>'; }).join('');
         }
 
         function init() {
@@ -15948,15 +15846,6 @@
                 });
                 tabs.appendChild(b);
             });
-
-            var onlyHit = document.getElementById('newsOnlyHit');
-            if (onlyHit) onlyHit.addEventListener('change', function () {
-                if (cache[cur]) render(cache[cur], '华尔街见闻');
-            });
-
-            var kwLink = document.getElementById('newsKwLink');
-            var kwBox = document.getElementById('newsKwBox');
-            if (kwLink && kwBox) kwLink.addEventListener('click', function () { kwBox.classList.toggle('open'); });
 
             var autoEl = document.getElementById('newsAuto');
             function setAuto(on) {
