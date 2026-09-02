@@ -2306,12 +2306,12 @@
         #pane-fund[data-ops="off"] col:nth-child(3){ width:20% !important; }
         #pane-fund[data-ops="off"] col:nth-child(4){ width:20% !important; }
         #pane-fund[data-ops="off"] col:nth-child(5){ width:0 !important; }
-        #pane-us[data-ops="off"] col:nth-child(1){ width:30% !important; }
-        #pane-us[data-ops="off"] col:nth-child(2){ width:18% !important; }
-        #pane-us[data-ops="off"] col:nth-child(3){ width:17% !important; }
-        #pane-us[data-ops="off"] col:nth-child(4){ width:15% !important; }
-        #pane-us[data-ops="off"] col:nth-child(5){ width:20% !important; }
-        #pane-us[data-ops="off"] col:nth-child(6){ width:0 !important; }
+                                                        #pane-us[data-ops="off"] col:nth-child(1){ width:30% !important; }
+                                                        #pane-us[data-ops="off"] col:nth-child(2){ width:21% !important; }
+                                                        #pane-us[data-ops="off"] col:nth-child(3){ width:17% !important; }
+                                                        #pane-us[data-ops="off"] col:nth-child(4){ width:15% !important; }
+                                                        #pane-us[data-ops="off"] col:nth-child(5){ width:17% !important; }
+                                                        #pane-us[data-ops="off"] col:nth-child(6){ width:0 !important; }
         /* 操作视图：仅显示操作列（100%），数据列隐藏 */
         #pane-fund[data-ops="on"] thead th:nth-child(2), #pane-fund[data-ops="on"] thead th:nth-child(3), #pane-fund[data-ops="on"] thead th:nth-child(4), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(4) { display: none; }
         #pane-fund[data-ops="on"] col:nth-child(1){ width:55% !important; }
@@ -2551,6 +2551,8 @@
             overflow-y: auto;
             overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
+            /* 预留底部空间，避免被底部悬浮导航栏遮挡最下面一行（与 .predict-overlay 一致） */
+            padding-bottom: 96px;
             display: none;
         }
 
@@ -2612,6 +2614,8 @@
             overflow-y: auto;
             overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
+            /* 预留底部空间，避免被底部悬浮导航栏（z-index 99999，约 84px 高）遮挡最下面一行 */
+            padding-bottom: 96px;
             display: none;
         }
         .predict-overlay.open { display: flex; flex-direction: column; align-items: center; }
@@ -4103,10 +4107,10 @@
                                                     <table>
                                                         <colgroup>
                                                             <col style="width:20%">
-                                                            <col style="width:14%">
+                                                            <col style="width:16%">
                                                             <col style="width:14%">
                                                             <col style="width:12%">
-                                                            <col style="width:14%">
+                                                            <col style="width:12%">
                                                             <col style="width:26%">
                                                         </colgroup>
                                                         <thead>
@@ -4115,7 +4119,7 @@
                                                                 <th class="sortable sorted" data-sort="mv">市值(¥)<span class="sort-ind">▼</span></th>
                                                                 <th class="sortable" data-sort="pnl">浮动<span class="sort-ind">⇅</span></th>
                                                             <th class="sortable" data-sort="dayPnl">当日<span class="sort-ind">⇅</span></th>
-                                                            <th class="sortable" data-sort="usd">现/均价<span class="sort-ind">⇅</span></th>
+                                                            <th class="sortable" data-sort="usd">单价<span class="sort-ind">⇅</span></th>
                                                             <th>操作</th>
                                                             </tr>
                                                         </thead>
@@ -5828,8 +5832,10 @@
                                                             resolve(out);
                                                             return
                                                         }
+                                                        // v1beta1 options snapshots 使用裸 OCC 符号（如 AAPL241220C00300000），不需要 O: 前缀
+                                                        // O: 前缀仅用于 v2 / MCP 期权 API；加在 v1beta1 上会导致 symbol 非法、返回空
                                                         var norm = symList.map(function(x) {
-                                                            return String(x).replace(/\s+/g, "").toUpperCase()
+                                                            return String(x).replace(/\s+/g, "").toUpperCase();
                                                         }).filter(Boolean);
                                                         if (!norm.length) {
                                                             resolve(out);
@@ -5877,6 +5883,64 @@
                                                             resolve(out)
                                                         })
                                                     })
+                                                }
+
+                                                // 免费档取真实(延迟≥15分钟)期权价：走历史 bars 接口，而非 latest/snapshot。
+                                                // 免费 Basic 档 snapshot/latest 只能给 indicative 假数据；bars 查 >15min 前的窗口返回真实 OPRA。
+                                                // 显式 end=now-16min：既满足免费档"无实时权限自动 clamp 到15分钟前"，也保证付费档只取延迟真值（用户明确只要延迟价）。
+                                                function fetchOptionBarsAlpaca(symList, cfg) {
+                                                    return new Promise(function(resolve) {
+                                                        var out = {};
+                                                        if (!symList || !symList.length) { resolve(out); return; }
+                                                        var norm = symList.map(function(x) {
+                                                            return String(x).replace(/\s+/g, "").toUpperCase();
+                                                        }).filter(Boolean);
+                                                        if (!norm.length) { resolve(out); return; }
+                                                        var hd = {
+                                                            "APCA-API-KEY-ID": cfg.keyId,
+                                                            "APCA-API-SECRET-KEY": cfg.secret,
+                                                            "Accept": "application/json"
+                                                        };
+                                                        var end = new Date(Date.now() - 16 * 60000).toISOString();
+                                                        var start = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+                                                        var url = "https://data.alpaca.markets/v1beta1/options/bars?symbols=" +
+                                                            norm.map(encodeURIComponent).join(",") +
+                                                            "&timeframe=1Min&start=" + encodeURIComponent(start) +
+                                                            "&end=" + encodeURIComponent(end) + "&limit=200&sort=desc";
+                                                        Promise.race([
+                                                            fetch(url, { headers: hd }),
+                                                            new Promise(function(_, rej) { setTimeout(function() { rej(new Error("timeout")); }, 8000); })
+                                                        ]).then(function(r) {
+                                                            if (!r.ok) return null;
+                                                            return r.json();
+                                                        }).then(function(js) {
+                                                            if (!js) { resolve(out); return; }
+                                                            // 兼容两种响应包裹：裸 REST 用 bars，alpaca-py SDK 用 data
+                                                            norm.forEach(function(sym, idx) {
+                                                                var raw = symList[idx];
+                                                                var arr = (js.bars && js.bars[sym]) || (js.data && js.data[sym]) || null;
+                                                                if (!arr || !arr.length) return;
+                                                                var best = null;
+                                                                arr.forEach(function(b) {
+                                                                    var t = b.t || b.timestamp;
+                                                                    if (t == null) return;
+                                                                    if (!best || t > best.t) best = b;
+                                                                });
+                                                                if (!best) return;
+                                                                var close = (best.c != null) ? best.c : (best.close != null ? best.close : null);
+                                                                if (close == null) return;
+                                                                out[raw] = {
+                                                                    price: close,
+                                                                    prevClose: null,
+                                                                    time: (best.t || best.timestamp || ""),
+                                                                    _bars: true
+                                                                };
+                                                            });
+                                                            resolve(out);
+                                                        }).catch(function() {
+                                                            resolve(out);
+                                                        });
+                                                    });
                                                 }
 
                                                 function optionAlpacaMode(arg) {
@@ -5979,11 +6043,32 @@
                                                         var liveOpts = optSyms.filter(function(x) {
                                                             return optionAlpacaMode(x) === "live"
                                                         });
-                                                        var closeOpts = optSyms.filter(function(x) {
-                                                            return optionAlpacaMode(x) === "close"
+                                                        // 盘外（含 ibkr 模式）统一取 bars 作兜底：保证「optBase B 非当日」时 pane-us 能回退到 Alpaca 真实收盘价
+                                                        var offOpts = optSyms.filter(function(x) {
+                                                            return optionAlpacaMode(x) !== "live"
                                                         });
-                                                        if (liveOpts.length) tasks.push(fetchOptionQuotesAlpaca(liveOpts, _ac));
-                                                        if (closeOpts.length) tasks.push(fetchOptionCloseCached(closeOpts, _ac))
+                                                        // 盘中期权现价改为走历史 bars（真实延迟≥15min）；个别取不到的再回退 snapshot（indicative 假数据兜底）
+                                                        if (liveOpts.length) tasks.push(fetchOptionBarsAlpaca(liveOpts, _ac).then(function(bars) {
+                                                            var missing = liveOpts.filter(function(s) { return !bars[s]; });
+                                                            if (missing.length) {
+                                                                return fetchOptionQuotesAlpaca(missing, _ac).then(function(snap) {
+                                                                    Object.keys(snap).forEach(function(k) { bars[k] = snap[k]; });
+                                                                    return bars;
+                                                                });
+                                                            }
+                                                            return bars;
+                                                        }));
+                                                        // 盘外期权：下方 pane-us 按 optBase B 是否当日决定 ibkr 或 bars；此处先把 bars(真实收盘价)取回，取不到再回退 snapshot(indicative 兜底)
+                                                        if (offOpts.length) tasks.push(fetchOptionBarsAlpaca(offOpts, _ac).then(function(bars) {
+                                                            var missing = offOpts.filter(function(s) { return !bars[s]; });
+                                                            if (missing.length) {
+                                                                return fetchOptionCloseCached(missing, _ac).then(function(snap) {
+                                                                    Object.keys(snap).forEach(function(k) { bars[k] = snap[k]; });
+                                                                    return bars;
+                                                                });
+                                                            }
+                                                            return bars;
+                                                        }));
                                                     }
                                                     if (!tasks.length) {
                                                         return Promise.resolve({})
@@ -7016,11 +7101,29 @@
                                                                 _optBase = _obPick.px;
                                                                 _optBaseStale = !!_obPick.stale
                                                             }
+                                                            // optBase 原始 A/B（用于「当日盈亏」判定与 ibkr 路径）
+                                                            var _obA = OPT_BASE.A && OPT_BASE.A.prices ? (OPT_BASE.A.prices[u.symbol] || OPT_BASE.A.prices[symUp]) : null;
+                                                            var _obB = OPT_BASE.B && OPT_BASE.B.prices ? (OPT_BASE.B.prices[u.symbol] || OPT_BASE.B.prices[symUp]) : null;
+                                                            _obA = (isFinite(Number(_obA)) && Number(_obA) > 0) ? Number(_obA) : null;
+                                                            _obB = (isFinite(Number(_obB)) && Number(_obB) > 0) ? Number(_obB) : null;
                                                             var _alp = (u._alpacaPrice != null && isFinite(Number(u._alpacaPrice)) && Number(u._alpacaPrice) > 0) ? Number(u._alpacaPrice) : null;
                                                             var _seed = (u.price != null && isFinite(Number(u.price)) && Number(u.price) > 0) ? Number(u.price) : null;
-                                                            if (_alp != null) _optPx = _alp;                                          // Alpaca 实时/收盘价优先
-                                                            else if (_optBase != null) { _optPx = _optBase; _optPxFromBase = true; }  // 回退 optBase 快照（与基准同源）
-                                                            else if (_seed != null) _optPx = _seed;                                   // 最后才用 seed 旧值
+                                                            var _inSess = (typeof isUsRegularSession === "function") ? isUsRegularSession() : true;
+                                                            // optBase B 是否「当日」（现价所属交易日 C）→ 盘外决定走 ibkr 还是 bars
+                                                            var _cYmd = (typeof usQuoteSessionYmd === "function") ? usQuoteSessionYmd() : null;
+                                                            var _obBAsOf = (OPT_BASE.B && OPT_BASE.B.asOf) ? String(OPT_BASE.B.asOf) : null;
+                                                            var _obBIsToday = !!(_obBAsOf && _cYmd && _obBAsOf === _cYmd);
+                                                            if (_inSess) {
+                                                                if (_alp != null) _optPx = _alp;                                          // 盘中期权现价 = Alpaca bars 真实延迟价
+                                                                else if (_obB != null) { _optPx = _obB; _optPxFromBase = true; }
+                                                                else if (_seed != null) _optPx = _seed;
+                                                            } else {
+                                                                // 盘外：optBase B 当日新鲜 → ibkr（现价=B，基准=A）；否则回退 Alpaca bars
+                                                                if (_obBIsToday && _obB != null) { _optPx = _obB; _optPxFromBase = true; }
+                                                                else if (_alp != null) _optPx = _alp;
+                                                                else if (_obB != null) { _optPx = _obB; _optPxFromBase = true; }
+                                                                else if (_seed != null) _optPx = _seed;
+                                                            }
                                                             if (_optPx != null) usd = _optPx;
                                                         }
                                                         usVal += holdSh * mult * usd * fx;
@@ -7041,16 +7144,24 @@
                                                         }
                                                         dTime = u._quoteTime && u._quoteTime !== "" ? "实时" : hist.length ? ymd(hist[hist.length - 1].t) : "—";
                                                         if (isOptionSymbol(u.symbol)) {
-                                                            // 现价来自 optBase 快照 → 与涨跌基准同源，涨跌恒为 0、无信息量，直接画杠
-                                                            // _optBaseStale → 没找到严格早于现价所属交易日的基准（报表滞后/老数据），涨跌失真，同样画杠
-                                                            if (_optPxFromBase || _optBaseStale || _optPx == null || !(_optBase > 0)) {
-                                                                dRet = null;
-                                                                dPnl = null
-                                                            } else {
+                                                            // 期权当日涨跌：
+                                                            //   盘中：Alpaca bars 现价 vs optBase 前收基准（严格 Alpaca）。
+                                                            //   盘外：optBase B 当日新鲜 → ibkr（B vs A）；否则 Alpaca bars vs optBase 前收基准。
+                                                            //   报表滞后(_optBaseStale) 或 A/B 无效/同源 → 画杠防失真。
+                                                            //   （_obA / _obB / _inSess 已在上方期权块提取）
+                                                            if (!_optPxFromBase && !_optBaseStale && _optPx != null && _optBase > 0) {
                                                                 dRet = (_optPx - _optBase) / _optBase;
                                                                 dPnl = holdSh * mult * (_optPx - _optBase) * fx;
                                                                 dPrev = holdSh * mult * _optBase * fx;
-                                                                usPrevVal += dPrev
+                                                                usPrevVal += dPrev;
+                                                            } else if (!_inSess && !_optBaseStale && _obA != null && _obB != null && _obA !== _obB) {
+                                                                dRet = (_obB - _obA) / _obA;
+                                                                dPnl = holdSh * mult * (_obB - _obA) * fx;
+                                                                dPrev = holdSh * mult * _obA * fx;
+                                                                usPrevVal += dPrev;
+                                                            } else {
+                                                                dRet = null;
+                                                                dPnl = null;
                                                             }
                                                         }
                                                         u._dayRet = dRet;
@@ -7587,12 +7698,16 @@
                                                                     applyStockQt(row, aggS[key].sym);
                                                                 });
                                                             });
-                                                            // 期权行：现价/涨跌幅已是正股的(市场行情口径)，徽标换成合约真实数据源(ALP / 盈透)
+                                                            // 期权行：价格/涨跌幅强制腾讯口径（与正股行一致，盘中 QT）；图标盘中 QT、盘外保留合约源(ALP / 盈透)
                                                             Object.keys(aggO).forEach(function(key){
                                                                 Array.prototype.forEach.call(container.querySelectorAll('.market-item-us[data-symbol="' + key + '"]'), function(row){
                                                                     if (!row.querySelector(".opt-code")) return; // 只作用于期权行
                                                                     applyRow(row, aggO[key]);
-                                                                    setPredictRowSrc(row, aggO[key].src || "alpaca");
+                                                                    var _oRoot = (aggO[key].sym || "").match(/^([A-Z]+)\d{6}[CP]\d{8}$/);
+                                                                    var _oSym = _oRoot ? _oRoot[1] : aggO[key].sym;
+                                                                    applyStockQt(row, _oSym); // 腾讯价/涨跌（腾讯无价则不动）
+                                                                    var _inSess = (typeof isUsRegularSession === "function") ? isUsRegularSession() : true;
+                                                                    setPredictRowSrc(row, _inSess ? "tencent" : (aggO[key].src || "alpaca"));
                                                                 });
                                                             });
                                                         }
@@ -9783,10 +9898,12 @@
                                                     nav.appendChild(nextBtn);
                                                     box.appendChild(nav);
                                                     /* 顶部月度盈亏汇总 */
-                                                    if (days.length >= 2) {
-                                                        const _f = days[0].total, _l = days[days.length - 1].total;
-                                                        const _mChg = _l - _f;
-                                                        const _mPct = _f > 0 ? _mChg / _f : null;
+                                                        if (days.length >= 2) {
+                                                            // 月度盈亏基准用上月末（如 9 月取 8-31 收盘），而非当月 1 号
+                                                            const _base = (days[0].prev != null) ? days[0].prev : days[0].total;
+                                                            const _l = days[days.length - 1].total;
+                                                            const _mChg = _l - _base;
+                                                            const _mPct = _base > 0 ? _mChg / _base : null;
                                                         const _sum = document.createElement("div");
                                                         _sum.className = "cal-summary";
                                                         const _v = document.createElement("div");
@@ -9840,10 +9957,11 @@
                                                         let mChg = 0,
                                                             mChgPct = null;
                                                         if (days.length >= 2) {
-                                                            const firstTotal = days[0].total,
-                                                                lastTotal = days[days.length - 1].total;
-                                                            mChg = lastTotal - firstTotal;
-                                                            if (firstTotal > 0) mChgPct = mChg / firstTotal
+                                                            // 月度盈亏基准用上月末（如 9 月取 8-31 收盘），而非当月 1 号
+                                                            const _base = (days[0].prev != null) ? days[0].prev : days[0].total;
+                                                            const lastTotal = days[days.length - 1].total;
+                                                            mChg = lastTotal - _base;
+                                                            if (_base > 0) mChgPct = mChg / _base
                                                         }
                                                         arr.push({
                                                             m: m,
@@ -9887,7 +10005,8 @@
                                                         const _firstMD = getMonthDays(y, 1);
                                                         let _yChg = 0;
                                                         arr.forEach(function(o) { _yChg += (o.chg || 0) });
-                                                        const _yStart = _firstMD.length ? _firstMD[0].total : 0;
+                                                        // 年度基准用上年末（12-31）收盘，与月度「上月末」口径一致（_yChg 已是各月「月末−上月末」累加=YTD）
+                                                        const _yStart = _firstMD.length ? (_firstMD[0].prev != null ? _firstMD[0].prev : _firstMD[0].total) : 0;
                                                         const _yPct = _yStart > 0 ? _yChg / _yStart : null;
                                                         const _sum = document.createElement("div");
                                                         _sum.className = "cal-summary";
@@ -10556,6 +10675,8 @@
                                                             u._ok = true;
                                                             if (isOptionSymbol(u.symbol)) {
                                                                 if (optionAlpacaMode(u) !== "ibkr") u._markDate = ymd(todayTs());
+                                                                // 盘中期权现价=bars 真实延迟价，写入 _alpacaPrice 使其优先于 optBase（满足"盘中取bar作为现价"）
+                                                                if (q.price != null) u._alpacaPrice = q.price;   // 期权现价(盘中=bars真实延迟 / 盘外=bars或optBase回退)走 _alpacaPrice，优先级由 pane-us 按 _obBIsToday 决定
                                                                 return
                                                             }
                                                             okU++;
@@ -10990,6 +11111,8 @@
                                                             u._ok = true;
                                                             if (isOptionSymbol(u.symbol)) {
                                                                 if (optionAlpacaMode(u) !== "ibkr") u._markDate = ymd(todayTs());
+                                                                // 盘中期权现价=bars 真实延迟价，写入 _alpacaPrice 使其优先于 optBase（满足"盘中取bar作为现价"）
+                                                                if (q.price != null) u._alpacaPrice = q.price;   // 期权现价(盘中=bars真实延迟 / 盘外=bars或optBase回退)走 _alpacaPrice，优先级由 pane-us 按 _obBIsToday 决定
                                                                 return
                                                             }
                                                             okU++;
@@ -11421,9 +11544,23 @@
                                                     b.classList.add("active");
                                                     document.querySelectorAll(".tabpane").forEach(p => p.style.display = "none");
                                                     $("pane-" + b.dataset.tab).style.display = "block";
-                                                    // tab 切换后当前 pane 才可见，此时重新收缩数字/日期
-                                                    if (window.fitNumCells) window.fitNumCells();
+                                                    // tab 切换后当前 pane 才可见，下一帧重新收缩数字/日期
+                                                    //（display 刚切完时布局未稳定，立即读 clientWidth 可能为 0）
+                                                    requestAnimationFrame(function() { if (window.fitNumCells) window.fitNumCells(); });
                                                 });
+                                                // 任意 tabpane 变为可见（打开即默认页 / 切到该页 / 从隐藏恢复）时，
+                                                // 下一帧重新收缩数字/日期。解决「隐藏时 clientWidth=0 测不到溢出、
+                                                // 必须切走再切回才生效」的问题——做到一打开就适配。
+                                                if (typeof IntersectionObserver !== "undefined" && !window.__paneObserver) {
+                                                    window.__paneObserver = new IntersectionObserver(function(entries) {
+                                                        entries.forEach(function(en) {
+                                                            if (en.isIntersecting) {
+                                                                requestAnimationFrame(function() { if (window.fitNumCells) window.fitNumCells(); });
+                                                            }
+                                                        });
+                                                    }, { threshold: 0.01 });
+                                                    document.querySelectorAll(".tabpane").forEach(function(p) { window.__paneObserver.observe(p); });
+                                                }
                                                 $("viewToggle").addEventListener("click", e => {
                                                     const b = e.target.closest("button");
                                                     if (!b) return;
@@ -13692,7 +13829,7 @@
                                                    挂载在统一列表渲染(renderUnifiedList)、详情表格渲染(renderTables)与挂单渲染(renderPending)末尾，
                                                    同步与异步刷新均会触发。挂到 window 便于控制台调试与外部调用。 */
                                                 function fitNumCells() {
-                                                    var MIN_FS = 9;
+                                                    var MIN_FS = 8;
                                                     var STEP = 0.5;
                                                     var sel = ".tbl-scroll .cell-main, .tbl-scroll .cell-sub, .pending-tbl td.cls-date";
                                                     Array.prototype.slice.call(document.querySelectorAll(sel)).forEach(function(el) {
@@ -13843,11 +13980,11 @@
                                                             tg.addEventListener("click", function() { toggleMvpnlMode(); });
                                                         }
                                                         updateMvpnlToggleBtn();
-                                                        // 窗口尺寸变化后重新自适应名称字号（仅绑定一次）
+                                                        // 窗口尺寸变化后重新自适应名称字号与数字/日期字号（仅绑定一次）
                                                         if (!window.__marketFitBound) {
                                                             window.__marketFitBound = true;
                                                             var _fitT;
-                                                            window.addEventListener("resize", function() { clearTimeout(_fitT); _fitT = setTimeout(fitMarketNames, 120); });
+                                                            window.addEventListener("resize", function() { clearTimeout(_fitT); _fitT = setTimeout(function(){ fitMarketNames(); if (window.fitNumCells) window.fitNumCells(); }, 120); });
                                                         }
                                                     }
 
@@ -14007,27 +14144,43 @@
                                                                 // 而不是跟涨跌基准(Alpaca 前收)的来源走
                                                                 var _optPxSrc = null;
                                                                 var _priceRaw = NaN;
-                                                                if (_optItem) {
-                                                                    var _op = parseFloat(_optItem.indexPrice);
-                                                                    var _opP = isNaN(_op) ? parseFloat(_optItem.lastPrice) : _op;
-                                                                    if (!isNaN(_opP)) { price = _opP >= 1 ? _opP.toFixed(2) : _opP.toFixed(4); _priceRaw = _opP; _optPxSrc = "bybit"; }
-                                                                } else if (_optApPrice != null && !isNaN(_optApPrice) && _optApPrice > 0) {
-                                                                    price = _optApPrice >= 1 ? _optApPrice.toFixed(2) : _optApPrice.toFixed(4);
-                                                                    _priceRaw = _optApPrice; _optPxSrc = "alpaca";
-                                                                } else if (_optTq && _optTq.price > 0) {
-                                                                    price = _optTq.price >= 1 ? _optTq.price.toFixed(2) : _optTq.price.toFixed(4);
-                                                                    _priceRaw = _optTq.price; _optPxSrc = "tencent";
+                                                                var _inSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : true;
+                                                                // 盘中（美东 9:30–16:00）正股有实时价，期权行现价/徽标与正股行一致走腾讯(QT)；
+                                                                // 盘外正股休市，改回 Bybit 永续实时价兜底（徽标 BYB），保证盘外也有价可显。
+                                                                if (_inSession) {
+                                                                    if (_optTq && _optTq.price > 0) {
+                                                                        price = _optTq.price >= 1 ? _optTq.price.toFixed(2) : _optTq.price.toFixed(4);
+                                                                        _priceRaw = _optTq.price; _optPxSrc = "tencent";
+                                                                    } else if (_optApPrice != null && !isNaN(_optApPrice) && _optApPrice > 0) {
+                                                                        price = _optApPrice >= 1 ? _optApPrice.toFixed(2) : _optApPrice.toFixed(4);
+                                                                        _priceRaw = _optApPrice; _optPxSrc = "alpaca";
+                                                                    } else if (_optItem) {
+                                                                        var _op = parseFloat(_optItem.indexPrice);
+                                                                        var _opP = isNaN(_op) ? parseFloat(_optItem.lastPrice) : _op;
+                                                                        if (!isNaN(_opP)) { price = _opP >= 1 ? _opP.toFixed(2) : _opP.toFixed(4); _priceRaw = _opP; _optPxSrc = "bybit"; }
+                                                                    }
+                                                                } else {
+                                                                    if (_optItem) {
+                                                                        var _op = parseFloat(_optItem.indexPrice);
+                                                                        var _opP = isNaN(_op) ? parseFloat(_optItem.lastPrice) : _op;
+                                                                        if (!isNaN(_opP)) { price = _opP >= 1 ? _opP.toFixed(2) : _opP.toFixed(4); _priceRaw = _opP; _optPxSrc = "bybit"; }
+                                                                    } else if (_optApPrice != null && !isNaN(_optApPrice) && _optApPrice > 0) {
+                                                                        price = _optApPrice >= 1 ? _optApPrice.toFixed(2) : _optApPrice.toFixed(4);
+                                                                        _priceRaw = _optApPrice; _optPxSrc = "alpaca";
+                                                                    } else if (_optTq && _optTq.price > 0) {
+                                                                        price = _optTq.price >= 1 ? _optTq.price.toFixed(2) : _optTq.price.toFixed(4);
+                                                                        _priceRaw = _optTq.price; _optPxSrc = "tencent";
+                                                                    }
                                                                 }
-                                                                // 期权行涨跌基准：现价来自 Bybit(盘外) 时，与美股/ETF 行口径统一 ——
-                                                                //   (Bybit 实时价 ÷ 腾讯现价[周五收盘]) − 1，不用 Bybit 永续 24h、也不用腾讯昨收。
-                                                                // 腾讯拿不到现价才依次回退：Alpaca 前收 → 腾讯昨收 → Bybit 永续 24h
+                                                                // 期权行涨跌基准：与美股/ETF 正股行口径统一 —— (正股现价 − 腾讯昨收) ÷ 腾讯昨收，
+                                                                //   分母统一用腾讯昨收（不再用腾讯实时价 / Bybit 24h），盘中与正股行数字完全一致。
+                                                                //   腾讯昨收拿不到时回退：Alpaca 前收 → Bybit 永续 24h（盘外不至于画杠）。
                                                                 if (!isNaN(_priceRaw) && _priceRaw > 0) {
-                                                                    if (_optPxSrc === "bybit" && _optTq && _optTq.price > 0) {
-                                                                        pct = (_priceRaw - _optTq.price) / _optTq.price * 100;
-                                                                        _srcTag = "tencent"; // 涨跌基准来自腾讯现价
+                                                                    if (_optTq && _optTq.prevClose > 0) {
+                                                                        pct = (_priceRaw - _optTq.prevClose) / _optTq.prevClose * 100;
+                                                                        _srcTag = "tencent"; // 涨跌基准统一来自腾讯昨收
                                                                     }
                                                                     else if (_optApPrev > 0) { pct = (_priceRaw - _optApPrev) / _optApPrev * 100; _srcTag = "alpaca"; }
-                                                                    else if (_optTq && _optTq.prevClose > 0) { pct = (_priceRaw - _optTq.prevClose) / _optTq.prevClose * 100; _srcTag = "tencent"; }
                                                                     else if (_optItem) {
                                                                         var _ch = parseFloat(_optItem._ch24);
                                                                         if (!isNaN(_ch)) { pct = _ch * 100; _srcTag = "bybit"; }
