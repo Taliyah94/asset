@@ -1268,6 +1268,9 @@
         .pending-tbl td.cls-date {
             white-space: nowrap;
             text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 0;
         }
 
         .pending-tbl td.cls-amt {
@@ -8501,6 +8504,7 @@
                                                         }) + "</td>" + "</tr>"
                                                     }).join("");
                                                     renderPendingPager(pendingPages, pendingPage)
+                                                    fitNumCells();
                                                 }
 
                                                 function renderPendingPager(pages, cur) {
@@ -13685,10 +13689,39 @@
                                                                 fs = Math.max(MIN_FS, fs - 0.5);
                                                                 el.style.fontSize = fs + "px";
                                                             }
-                                                            // 缩到 10px 仍超一行 → 允许换行（CSS 限 2 行），不再继续缩小
-                                                            el.style.whiteSpace = "normal";
-                                                        });
-                                                    }
+                                                        // 缩到 10px 仍超一行 → 允许换行（CSS 限 2 行），不再继续缩小
+                                                        el.style.whiteSpace = "normal";
+                                                    });
+                                                }
+
+                                                /* 数字/日期溢出收缩：持仓数字(cell-main/cell-sub)与挂单日期(cls-date)
+                                                   显示不全(被 ellipsis 截断或撑出可用宽)时逐级缩小字号，下限 9px。
+                                                   挂载在统一列表渲染(renderUnifiedList)与挂单渲染(renderPending)末尾，
+                                                   同步与异步刷新均会触发。 */
+                                                function fitNumCells() {
+                                                    var MIN_FS = 9;
+                                                    var STEP = 0.5;
+                                                    var sel = ".tbl-scroll .cell-main, .tbl-scroll .cell-sub, .pending-tbl td.cls-date";
+                                                    Array.prototype.slice.call(document.querySelectorAll(sel)).forEach(function(el) {
+                                                        // 先清空上一次写入的 inline 字号，回退到 CSS 规则原始值作为基准，
+                                                        // 否则二次渲染(异步刷新)会以已缩小的字号为 base，越缩越小
+                                                        el.style.fontSize = "";
+                                                        var base = parseFloat(getComputedStyle(el).fontSize) || 13;
+                                                        var fs = base;
+                                                        el.style.fontSize = fs + "px";
+                                                        // nowrap 保证测量的是单行内容宽
+                                                        var prevWS = el.style.whiteSpace;
+                                                        el.style.whiteSpace = "nowrap";
+                                                        var avail = el.clientWidth;
+                                                        while (el.scrollWidth > avail + 0.5 && fs > MIN_FS) {
+                                                            fs = Math.max(MIN_FS, fs - STEP);
+                                                            el.style.fontSize = fs + "px";
+                                                        }
+                                                        // 已缩到下限仍溢出 → 让 ellipsis 截断（保持 nowrap），不动白空间
+                                                        if (fs > MIN_FS) el.style.whiteSpace = prevWS;
+                                                        else el.style.whiteSpace = "nowrap";
+                                                    });
+                                                }
                                                     function renderUnifiedList() {
                                                         if (!window.__paLayoutSeeded) { ensureLayoutSeeded(); window.__paLayoutSeeded = true; }
                                                         var listEl = document.getElementById("unifiedList");
@@ -13732,6 +13765,7 @@
                                                         updateUnifiedHead();
                                                         applyMvpnlMode();
                                                         fitMarketNames();
+                                                        fitNumCells();
                                                     }
                                                     function updateUnifiedHead() {
                                                         var head = document.querySelector("#pageMarket .unified-head");
