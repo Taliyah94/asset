@@ -1726,9 +1726,12 @@
 
         @media(max-width:760px) {
 
-            html {
-                overflow-x: hidden;
-            }
+            /* [2026-09-02] 这里原本是「html { overflow-x: hidden }」，现已移除。
+               原因：overflow-x 为 hidden 时，overflow-y 的 visible 会被计算成 auto，
+               于是 html 自己变成一个滚动容器；而 body 在全局样式里同样有 overflow-x:hidden，
+               也就同样是滚动容器 —— 移动端页面上因此出现两条各自独立的纵向滚动条。
+               移除后 html 保持默认的 visible，body 的 overflow 会向上传播到视口，
+               防横向滚动的效果不变，但整页只剩视口这一条滚动条。 */
 
             body {
                 width: 100%;
@@ -6655,6 +6658,97 @@
                                                     }
                                                 };
 
+                                                /* ===== 期权「当日盈亏」基准选择（2026-09-01 重构，配合后端 optBase.asOf）=====
+                                                   旧逻辑：盘中取 B、盘外取 A —— 隐含前提是「脚本在美东开盘前跑完」。
+                                                          一旦脚本改到美东收盘后跑（当前 cron 为 UTC 05:10 = 北京 13:10，距美股收盘已 8~9 小时），
+                                                          盘外时 B 已经含当天收盘价，与现价同源、差值恒为 0，而 A 又偏旧一天，怎么选都错。
+                                                   新逻辑：不关心脚本几点跑，只比 asOf（markPrice 真实对应的交易日）：
+                                                     C    = 现价所属的美东交易日（盘前/周末取最近一个已过去的交易日）
+                                                     基准 = A/B 中 asOf 严格早于 C 且最新者 → 保证「现价 − 基准」正好是一个交易日的涨跌
+                                                   例：周二盘后 C=周二 → 选 asOf=周一 的 B；周末看盘 C=周五 → 自动退回 asOf=周四 的 A。
+                                                   老数据没有 asOf 时，回退旧的「盘中 B / 盘外 A」启发式（可能与现价同源，交由画杠兜底）。 */
+
+                                                /* 美东日期 YYYY-MM-DD（不依赖 Intl，按夏令时/冬令时偏移自行换算） */
+                                                function etYmdStr(dt) {
+                                                    var n = dt || new Date;
+                                                    var offMin = (usEtIsDst(n) ? 4 : 5) * 60;
+                                                    var t = new Date(n.getTime() - offMin * 60e3);
+                                                    var p = function(x) { return String(x).padStart(2, "0") };
+                                                    return t.getUTCFullYear() + "-" + p(t.getUTCMonth() + 1) + "-" + p(t.getUTCDate())
+                                                }
+
+                                                /* s(YYYY-MM-DD) 往前推最近一个非周末日期（只按周末粗略判断，不处理美国节假日） */
+                                                function prevWeekdayYmd(s) {
+                                                    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                                                    var base = Date.parse(s + "T12:00:00Z");
+                                                    if (isNaN(base)) return s;
+                                                    var p = function(x) { return String(x).padStart(2, "0") };
+                                                    for (var i = 1; i <= 3; i++) {
+                                                        var t = new Date(base - i * 864e5);
+                                                        var w = t.getUTCDay();
+                                                        if (w !== 0 && w !== 6) return t.getUTCFullYear() + "-" + p(t.getUTCMonth() + 1) + "-" + p(t.getUTCDate())
+                                                    }
+                                                    return s
+                                                }
+
+                                                /* 现价所属的「美东交易日」C：
+                                                   今天是交易日且已过 9:30（盘中/盘后）→ C = 今天；
+                                                   盘前(<9:30) 或周末                 → C = 上一个交易日 */
+                                                function usQuoteSessionYmd() {
+                                                    var p = null;
+                                                    try { p = etNowCached() } catch (e) { p = null }
+                                                    var todayEt, etMin, weekend;
+                                                    if (p && /^\d{4}-\d{2}-\d{2}$/.test(p.ymd || "")) {
+                                                        todayEt = p.ymd;
+                                                        etMin = p.h * 60 + p.m;
+                                                        weekend = (p.wd === "Sat" || p.wd === "Sun")
+                                                    } else {
+                                                        var n = new Date;
+                                                        var offMin = (usEtIsDst(n) ? 4 : 5) * 60;
+                                                        var raw = n.getUTCHours() * 60 + n.getUTCMinutes() - offMin;
+                                                        etMin = ((raw % 1440) + 1440) % 1440;
+                                                        var dow = (((n.getUTCDay() + (raw < 0 ? -1 : 0)) % 7) + 7) % 7;
+                                                        weekend = (dow === 0 || dow === 6);
+                                                        todayEt = etYmdStr(n)
+                                                    }
+                                                    if (!weekend && etMin >= 9 * 60 + 30) return todayEt;
+                                                    return prevWeekdayYmd(todayEt)
+                                                }
+
+                                                /* 从 optBase 的 A/B 里挑该期权的「昨收」基准。
+                                                   返回 {px, asOf, stale}；都不可用则返回 null。
+                                                   stale=true 表示没找到严格早于 C 的基准（老数据无 asOf / 报表滞后），
+                                                   涨跌不可信，调用方应画杠而不是显示一个失真的百分比。 */
+                                                function pickOptBasePx(OB, sym) {
+                                                    if (!OB || !sym) return null;
+                                                    var cands = [];
+                                                    [OB.B, OB.A].forEach(function(e) {
+                                                        var v = e && e.prices ? e.prices[sym] : null;
+                                                        v = (v != null && isFinite(Number(v)) && Number(v) > 0) ? Number(v) : null;
+                                                        if (v == null) return;
+                                                        cands.push({ px: v, asOf: (e && e.asOf) ? String(e.asOf) : null })
+                                                    });
+                                                    if (!cands.length) return null;
+                                                    var C = usQuoteSessionYmd();
+                                                    if (!C) {                       // 取不到美东日期 → 老启发式
+                                                        var lg0 = isUsRegularSession() ? cands[0] : (cands[1] || cands[0]);
+                                                        return { px: lg0.px, asOf: lg0.asOf, stale: true }
+                                                    }
+                                                    var ok = cands.filter(function(x) { return x.asOf && x.asOf < C });
+                                                    if (ok.length) {                // 正常路径：取早于 C 的最新一个
+                                                        ok.sort(function(a, b) { return a.asOf < b.asOf ? 1 : (a.asOf > b.asOf ? -1 : 0) });
+                                                        return { px: ok[0].px, asOf: ok[0].asOf, stale: false }
+                                                    }
+                                                    var hasAsOf = cands.filter(function(x) { return x.asOf });
+                                                    if (!hasAsOf.length) {          // 纯老数据（无 asOf）→ 沿用旧启发式，行为与升级前完全一致
+                                                        var lg = isUsRegularSession() ? cands[0] : (cands[1] || cands[0]);
+                                                        return { px: lg.px, asOf: null, stale: false }
+                                                    }
+                                                    // 报表滞后：A/B 都不早于 C，取相对最旧的那个并标记 stale
+                                                    hasAsOf.sort(function(a, b) { return a.asOf < b.asOf ? -1 : (a.asOf > b.asOf ? 1 : 0) });
+                                                    return { px: hasAsOf[0].px, asOf: hasAsOf[0].asOf, stale: true }
+                                                }
+
                                                 function fetchUsQuotesAlpaca(symList, cfg) {
                                                     return new Promise(function(resolve) {
                                                         var out = {};
@@ -6920,12 +7014,15 @@
                                                         //        （如 ORCL P138 用 0.18，而 8/28 真实收盘是 0.0421），与涨跌基准 optBase 不同源，
                                                         //        算出 −327% / −609% 这类不可能的涨跌幅，市值也同步虚高。
                                                         //        改为回退 optBase 同快照价，保证「现价」与「涨跌基准」同源。
-                                                        var _optPx = null, _optPxFromBase = false, _optBase = null;
+                                                        // [2026-09-01] 基准不再按「盘中 B / 盘外 A」硬选，改由 pickOptBasePx 比对
+                                                        //        asOf（真实交易日）与现价所属交易日 C 后自动挑选，摆脱对脚本运行时刻的依赖。
+                                                        var _optPx = null, _optPxFromBase = false, _optBase = null, _optBaseStale = false;
                                                         if (isOptionSymbol(u.symbol)) {
-                                                            var _obA = OPT_BASE && OPT_BASE.A && OPT_BASE.A.prices ? OPT_BASE.A.prices[u.symbol] : null;
-                                                            var _obB = OPT_BASE && OPT_BASE.B && OPT_BASE.B.prices ? OPT_BASE.B.prices[u.symbol] : null;
-                                                            var _ob = isUsRegularSession() ? (_obB != null ? _obB : _obA) : (_obA != null ? _obA : _obB);
-                                                            _optBase = (_ob != null && isFinite(Number(_ob)) && Number(_ob) > 0) ? Number(_ob) : null;
+                                                            var _obPick = pickOptBasePx(OPT_BASE, u.symbol);
+                                                            if (_obPick) {
+                                                                _optBase = _obPick.px;
+                                                                _optBaseStale = !!_obPick.stale
+                                                            }
                                                             var _alp = (u._alpacaPrice != null && isFinite(Number(u._alpacaPrice)) && Number(u._alpacaPrice) > 0) ? Number(u._alpacaPrice) : null;
                                                             var _seed = (u.price != null && isFinite(Number(u.price)) && Number(u.price) > 0) ? Number(u.price) : null;
                                                             if (_alp != null) _optPx = _alp;                                          // Alpaca 实时/收盘价优先
@@ -6952,7 +7049,8 @@
                                                         dTime = u._quoteTime && u._quoteTime !== "" ? "实时" : hist.length ? ymd(hist[hist.length - 1].t) : "—";
                                                         if (isOptionSymbol(u.symbol)) {
                                                             // 现价来自 optBase 快照 → 与涨跌基准同源，涨跌恒为 0、无信息量，直接画杠
-                                                            if (_optPxFromBase || _optPx == null || !(_optBase > 0)) {
+                                                            // _optBaseStale → 没找到严格早于现价所属交易日的基准（报表滞后/老数据），涨跌失真，同样画杠
+                                                            if (_optPxFromBase || _optBaseStale || _optPx == null || !(_optBase > 0)) {
                                                                 dRet = null;
                                                                 dPnl = null
                                                             } else {
@@ -12346,31 +12444,6 @@
                                                     window.refreshNasdaqLive = refreshNasdaqLive;
                                                 })();
                                             </script>
-                                            <iframe src="https://__dt_wvjb_queue_message__" style="display: none;"></iframe>
-                                            <div data-ai-fab-host="">
-                                                <div data-v-d72f79ca="" class="ai-fab" style="transform: translate3d(calc(100vw - 84px), calc(100vh - 210px), 0px); transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2147483645;">
-                                                    <div data-v-d72f79ca="" class="ai-fab-inner">
-                                                        <div data-v-d72f79ca="" class="ai-fab-content">
-                                                            <div data-v-d72f79ca="" class="close-popup-anchor">
-                                                                <div data-v-87e61d82="" data-v-d72f79ca="" class="close-popup">
-                                                                    <div data-v-d72f79ca="" class="close-icon"><svg data-v-d72f79ca="" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                                                            <path data-v-d72f79ca="" d="M9 9L3 3" stroke="white"></path>
-                                                                            <path data-v-d72f79ca="" d="M3 9L9 3" stroke="white"></path>
-                                                                        </svg></div>
-                                                                    <div data-v-87e61d82="" class="close-menu" style="display: none;">
-                                                                        <div data-v-87e61d82="" class="close-menu-item"><span data-v-87e61d82="">隐藏直到下次访问</span></div>
-                                                                        <div data-v-87e61d82="" class="close-menu-item underline"><span data-v-87e61d82="">在此网页禁用</span></div>
-                                                                        <div data-v-87e61d82="" class="close-menu-item no-hover"><span data-v-87e61d82="" class="hint-text">在<span data-v-87e61d82="" class="hint-action">设置</span>中可以重新启用</span></div>
-                                                                    </div>
-                                                                </div>
-                                                            </div><img data-v-d72f79ca="" data-b64="17" alt="AI 助手" width="24" height="24" draggable="false" data-b64="17">
-                                                        </div>
-                                                    </div><!---->
-                                                </div>
-                                            </div>
-                                            <div id="ai-assist-root-bangs"></div>
-                                            <div id="ai-assistant"></div><ai-assistant-floating-host data-ai-fab-host=""></ai-assistant-floating-host>
-                                            <div id="ai-assistant"></div>
                                             <style>
                                                 /* ============ 浮动栏 + 三大页面 ============ */
                                                 .page-section {
@@ -15571,38 +15644,6 @@
                                                         }
                                                     })
                                                 });
-                                            </script>
-                                            <script>
-                                                /* AI 悬浮按钮视口兜底：组件写死/拖出的位置若超出视口，自动拉回右下安全区 */
-                                                (function() {
-                                                    function fixAiFab() {
-                                                        var host = document.querySelector('[data-ai-fab-host]');
-                                                        var fab = host ? host.querySelector('.ai-fab') : null;
-                                                        if (!fab) return;
-                                                        var vw = window.innerWidth || document.documentElement.clientWidth || 375;
-                                                        var r = fab.getBoundingClientRect();
-                                                        if (!r.width) return;
-                                                        var needFix = r.left < -2 || r.right > vw + 2;
-                                                        if (needFix) {
-                                                            var x = Math.max(0, vw - r.width - 16);
-                                                            var y = Math.max(80, Math.min(r.top, (window.innerHeight || 800) - 220));
-                                                            fab.style.transform = 'translate3d(' + x + 'px, ' + y + 'px, 0px)';
-                                                        }
-                                                    }
-                                                    fixAiFab();
-                                                    [60, 150, 300, 600, 1200, 3000].forEach(function(ms) { setTimeout(fixAiFab, ms) });
-                                                    window.addEventListener('resize', function() { setTimeout(fixAiFab, 50) });
-                                                    window.addEventListener('orientationchange', function() { setTimeout(fixAiFab, 150) });
-                                                    if (window.MutationObserver) {
-                                                        var t = null;
-                                                        var obs = new MutationObserver(function() {
-                                                            clearTimeout(t);
-                                                            t = setTimeout(fixAiFab, 120)
-                                                        });
-                                                        var host = document.querySelector('[data-ai-fab-host]');
-                                                        if (host) obs.observe(host, { attributes: true, subtree: true, attributeFilter: ['style'] });
-                                                    }
-                                                })();
                                             </script>
     <!-- 市场行情「当日预测」覆盖层：移出 page-section，确保任意界面激活时均可全屏弹出 -->
     <div id="predictOverlay" class="predict-overlay" aria-hidden="true">
