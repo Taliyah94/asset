@@ -2653,9 +2653,8 @@
         .predict-overlay-title { flex: 1; text-align: center; font-size: 17px; font-weight: 700; color: var(--text); }
         .predict-wrap { width: 100%; max-width: 680px; margin: 16px auto; background: #f5f7fb; box-shadow: 0 12px 40px rgba(0, 0, 0, .25); border-radius: 14px; }
         .predict-banner { margin-top: 8px; }
-        /* 预测覆盖层顶部「总资产」对齐市场行情 hero：40px 粗体 + 居中列布局 */
+        /* 预测覆盖层顶部对齐市场行情 hero：大号总资产 + 当日预测盈亏，居中列布局（无「总资产」标签） */
         .predict-banner .mp-top { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; margin-top: 2px; }
-        .predict-banner .mp-lbl { font-size: 13px; opacity: .85; color: var(--text); }
         .predict-banner .mp-total { font-size: 40px; font-weight: 700; letter-spacing: .5px; line-height: 1.15; margin: 4px 0 2px; text-shadow: 0 2px 14px rgba(0, 0, 0, .10); font-variant-numeric: tabular-nums; font-family: var(--font-num); color: var(--text); }
         .predict-banner .mp-pnl { font-size: 14px; font-weight: 600; line-height: 1.2; }
         .predict-banner .mp-pnl.up { color: #2e7d32; }
@@ -2710,13 +2709,17 @@
         .news-src-switch { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: flex; gap: 3px; background: #eef1f4; border-radius: 14px; padding: 2px; }
         .news-src-switch button { border: 0; background: transparent; color: var(--muted); padding: 4px 11px; border-radius: 12px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s; }
         .news-src-switch button.on { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(16,24,40,.14); font-weight: 600; }
-        /* 财经日历外链：众安子页带 X-Frame-Options:SAMEORIGIN，iframe 内打不开，改新标签顶层打开 */
-        .news-cal-link { display: inline-flex; align-items: center; gap: 3px; margin-top: 0; padding: 4px 12px;
-            background: #eef1f4; color: var(--brand); border-radius: 12px; font-size: 12px; font-weight: 600;
-            text-decoration: none; width: fit-content; transition: background .15s; }
-        .news-cal-link:active { background: #e1e6ec; }
-        /* 富途 7×24 快讯：iframe 直接嵌入 */
-        .news-futu { margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        /* 财经日历浮层：iframe 内「财经日历」标题点击会跳到被 X-Frame-Options 拦截的 /new-calendar，
+           无法直接嵌在 iframe 内渲染；故在 iframe 标题位置叠一个浮层按钮，点击以新标签顶层打开（可正常显示）。
+           浮层坐标对齐 elebank 页面头部「财经日历」标签实测位置（left:196 top:36，固定不随宽度变化）。 */
+        .news-cal-overlay { position: absolute; left: 196px; top: 34px; z-index: 5;
+            display: inline-flex; align-items: center; gap: 2px; padding: 0 9px; height: 30px;
+            background: rgba(255,255,255,.94); color: var(--brand); border: 1px solid var(--brand);
+            border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none;
+            box-shadow: 0 1px 5px rgba(16,24,40,.16); white-space: nowrap; }
+        .news-cal-overlay:active { background: var(--brand); color: #fff; }
+        /* 富途 7×24 快讯：iframe 直接嵌入（作为定位容器，承载财经日历浮层） */
+        .news-futu { position: relative; margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
         .news-futu iframe { width: 100%; height: calc(100vh - 150px); border: 0; display: block; background: #fff; }
         .news-futu .news-foot { display: none; }
         @media (max-width: 420px) {
@@ -2937,7 +2940,10 @@
     <section class="page-section page-market" id="pageMarket">
         <section class="panel" style="max-width:680px;margin:0 auto;">
             <h2 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                <span>市场行情</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span>市场行情</span>
+                    <span id="marketLoading" style="color:#888;font-size:13px;font-weight:400;display:none;animation:none;">正在加载行情数据…</span>
+                </div>
                 <div class="market-toolbar" style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400;color:#888;">
                     <input id="marketAddInput" placeholder="如 NVDA" style="width:96px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;outline:none;">
                     <datalist id="marketSymbolList"></datalist>
@@ -2947,9 +2953,6 @@
                     <button id="marketManageBtn" type="button" title="管理行（排序/置顶/删除）" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:15px;cursor:pointer;line-height:1;">☰</button>
                 </div>
             </h2>
-            <div id="marketLoading" style="text-align:center;color:#888;padding:16px 0;font-size:13px;display:none;">
-                正在加载行情数据…
-            </div>
             <div id="marketError" style="text-align:center;color:#e53935;padding:16px 0;font-size:13px;display:none;"></div>
 
             <!-- 实时预测：基金 + 美股(含大宗/加密持仓) + 现金 的市场实时预测市值合计，及当日预测盈亏额/百分比 -->
@@ -2995,10 +2998,6 @@
                         <button type="button" data-src="futu" class="on">富途资讯（ZA）</button>
                         <button type="button" data-src="wj">华尔街见闻</button>
                     </div>
-                    <!-- 财经日历：众安子页带 X-Frame-Options:SAMEORIGIN，无法在 iframe 内渲染，
-                         故用新标签顶层打开（顶层导航不受该头限制）。 -->
-                    <a class="news-cal-link" href="https://news.platform.elebank.com/new-calendar?lang=zh-cn"
-                       target="_blank" rel="noopener noreferrer" title="新标签打开众安财经日历（iframe 内被 SAMEORIGIN 拦截，故顶层打开）">📅 财经日历 ↗</a>
                 </div>
                 <div class="news-tabs" id="newsTabs"></div>
                 <div class="news-bar" id="newsBar">
@@ -3009,6 +3008,10 @@
             <div class="news-body">
                 <!-- 众安银行 7×24 快讯：iframe 直接嵌入（懒加载，切到该视图才请求） -->
                 <div class="news-futu" id="newsFutu" style="display:none">
+                    <!-- 财经日历浮层：覆盖在 iframe 内「财经日历」标题之上；
+                         点击以新标签顶层打开 /new-calendar（iframe 内被 X-Frame-Options 拦截，顶层打开可正常显示） -->
+                    <a class="news-cal-overlay" href="https://news.platform.elebank.com/new-calendar?lang=zh-cn"
+                       target="_blank" rel="noopener noreferrer" title="新标签打开富途财经日历（iframe 内被 SAMEORIGIN 拦截，故顶层打开）">📅 财经日历</a>
                     <iframe id="futuFrame" title="众安银行 7×24 快讯" loading="lazy" referrerpolicy="no-referrer"></iframe>
                     <div class="news-foot">数据源：众安银行 7×24 快讯 · iframe 嵌入 · 仅供个人看板</div>
                 </div>
@@ -3657,9 +3660,9 @@
                     <thead>
                         <tr>
                             <th>日期</th>
-                            <th>总净值(USD)</th>
-                            <th>现金(USD)</th>
-                            <th>持仓市值(USD)</th>
+                            <th>总净值($)</th>
+                            <th>现金($)</th>
+                            <th>持仓市值($)</th>
                             <th>日环比</th>
                         </tr>
                     </thead>
@@ -5275,6 +5278,7 @@
                                                 let calMetric = "pct";
                                                 let calDayMonth = null;
                                                 let calYearPage = 99999;
+                                                let calMonthYear = null; // 月视图当前显示的年份；null = 今年（最新年），否则为具体年份
 
                                                 /* [幂等] 强制 seed 覆盖，只保留 1 行。
                                                    历史上这里有 16 行完全相同的副本：来源是「导出带数据」功能向 load() 开头注入，
@@ -7800,7 +7804,7 @@
                                                     }
                                                     function buildPredictList() {
                                                         listEl.innerHTML = "";
-                                                        if (banner) banner.innerHTML = '<div class="mp-top"><div class="mp-lbl">总资产</div><div class="mp-total">Y--</div><div class="mp-pnl">--</div></div>';
+                                                        if (banner) banner.innerHTML = '<div class="mp-top"><div class="mp-total">Y--</div><div class="mp-pnl">--</div></div>';
                                                         var src = document.getElementById("unifiedList");
                                                         if (!src) { renderPredictBanner(listEl); return; }
                                                         var usKeys = predictUsRowKeys();
@@ -9982,10 +9986,12 @@
 
                                                 function renderCalMonth(box, useAmt) {
                                                     const today = todayTs();
-                                                    const y = Number(ymd(today).slice(0, 4)),
+                                                    const curY = Number(ymd(today).slice(0, 4)),
                                                         curM = Number(ymd(today).slice(5, 7));
+                                                    const y = (calMonthYear != null) ? calMonthYear : curY;
+                                                    const lastM = (y === curY) ? curM : 12;
                                                     const arr = [];
-                                                    for (let m = 1; m <= curM; m++) {
+                                                    for (let m = 1; m <= lastM; m++) {
                                                         const days = getMonthDays(y, m);
                                                         let mChg = 0,
                                                             mChgPct = null;
@@ -10033,6 +10039,36 @@
                                                         card.title = o.m + "月\n总资产变化：" + ((o.chg >= 0 ? "+" : "") + fmt0(o.chg)) + (o.chgPct != null ? " (" + (o.chgPct >= 0 ? "+" : "") + (o.chgPct * 100).toFixed(2) + "%)" : "");
                                                         cards.appendChild(card)
                                                     });
+                                                    /* 顶部年份导航（左右箭头切年，与日视图箭头一致） */
+                                                    const nav = document.createElement("div");
+                                                    nav.className = "cal-nav";
+                                                    const prevBtn = document.createElement("div");
+                                                    prevBtn.className = "cal-arrow";
+                                                    prevBtn.textContent = "‹";
+                                                    prevBtn.onclick = function() {
+                                                        const cY = Number(ymd(todayTs()).slice(0, 4));
+                                                        calMonthYear = (calMonthYear != null ? calMonthYear : cY) - 1;
+                                                        drawCalendar()
+                                                    };
+                                                    const title = document.createElement("div");
+                                                    title.className = "cal-title";
+                                                    title.textContent = y + "年";
+                                                    const nextBtn = document.createElement("div");
+                                                    nextBtn.className = "cal-arrow";
+                                                    nextBtn.textContent = "›";
+                                                    nextBtn.onclick = function() {
+                                                        const cY = Number(ymd(todayTs()).slice(0, 4));
+                                                        const base = (calMonthYear != null ? calMonthYear : cY);
+                                                        if (base < cY) {
+                                                            calMonthYear = base + 1;
+                                                            drawCalendar()
+                                                        }
+                                                    };
+                                                    if (y >= curY) nextBtn.style.visibility = "hidden";
+                                                    nav.appendChild(prevBtn);
+                                                    nav.appendChild(title);
+                                                    nav.appendChild(nextBtn);
+                                                    box.appendChild(nav);
                                                     /* 顶部年度盈亏汇总 */
                                                     if (arr.length >= 1) {
                                                         const _firstMD = getMonthDays(y, 1);
@@ -14289,8 +14325,17 @@
                                                             var _symHtml = g.isOption
                                                                 ? g.optionSyms.map(function(os) { return '<span class="opt-code">' + shortOptionCode(os) + '</span>'; }).join("")
                                                                 : sym;
-                                                            var _icKey = (g.isOption ? g.root : sym).toUpperCase();
-                                                            var _ic = symToIcon[_icKey] || null;
+                                                            // 期权行：图标按完整期权代码存储，g.root(正股名) 通常无对应持仓图标；
+                                                            //   优先取该合约自身图标，兜底再取正股/自身 symbol 图标（与持仓页一致）
+                                                            var _ic = null;
+                                                            if (g.isOption && g.optionSyms && g.optionSyms.length) {
+                                                                var _os = String(g.optionSyms[0]).toUpperCase().replace(/[^A-Z0-9]/g, "");
+                                                                _ic = symToIcon[_os] || null;
+                                                            }
+                                                            if (!_ic) {
+                                                                var _icKey = (g.isOption ? g.root : sym).toUpperCase();
+                                                                _ic = symToIcon[_icKey] || null;
+                                                            }
                                                             var _icHtml = _ic ? window.itemIconHtml(_ic) : "";
                                                             html += '<div class="u-row u-grid market-item' + (_hs ? " market-item-us" : "") + (_isMultiOpt ? " u-row-multi" : "") + '" data-symbol="' + key + '"' + dataAttr + chgAttr + '>'
                                                                 + '<div class="u-name">'
