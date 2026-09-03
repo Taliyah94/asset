@@ -2680,7 +2680,7 @@
             border-radius: 0 0 14px 14px;
             box-shadow: 0 2px 10px rgba(16, 24, 40, .05);
         }
-        .news-head-row { display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; }
+        .news-head-row { display: flex; align-items: center; justify-content: flex-start; gap: 8px; position: relative; }
         .news-title { font-size: 17px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 7px; }
         .news-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); animation: newsPulse 1.6s infinite; }
         @keyframes newsPulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
@@ -2710,9 +2710,15 @@
         .news-src-switch { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: flex; gap: 3px; background: #eef1f4; border-radius: 14px; padding: 2px; }
         .news-src-switch button { border: 0; background: transparent; color: var(--muted); padding: 4px 11px; border-radius: 12px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s; }
         .news-src-switch button.on { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(16,24,40,.14); font-weight: 600; }
+        /* 财经日历外链：众安子页带 X-Frame-Options:SAMEORIGIN，iframe 内打不开，改新标签顶层打开 */
+        .news-cal-link { display: inline-flex; align-items: center; gap: 3px; margin-top: 0; padding: 4px 12px;
+            background: #eef1f4; color: var(--brand); border-radius: 12px; font-size: 12px; font-weight: 600;
+            text-decoration: none; width: fit-content; transition: background .15s; }
+        .news-cal-link:active { background: #e1e6ec; }
         /* 富途 7×24 快讯：iframe 直接嵌入 */
         .news-futu { margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-        .news-futu iframe { width: 100%; height: 70vh; border: 0; display: block; background: #fff; }
+        .news-futu iframe { width: 100%; height: calc(100vh - 150px); border: 0; display: block; background: #fff; }
+        .news-futu .news-foot { display: none; }
         @media (max-width: 420px) {
             .news-item .ni-h { font-size: 14.5px; }
             .news-body { padding: 8px 10px 24px; }
@@ -2986,9 +2992,13 @@
                 <div class="news-head-row">
                     <div class="news-title"><span class="news-dot"></span>7×24 快讯</div>
                     <div class="news-src-switch" id="newsSrcSwitch">
-                        <button type="button" data-src="futu" class="on">众安实时</button>
+                        <button type="button" data-src="futu" class="on">富途资讯（ZA）</button>
                         <button type="button" data-src="wj">华尔街见闻</button>
                     </div>
+                    <!-- 财经日历：众安子页带 X-Frame-Options:SAMEORIGIN，无法在 iframe 内渲染，
+                         故用新标签顶层打开（顶层导航不受该头限制）。 -->
+                    <a class="news-cal-link" href="https://news.platform.elebank.com/new-calendar?lang=zh-cn"
+                       target="_blank" rel="noopener noreferrer" title="新标签打开众安财经日历（iframe 内被 SAMEORIGIN 拦截，故顶层打开）">📅 财经日历 ↗</a>
                 </div>
                 <div class="news-tabs" id="newsTabs"></div>
                 <div class="news-bar" id="newsBar">
