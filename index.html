@@ -2685,7 +2685,7 @@
         @keyframes newsPulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
         .news-src { font-size: 11px; font-weight: 400; color: var(--muted); }
         .news-body { padding: 10px 12px 24px; }
-        .news-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .news-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 2px; margin-top: 10px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .news-tabs::-webkit-scrollbar { display: none; }
         .news-tabs button {
             flex: 0 0 auto; border: 1px solid var(--line); background: #fff; color: var(--text);
@@ -2709,18 +2709,19 @@
         .news-src-switch { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: flex; gap: 3px; background: #eef1f4; border-radius: 14px; padding: 2px; }
         .news-src-switch button { border: 0; background: transparent; color: var(--muted); padding: 4px 11px; border-radius: 12px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s; }
         .news-src-switch button.on { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(16,24,40,.14); font-weight: 600; }
-        /* 财经日历浮层：iframe 内「财经日历」标题点击会跳到被 X-Frame-Options 拦截的 /new-calendar，
-           无法直接嵌在 iframe 内渲染；故在 iframe 标题位置叠一个浮层按钮，点击以新标签顶层打开（可正常显示）。
-           浮层坐标对齐 elebank 页面头部「财经日历」标签实测位置（left:196 top:36，固定不随宽度变化）。 */
-        .news-cal-overlay { position: absolute; left: 196px; top: 34px; z-index: 5;
-            display: inline-flex; align-items: center; gap: 2px; padding: 0 9px; height: 30px;
-            background: rgba(255,255,255,.94); color: var(--brand); border: 1px solid var(--brand);
-            border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none;
-            box-shadow: 0 1px 5px rgba(16,24,40,.16); white-space: nowrap; }
-        .news-cal-overlay:active { background: var(--brand); color: #fff; }
-        /* 富途 7×24 快讯：iframe 直接嵌入（作为定位容器，承载财经日历浮层） */
-        .news-futu { position: relative; margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-        .news-futu iframe { width: 100%; height: calc(100vh - 150px); border: 0; display: block; background: #fff; }
+        /* 财经日历按钮：放在标题栏「7×24 快讯」+ 数据源切换器同一行，始终可见；
+           点击以新标签顶层打开 /new-calendar（iframe 内被 X-Frame-Options 拦截，故顶层打开）。 */
+        .news-cal-btn { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px;
+            padding: 4px 11px; background: transparent; color: var(--brand);
+            border: 1px solid var(--line); border-radius: 12px; font-size: 12px; font-weight: 600;
+            text-decoration: none; cursor: pointer; transition: all .15s; }
+        .news-cal-btn:active { background: var(--brand); color: #fff; border-color: var(--brand); }
+        /* 富途 7×24 快讯：iframe 直接嵌入 */
+        .news-futu { margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        .news-futu iframe { width: 100%; height: calc(100vh - 150px); border: 0; display: block; background: #fff;
+            /* elebank 为跨域 iframe，无法单独改内部字体；用 zoom 整体放大（含新闻字体）。
+               仅 Chromium/Chrome/Edge 生效；Firefox 不支持 zoom，可改用「华尔街见闻」视图（字体我们完全可控）。 */
+            zoom: 1.15; }
         .news-futu .news-foot { display: none; }
         @media (max-width: 420px) {
             .news-item .ni-h { font-size: 14.5px; }
@@ -2998,6 +2999,8 @@
                         <button type="button" data-src="futu" class="on">富途资讯（ZA）</button>
                         <button type="button" data-src="wj">华尔街见闻</button>
                     </div>
+                    <a class="news-cal-btn" href="https://news.platform.elebank.com/new-calendar?lang=zh-cn"
+                       target="_blank" rel="noopener noreferrer" title="新标签打开富途财经日历">📅 财经日历</a>
                 </div>
                 <div class="news-tabs" id="newsTabs"></div>
                 <div class="news-bar" id="newsBar">
@@ -3008,10 +3011,6 @@
             <div class="news-body">
                 <!-- 众安银行 7×24 快讯：iframe 直接嵌入（懒加载，切到该视图才请求） -->
                 <div class="news-futu" id="newsFutu" style="display:none">
-                    <!-- 财经日历浮层：覆盖在 iframe 内「财经日历」标题之上；
-                         点击以新标签顶层打开 /new-calendar（iframe 内被 X-Frame-Options 拦截，顶层打开可正常显示） -->
-                    <a class="news-cal-overlay" href="https://news.platform.elebank.com/new-calendar?lang=zh-cn"
-                       target="_blank" rel="noopener noreferrer" title="新标签打开富途财经日历（iframe 内被 SAMEORIGIN 拦截，故顶层打开）">📅 财经日历</a>
                     <iframe id="futuFrame" title="众安银行 7×24 快讯" loading="lazy" referrerpolicy="no-referrer"></iframe>
                     <div class="news-foot">数据源：众安银行 7×24 快讯 · iframe 嵌入 · 仅供个人看板</div>
                 </div>
@@ -14251,9 +14250,15 @@
                                                                 //   分母统一用腾讯昨收（不再用腾讯实时价 / Bybit 24h），盘中与正股行数字完全一致。
                                                                 //   腾讯昨收拿不到时回退：Alpaca 前收 → Bybit 永续 24h（盘外不至于画杠）。
                                                                 if (!isNaN(_priceRaw) && _priceRaw > 0) {
-                                                                    if (_optTq && _optTq.prevClose > 0) {
-                                                                        pct = (_priceRaw - _optTq.prevClose) / _optTq.prevClose * 100;
-                                                                        _srcTag = "tencent"; // 涨跌基准统一来自腾讯昨收
+                                                                    // 涨跌基准与正股行口径统一：盘中→腾讯昨收(prevClose)，盘外→腾讯实时价(=周五收盘，等同正股行 tq.price 基准)
+                                                                    if (_optTq && (_optTq.price > 0 || _optTq.prevClose > 0)) {
+                                                                        var _base = _inSession
+                                                                            ? (_optTq.prevClose > 0 ? _optTq.prevClose : _optTq.price)
+                                                                            : (_optTq.price > 0 ? _optTq.price : _optTq.prevClose);
+                                                                        if (_base > 0) {
+                                                                            pct = (_priceRaw - _base) / _base * 100;
+                                                                            _srcTag = _inSession ? "tencent" : "bybit";
+                                                                        }
                                                                     }
                                                                     else if (_optApPrev > 0) { pct = (_priceRaw - _optApPrev) / _optApPrev * 100; _srcTag = "alpaca"; }
                                                                     else if (_optItem) {
@@ -15928,9 +15933,9 @@
     </div>
 
     <script>
-    /* ==================== 7×24 快讯（华尔街见闻 + 新浪兜底） ====================
+    /* ==================== 7×24 快讯（华尔街见闻） ====================
        接口：https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=<ch>&client=pc&limit=N
-       CORS 完全开放，静态页面可直接 fetch；失败时回退新浪 JSONP。
+       CORS 完全开放，静态页面可直接 fetch；无第三方兜底。
        高亮关键词自动从 FUND_HOLDINGS（基金持仓中文名）+ us（美股持仓名）生成，
        无需手工维护。 */
     (function () {
@@ -15970,32 +15975,6 @@
                     if (j.code !== 20000) throw new Error(j.message || '接口返回异常');
                     return j.data.items || [];
                 });
-        }
-        function fetchSina() {
-            return new Promise(function (resolve, reject) {
-                var cb = '__sina_' + Date.now();
-                var s = document.createElement('script');
-                var tid = setTimeout(function () { cleanup(); reject(new Error('新浪超时')); }, 12000);
-                function cleanup() { clearTimeout(tid); try { delete window[cb]; } catch (e) {} if (s.parentNode) s.parentNode.removeChild(s); }
-                window[cb] = function (d) {
-                    cleanup();
-                    try {
-                        var list = (d.result && d.result.data && d.result.data.feed && d.result.data.feed.list) || [];
-                        resolve(list.map(function (it) {
-                            return {
-                                id: it.id, title: '',
-                                content_text: String(it.rich_text || '').replace(/<[^>]+>/g, ''),
-                                display_time: Math.floor(new Date(String(it.create_time).replace(/-/g, '/')).getTime() / 1000),
-                                uri: 'https://finance.sina.com.cn/7x24/'
-                            };
-                        }));
-                    } catch (e) { reject(e); }
-                };
-                s.onerror = function () { cleanup(); reject(new Error('新浪加载失败')); };
-                s.src = 'https://zhibo.sina.com.cn/api/zhibo/feed?page=1&page_size=' + LIMIT +
-                        '&zhibo_id=152&tag_id=0&dire=f&dpc=1&callback=' + cb;
-                document.head.appendChild(s);
-            });
         }
 
         /* ---------------- 渲染 ---------------- */
@@ -16050,11 +16029,8 @@
             fetchNews(cur)
                 .then(function (items) { cache[cur] = items; render(items, '华尔街见闻'); })
                 .catch(function (e1) {
-                    return fetchSina().then(function (items) { render(items, '新浪(备用)'); })
-                        .catch(function (e2) {
-                            var el = document.getElementById('newsList');
-                            if (el) el.innerHTML = '<div class="news-err">加载失败：' + esc(e1.message) + ' / ' + esc(e2.message) + '</div>';
-                        });
+                    var el = document.getElementById('newsList');
+                    if (el) el.innerHTML = '<div class="news-err">加载失败：' + esc(e1.message) + '</div>';
                 });
         }
 
