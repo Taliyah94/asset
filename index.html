@@ -2718,10 +2718,7 @@
         .news-cal-btn:active { background: var(--brand); color: #fff; border-color: var(--brand); }
         /* 富途 7×24 快讯：iframe 直接嵌入 */
         .news-futu { margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-        .news-futu iframe { width: 100%; height: calc(100vh - 150px); border: 0; display: block; background: #fff;
-            /* elebank 为跨域 iframe，无法单独改内部字体；用 zoom 整体放大（含新闻字体）。
-               仅 Chromium/Chrome/Edge 生效；Firefox 不支持 zoom，可改用「华尔街见闻」视图（字体我们完全可控）。 */
-            zoom: 1.15; }
+        .news-futu iframe { width: 100%; height: calc(100vh - 150px); border: 0; display: block; background: #fff; }
         .news-futu .news-foot { display: none; }
         @media (max-width: 420px) {
             .news-item .ni-h { font-size: 14.5px; }
@@ -3000,7 +2997,7 @@
                         <button type="button" data-src="wj">华尔街见闻</button>
                     </div>
                     <a class="news-cal-btn" href="https://news.platform.elebank.com/new-calendar?lang=zh-cn"
-                       target="_blank" rel="noopener noreferrer" title="新标签打开富途财经日历">📅 财经日历</a>
+                       target="_blank" rel="noopener noreferrer" title="新标签打开富途财经日历">📅 财历</a>
                 </div>
                 <div class="news-tabs" id="newsTabs"></div>
                 <div class="news-bar" id="newsBar">
@@ -3892,7 +3889,6 @@
         </div>
 
 
-
         <div class="setting-card">
             <h3>通用</h3>
             <div class="setting-row" id="setColorSchemeBtn" style="cursor:pointer;">
@@ -4224,9 +4220,6 @@
                                             </div><!-- wrap 结束 -->
 
 
-
-
-
                                             <style>
                                                 .nx-gauges {
                                                     display: flex;
@@ -4394,8 +4387,6 @@
                                                     }
                                                 }
                                             </style>
-
-
 
 
                                             </div>
@@ -5335,13 +5326,7 @@
                                                     })
                                                 }
 
-                                                function fmtAmtShort(n) {
-                                                    const s = n >= 0 ? "+" : "-";
-                                                    const a = Math.abs(Math.round(n || 0));
-                                                    if (a >= 1e8) return s + "¥" + (a / 1e8).toFixed(2) + "亿";
-                                                    if (a >= 1e4) return s + "¥" + (a / 1e4).toFixed(1) + "万";
-                                                    return s + "¥" + a.toLocaleString("zh-CN")
-                                                }
+                                                
 
                                                 function fmtAmtPlain(n) {
                                                     const neg = n < 0;
@@ -5418,12 +5403,7 @@
                                                     return d.getTime()
                                                 }
 
-                                                function fmtShortDate(iso) {
-                                                    var s = String(iso || "").trim();
-                                                    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-                                                    if (m) return m[1].slice(2) + "-" + m[2] + "-" + m[3];
-                                                    return s
-                                                }
+                                                
 
                                                 function fmtTradeCode(sym) {
                                                     var s = String(sym || "");
@@ -6358,18 +6338,7 @@
                                                     })
                                                 }
 
-                                                function usTradingDay() {
-                                                    var now = new Date;
-                                                    var h = now.getHours(),
-                                                        m = now.getMinutes();
-                                                    var afterOpen = h > 21 || h === 21 && m >= 30;
-                                                    var d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                                                    if (afterOpen) d.setDate(d.getDate() + 1);
-                                                    var pad = function(x) {
-                                                        return String(x).padStart(2, "0")
-                                                    };
-                                                    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
-                                                }
+                                                
 
                                                 function ymdAdd1(s) {
                                                     var p = s.split("-");
@@ -6420,9 +6389,7 @@
                                                     return dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate())
                                                 }
 
-                                                function fundNeedsPredictHero(f, discDay) {
-                                                    return fundNeedsPredict(f, discDay)
-                                                }
+                                                
 
                                                 function fetchKline(sym) {
                                                     return new Promise(function(resolve) {
@@ -7905,7 +7872,6 @@
                                                 })();
 
 
-
                                                 function globalEarliest() {
                                                     var e = null;
 
@@ -8442,45 +8408,9 @@
                                                     updateSortIndicators("cash")
                                                 }
 
-                                                function pendingCutoff() {
-                                                    if (pendingRange === "all") return null;
-                                                    var days = {
-                                                        "1w": 7,
-                                                        "1m": 30,
-                                                        "3m": 92,
-                                                        "1y": 365,
-                                                        "5y": 1826
-                                                    } [pendingRange] || 0;
-                                                    if (!days) return null;
-                                                    var d = new Date;
-                                                    d.setHours(0, 0, 0, 0);
-                                                    d.setDate(d.getDate() - days);
-                                                    var p = function(n) {
-                                                        return (n < 10 ? "0" : "") + n
-                                                    };
-                                                    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate())
-                                                }
+                                                
 
-                                                function pendingInstruments() {
-                                                    var list = [];
-                                                    (funds || []).forEach(function(f) {
-                                                        if ((f.trades || []).length) list.push({
-                                                            id: f.id,
-                                                            name: f.name || "",
-                                                            code: f.code || "",
-                                                            cat: "fund"
-                                                        })
-                                                    });
-                                                    (us || []).forEach(function(u) {
-                                                        if ((u.trades || []).length) list.push({
-                                                            id: u.id,
-                                                            name: u.name || "",
-                                                            code: u.code || "",
-                                                            cat: "us"
-                                                        })
-                                                    });
-                                                    return list
-                                                }
+                                                
 
                                                 function renderPendingFilterList(q) {
                                                     var box = $("pendingFilterList");
@@ -8518,64 +8448,7 @@
                                                     box.innerHTML = html || '<div class="pf-empty">没有匹配的交易标的</div>'
                                                 }
 
-                                                function buildPendingRows(trades, ccy) {
-                                                    var tr = (trades || []).slice().map(function(t, i) {
-                                                        return {
-                                                            t: t,
-                                                            i: i
-                                                        }
-                                                    }).sort(function(a, b) {
-                                                        return a.t.date < b.t.date ? -1 : a.t.date > b.t.date ? 1 : a.i - b.i
-                                                    });
-                                                    var lots = [];
-                                                    var out = [];
-                                                    tr.forEach(function(o) {
-                                                        var t = o.t;
-                                                        if (t.type === "buy") {
-                                                            lots.push({
-                                                                shares: Number(t.shares) || 0,
-                                                                price: Number(t.price) || 0
-                                                            });
-                                                            out.push({
-                                                                date: t.date,
-                                                                type: "buy",
-                                                                amount: (Number(t.price) || 0) * (Number(t.shares) || 0),
-                                                                ccy: ccy,
-                                                                pnl: null
-                                                            })
-                                                        } else if (t.type === "sell") {
-                                                            var sh = Number(t.shares) || 0,
-                                                                pr = Number(t.price) || 0,
-                                                                remaining = sh,
-                                                                realized = 0;
-                                                            while (remaining > 1e-9 && lots.length) {
-                                                                var lot = lots[0],
-                                                                    take = Math.min(lot.shares, remaining);
-                                                                realized += take * (pr - lot.price);
-                                                                lot.shares -= take;
-                                                                remaining -= take;
-                                                                if (lot.shares <= 1e-9) lots.shift()
-                                                            }
-                                                            out.push({
-                                                                date: t.date,
-                                                                type: "sell",
-                                                                amount: pr * sh,
-                                                                ccy: ccy,
-                                                                pnl: realized
-                                                            })
-                                                        } else if (t.type === "dividend") {
-                                                            var amt = Number(t.amount) || 0;
-                                                            out.push({
-                                                                date: t.date,
-                                                                type: "dividend",
-                                                                amount: amt,
-                                                                ccy: ccy,
-                                                                pnl: amt
-                                                            })
-                                                        }
-                                                    });
-                                                    return out
-                                                }
+                                                
 
                                                 function renderPending() {
                                                     var tb = $("tbPending");
@@ -8904,37 +8777,7 @@
                                                     }
                                                 }
 
-                                                function fifoRealizedRange(trades, cutoff) {
-                                                    var tr = (trades || []).slice().sort(function(a, b) {
-                                                        return a.date < b.date ? -1 : a.date > b.date ? 1 : 0
-                                                    });
-                                                    var lots = [];
-                                                    var realized = 0;
-                                                    tr.forEach(function(t) {
-                                                        if (t.type === "buy") {
-                                                            lots.push({
-                                                                shares: Number(t.shares) || 0,
-                                                                price: Number(t.price) || 0
-                                                            })
-                                                        } else if (t.type === "sell") {
-                                                            var sh = Number(t.shares) || 0,
-                                                                pr = Number(t.price) || 0;
-                                                            var count = !cutoff || t.date >= cutoff;
-                                                            var remaining = sh;
-                                                            while (remaining > 1e-9 && lots.length) {
-                                                                var lot = lots[0],
-                                                                    take = Math.min(lot.shares, remaining);
-                                                                if (count) realized += take * (pr - lot.price);
-                                                                lot.shares -= take;
-                                                                remaining -= take;
-                                                                if (lot.shares <= 1e-9) lots.shift()
-                                                            }
-                                                        } else if (t.type === "dividend") {
-                                                            if (!cutoff || t.date >= cutoff) realized += Number(t.amount || 0)
-                                                        }
-                                                    });
-                                                    return realized
-                                                }
+                                                
 
                                                 function getTradeStats(u) {
                                                     return fifoProcess(u.trades)
@@ -10242,28 +10085,7 @@
                                                     box.appendChild(legend)
                                                 }
 
-                                                function appendSummary(days, useAmt, box) {
-                                                    let best = null,
-                                                        worst = null;
-                                                    days.forEach(function(d) {
-                                                        const v = useAmt ? d.chg != null ? d.chg : null : d.chgPct != null ? d.chgPct : null;
-                                                        if (v == null) return;
-                                                        if (best == null || v > best.v) best = {
-                                                            v: v,
-                                                            label: d.label
-                                                        };
-                                                        if (worst == null || v < worst.v) worst = {
-                                                            v: v,
-                                                            label: d.label
-                                                        }
-                                                    });
-                                                    if (!best && !worst) return;
-                                                    const sum = document.createElement("div");
-                                                    sum.className = "cal-summary";
-                                                    if (best) sum.innerHTML += '<span>最佳单日：<b class="up">' + best.label + " " + (useAmt ? fmtAmtPlain(best.v) : "+" + (best.v * 100).toFixed(2) + "%") + "</b></span>";
-                                                    if (worst) sum.innerHTML += '<span>最差单日：<b class="down">' + worst.label + " " + (useAmt ? fmtAmtPlain(worst.v) : (worst.v * 100).toFixed(2) + "%") + "</b></span>";
-                                                    box.appendChild(sum)
-                                                }
+                                                
 
                                                 function setView(v) {
                                                     viewMode = v;
@@ -12061,19 +11883,7 @@
                                                     syncCashFromJson();
                                                     syncTradesFromJson();
                                                     (function() {
-                                                        function paToast(m) {
-                                                            var t = document.createElement("div");
-                                                            t.textContent = m;
-                                                            t.style.cssText = "position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:rgba(20,24,31,.92);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,.3)";
-                                                            document.body.appendChild(t);
-                                                            setTimeout(function() {
-                                                                t.style.opacity = "0";
-                                                                t.style.transition = "opacity .4s";
-                                                                setTimeout(function() {
-                                                                    if (t.parentNode) t.parentNode.removeChild(t)
-                                                                }, 400)
-                                                            }, 1600)
-                                                        }
+                                                        
                                                         try {
                                                             localStorage.setItem("pa_usSrc", "auto");
                                                         } catch (e) {}
@@ -12437,9 +12247,7 @@
                                                         return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
                                                     }
 
-                                                    function proxyUrls(url) {
-                                                        return ['https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url), 'https://corsproxy.org/?' + encodeURIComponent(url)];
-                                                    }
+                                                    
 
                                                     function fetchText(url, ms) {
                                                         return new Promise(function(res, rej) {
@@ -12469,64 +12277,18 @@
                                                         });
                                                     }
 
-                                                    function parseWpPE(html) {
-                                                        var m = html.match(/Nasdaq 100 Index<\/b>\s*is\s*<b>\s*([0-9]+(?:\.[0-9]+)?)/i);
-                                                        if (!m) throw new Error('PE not found');
-                                                        return parseFloat(m[1]);
-                                                    }
+                                                    
 
-                                                    function tsToDate(sec) {
-                                                        if (sec == null) return null;
-                                                        var d = new Date(Number(sec) * 1000);
-                                                        if (isNaN(d.getTime())) return null;
-                                                        var p = function(n) {
-                                                            return (n < 10 ? '0' : '') + n;
-                                                        };
-                                                        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-                                                    }
+                                                    
 
-                                                    function parseWpDate(html) {
-                                                        var m = html.match(/calculated on\s*<b>\s*([0-9]{1,2})\s+([A-Za-z]+)\s+([0-9]{4})\s*<\/b>/i);
-                                                        if (!m) return null;
-                                                        var mon = {
-                                                            january: 1,
-                                                            february: 2,
-                                                            march: 3,
-                                                            april: 4,
-                                                            may: 5,
-                                                            june: 6,
-                                                            july: 7,
-                                                            august: 8,
-                                                            september: 9,
-                                                            october: 10,
-                                                            november: 11,
-                                                            december: 12
-                                                        };
-                                                        var mo = mon[m[2].toLowerCase()];
-                                                        if (!mo) return null;
-                                                        var p = function(n) {
-                                                            return (n < 10 ? '0' : '') + n;
-                                                        };
-                                                        return m[3] + '-' + p(mo) + '-' + p(Number(m[1]));
-                                                    }
+                                                    
 
                                                     function setDateText(id, v) {
                                                         var el = document.getElementById(id);
                                                         if (el) el.textContent = v ? ('截至 ' + v) : '';
                                                     }
 
-                                                    function tryProxies(url, kind, ms) {
-                                                        var ps = proxyUrls(url);
-
-                                                        function go(i) {
-                                                            if (i >= ps.length) return Promise.reject(new Error('all proxies failed'));
-                                                            var f = (kind === 'json') ? fetchJSON(ps[i], ms) : fetchText(ps[i], ms);
-                                                            return f.catch(function() {
-                                                                return go(i + 1);
-                                                            });
-                                                        }
-                                                        return go(0);
-                                                    }
+                                                    
 
                                                     function refreshNasdaqLive() {
                                                         var today = todayStr();
@@ -13510,17 +13272,6 @@
                                             </style>
 
 
-
-
-
-
-
-
-
-
-
-
-
                                             <!-- 市场布局配置（置顶/置底/手动顺序/排序）：内存态由置顶/置底按钮与拖拽写入 localStorage 持久化 -->
                                             <script id="pa-market-layout" type="application/json">{"pins":{"CL":"bottom","XAU":"bottom","BTC":"bottom","ORCL":"bottom"},"order":["CL","XAU","BTC","ORCL"],"sort":{"key":"mv","dir":-1}}</script>
                                             <script>
@@ -13804,7 +13555,13 @@
                                                                         });
                                                                     };
                                                                     var done = false, to = null;
-                                                                    var finish = function() { if (done) return; done = true; if (to) clearTimeout(to); res(); };
+                                                                    // [修复] finish() 是唯一「收尾并 resolve」的出口：调用方(onload/onerror/fallback)绝不能提前把 done 置 true，
+                                                                    // 否则 finish() 会在 if (done) return 处短路、res() 永不执行 → 分块 Promise 永不 settle
+                                                                    // → fetchTencentClose 永不 resolve → renderMarketList 永不调用
+                                                                    // → 市场行情只剩基金行（美股持仓/期权正股/自选全部消失）。
+                                                                    var finish = function() { if (done) return; done = true; if (to) clearTimeout(to); if (guard) clearTimeout(guard); res(); };
+                                                                    // 硬兜底：脚本既不 onload 也不 onerror（被拦截/永久 pending）时，12s 后强制收尾，避免整块行情渲染被卡死
+                                                                    var guard = setTimeout(finish, 12000);
                                                                     var fallback = function() {
                                                                         try {
                                                                             fetch("https://qt.gtimg.cn/q=" + q).then(function(rr) { return rr.arrayBuffer(); })
@@ -13817,7 +13574,7 @@
                                                                         s.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
                                                                         to = setTimeout(fallback, 4000);
                                                                         s.onload = function() {
-                                                                            if (done) return; done = true; clearTimeout(to);
+                                                                            if (done) return;
                                                                             ck.forEach(function(k) {
                                                                                 var raw = window["v_" + k];
                                                                                 if (typeof raw === "string") {
@@ -13829,7 +13586,7 @@
                                                                             });
                                                                             finish();
                                                                         };
-                                                                        s.onerror = function() { if (!done) { done = true; clearTimeout(to); } finish(); };
+                                                                        s.onerror = function() { finish(); };
                                                                         document.head.appendChild(s);
                                                                     } catch (e) { finish(); }
                                                                 });
@@ -14105,7 +13862,6 @@
                                                         var _groups = [];
                                                         var _grpByRoot = {};
                                                         showSyms.forEach(function(sym) {
-                                                            if (isHiddenSym(bybitCodeOf(sym) + "USDT")) return;
                                                             if (isOptionSymbol(sym)) {
                                                                 var _op = parseOptionSymbol(sym);
                                                                 var _root = (_op && _op.root ? _op.root : sym).toUpperCase();
@@ -14389,24 +14145,10 @@
                                                         return true;
                                                     }
 
-                                                    // 市场行"永久隐藏"集合：存 localStorage，渲染与行情拉取两处都过滤，刷新后不再恢复
-                                                    function getHiddenSyms() {
-                                                        try { return JSON.parse(localStorage.getItem("pa-market-hidden") || "[]"); } catch (e) { return []; }
-                                                    }
-                                                    function isHiddenSym(k) {
-                                                        if (!k) return false;
-                                                        k = String(k).toUpperCase();
-                                                        try { return getHiddenSyms().indexOf(k) >= 0; } catch (e) { return false; }
-                                                    }
-                                                    function addHiddenSym(k) {
-                                                        if (!k) return;
-                                                        k = String(k).toUpperCase();
-                                                        var a = getHiddenSyms();
-                                                        if (a.indexOf(k) < 0) { a.push(k); try { localStorage.setItem("pa-market-hidden", JSON.stringify(a)); } catch (e) {} }
-                                                    }
-                                                    function clearHiddenSyms() {
-                                                        try { localStorage.removeItem("pa-market-hidden"); } catch (e) {}
-                                                    }
+                                                    
+                                                    
+                                                    
+                                                    
 
                                                     // 行管理面板：列出当前所有行，支持拖拽排序、固定置顶、删除（基金可隐藏）
                                                     function initMarketManage() {
@@ -14471,21 +14213,6 @@
                                                                 listEl.appendChild(row);
                                                             });
                                                             bindDrag();
-                                                        // 已隐藏行恢复入口（防误删，点一下清空隐藏集合）
-                                                        var _hidden = getHiddenSyms();
-                                                        if (_hidden.length) {
-                                                            var _restore = document.createElement("div");
-                                                            _restore.className = "mm-restore";
-                                                            _restore.style.cssText = "margin-top:10px;text-align:center;font-size:12px;color:#888;cursor:pointer;";
-                                                            _restore.textContent = "已隐藏 " + _hidden.length + " 项 · 点击恢复";
-                                                            _restore.addEventListener("click", function() {
-                                                                clearHiddenSyms();
-                                                                renderUnifiedList();
-                                                                renderManageList();
-                                                                if (typeof fetchMarketData === "function") fetchMarketData();
-                                                            });
-                                                            listEl.appendChild(_restore);
-                                                        }
                                                     }
 
                                                         // 改用 Pointer Events 实现跨平台拖拽（桌面鼠标 + 移动触摸）
@@ -14640,7 +14367,6 @@
                                                         var html = "";
                                                         fs.forEach(function(f) {
                                                             var code = f.code || "";
-                                                            if (isHiddenSym(String(code).toUpperCase())) return;
                                                             var name = f.name || code || "基金";
                                                             var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[code] : null;
                                                             var items = (ph && ph.items) ? ph.items : [];
@@ -15215,9 +14941,6 @@
                                                                 }
                                                             });
                                                         }
-                                                        // 过滤"永久隐藏"的行（localStorage），避免刷新后重新出现
-                                                        allSyms = allSyms.filter(function(s) { return !isHiddenSym(bybitCodeOf(s) + "USDT"); });
-
                                                         // 仅当手动自选与美股持仓都无任何代码时，才早退（基金走独立渲染链照常显示）
                                                         if (allSyms.length === 0) {
                                                             if (loadingEl) loadingEl.style.display = "none";
@@ -15282,7 +15005,11 @@
                                                             var tP = (stockSyms.length > 0) ? fetchTencentClose(stockSyms) : Promise.resolve({});
                                                             // Alpaca 全量(价格+前收)：既保留原有前收基准兜底，又用于 Bybit 失败时的价格兜底
                                                             var aP = (_useAlpaca && stockSyms.length) ? fetchUsQuotesAlpaca(stockSyms, _ac) : Promise.resolve({});
-                                                            Promise.all([tP, aP]).then(function(r) {
+                                                            // [修复] 最后一道保险：tP/aP 任一永久 pending（脚本注入被拦截、CORS 卡死等）会让
+                                                            // Promise.all 永不 settle → renderMarketList 永不执行 → 市场行情整页只剩基金行。
+                                                            // 这里用 10s 硬超时抢跑：到点就用已拿到的部分数据渲染，宁可少基准也不空白。
+                                                            var _hardTO = new Promise(function(res) { setTimeout(function() { res([{}, {}]); }, 10000); });
+                                                            Promise.race([Promise.all([tP, aP]), _hardTO]).then(function(r) {
                                                                 var tencentMap = r[0] || {};
                                                                 var alpacaFull = r[1] || {};
                                                                 // Bybit 读不到的股票：Alpaca 实时价优先补行；若 Alpaca 也无价但腾讯有价，用腾讯价补行。
@@ -15383,11 +15110,9 @@
                                                                         .catch(function(err) {
                                                                             hasError = true;
                                                                             _recordFail(isStock, sym);
-                                                                            pending--;
-                                                                            if (pending <= 0) {
-                                                                                clearTimeout(_safetyTimer);
-                                                                                _renderDone(false);
-                                                                            }
+                                                                            // [修复] 这里原先也 pending-- 并触发渲染，与下面 .finally 叠加成「一次失败减两次」：
+                                                                            // pending 提前归零 → 其余请求还没回来就渲染 → 未返回的符号进不了 stockSyms/渲染集合 → 整行丢失。
+                                                                            // 计数与渲染统一交给 .finally，.catch 只负责记录失败。
                                                                         })
                                                                         .finally(function() {
                                                                             pending--;
