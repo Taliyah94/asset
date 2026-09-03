@@ -1,7 +1,7 @@
-name: 抓取基金季报
+name: 抓取基金持仓与净值
 
 # 手动触发：在 GitHub 仓库的 Actions 标签页点「Run workflow」即可。
-# 也可按需打开下方 schedule（每季度自动抓取）。
+# 每日自动抓取：净值(nav)与季报前十大持仓(items) 一并刷新。
 on:
   workflow_dispatch:
     inputs:
@@ -14,10 +14,12 @@ on:
         required: false
         default: "fund_holdings.json"
 
-  # 每季度自动抓取（取消注释即启用）：
-  # 季末后第 5 天 16:00 UTC ≈ 北京时间次日 00:00
-  # schedule:
-  #   - cron: "0 16 5 2,5,8,11 *"
+  # 每日自动抓取：美东时间 09:30（美股开盘，前一日净值已确定发布）。
+  # GitHub cron 仅支持 UTC 且不自动随夏令时切换：
+  #   夏令时 EDT(3–11月) 美东9:30 = UTC 13:30  -> 下方取值
+  #   冬令时 EST         美东9:30 = UTC 14:30  -> 需改为 "30 14 * * *"
+  schedule:
+    - cron: "30 13 * * *"
 
 permissions:
   contents: write   # 用于把抓取结果提交回仓库
@@ -55,6 +57,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "内容无变化，跳过提交"
           else
-            git commit -m "chore: 更新基金季报 $(date +'%Y-%m-%d') [skip ci]"
+            git commit -m "chore: 更新基金持仓与净值 $(date +'%Y-%m-%d') [skip ci]"
             git push
           fi

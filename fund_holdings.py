@@ -11,7 +11,8 @@
     {
       "000043": {
         "report": "2026-06-30",
-        "items": [{"c": "AAPL", "n": "苹果", "p": 8.29, "m": "us"}, ...]
+        "items": [{"c": "AAPL", "n": "苹果", "p": 8.29, "m": "us"}, ...],
+        "nav": [[时间戳(ms), 单位净值], ...]   // 净值历史（紧凑二维数组，升序）；proxy 类基金无此字段
       },
       "016532": {"report": "跟踪纳斯达克100", "proxy": true, "items": [...]}
     }
@@ -188,6 +189,44 @@ def fetch_content(code, retries=3, timeout=30):
     return None, None
 
 
+def fetch_nav(code, retries=3, timeout=30):
+    """抓取基金净值历史 Data_netWorthTrend，返回 [[t_ms, nav], ...]（紧凑、升序）或 None。
+
+    数据源与浏览器端一致：fund.eastmoney.com/pingzhongdata/{code}.js，
+    其中 Data_netWorthTrend = [{"x": 时间戳(ms), "y": 单位净值, ...}, ...]。
+    仅取 (x, y) 两列，单位净值 <=0 的脏数据丢弃；输出紧凑二维数组 [[t_ms, nav], ...]。
+    """
+    url = "https://fund.eastmoney.com/pingzhongdata/%s.js" % code
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": USER_AGENT, "Referer": "https://fundf10.eastmoney.com/"}
+            )
+            raw = urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", "ignore")
+            m = re.search(r"Data_netWorthTrend\s*=\s*(\[.*?\])\s*;", raw, re.S)
+            if not m:
+                return None
+            arr = json.loads(m.group(1))
+            out = []
+            for row in arr:
+                if not isinstance(row, dict):
+                    continue
+                t, nav = row.get("x"), row.get("y")
+                if not isinstance(nav, (int, float)) or not isinstance(t, (int, float)):
+                    continue
+                if nav <= 0:
+                    continue
+                out.append([int(t), round(float(nav), 4)])
+            return out if out else None
+        except Exception as e:  # noqa: BLE001 - 网络异常统一重试
+            last_err = e
+            if attempt < retries:
+                time.sleep(2 * attempt)
+    sys.stderr.write("  [nav异常] %s: %s\n" % (code, last_err))
+    return None
+
+
 class _TableParser(HTMLParser):
     """把季报表格解析成二维单元格列表。
 
@@ -305,7 +344,11 @@ def scrape(codes, proxy, quiet=False):
             if content:
                 items = parse(content)
                 if items:
-                    result[code] = {"report": report, "items": items}
+                    nav = fetch_nav(code)
+                    entry = {"report": report, "items": items}
+                    if nav:
+                        entry["nav"] = nav
+                    result[code] = entry
                 else:
                     sys.stderr.write("  [空] %s 未解析到持仓\n" % code)
             else:
