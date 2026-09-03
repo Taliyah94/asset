@@ -6899,16 +6899,19 @@
                                                         Promise.all(symList.map(function(sym) {
                                                             return (async function() {
                                                                 try {
-                                                                    var iex = null,
-                                                                        ovn = null;
-                                                                    try {
-                                                                        var r1 = await getJsonTimed("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=iex", 8000);
-                                                                        if (r1 && r1.ok) iex = await r1.json()
-                                                                    } catch (e) {}
-                                                                    try {
-                                                                        var r2 = await getJsonTimed("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=overnight", 8000);
-                                                                        if (r2 && r2.ok) ovn = await r2.json()
-                                                                    } catch (e) {}
+                                                                    var iexUrl = "https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=iex";
+                                                                    var ovnUrl = "https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/snapshot?feed=overnight";
+                                                                    var barsUrl = "https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/bars?timeframe=1Min&limit=1&extended_hours=true";
+                                                                    // 3 个请求并行（原串行 await 在 Alpaca 不可达时会累加 3×超时）；单请求超时 8s→4s
+                                                                    var _needBars = !isUsRegularSession();
+                                                                    var _res = await Promise.all([
+                                                                        getJsonTimed(iexUrl, 4000),
+                                                                        getJsonTimed(ovnUrl, 4000),
+                                                                        _needBars ? getJsonTimed(barsUrl, 4000) : Promise.resolve(null)
+                                                                    ]);
+                                                                    var r1 = _res[0], r2 = _res[1], rb = _res[2];
+                                                                    var iex = (r1 && r1.ok) ? await r1.json() : null;
+                                                                    var ovn = (r2 && r2.ok) ? await r2.json() : null;
                                                                     var ti = iex && iex.latestTrade && iex.latestTrade.t,
                                                                         to = ovn && ovn.latestTrade && ovn.latestTrade.t;
                                                                     var best = null;
@@ -6917,18 +6920,12 @@
                                                                     else if (to) best = ovn;
                                                                     if (!best) best = iex || ovn;
                                                                     var pr = pick(best);
-                                                                    if (!isUsRegularSession()) {
+                                                                    if (_needBars && rb && rb.ok) {
                                                                         try {
-                                                                            var rb = await getJsonTimed("https://data.alpaca.markets/v2/stocks/" + encodeURIComponent(sym) + "/bars?timeframe=1Min&limit=1&extended_hours=true", 8000);
-                                                                            if (rb && rb.ok) {
-                                                                                var bj = await rb.json();
-                                                                                if (bj && bj.bars && bj.bars.length) {
-                                                                                    var bar = bj.bars[bj.bars.length - 1];
-                                                                                    if (bar && bar.c != null) pr = {
-                                                                                        price: bar.c,
-                                                                                        time: bar.t || ""
-                                                                                    }
-                                                                                }
+                                                                            var bj = await rb.json();
+                                                                            if (bj && bj.bars && bj.bars.length) {
+                                                                                var bar = bj.bars[bj.bars.length - 1];
+                                                                                if (bar && bar.c != null) pr = { price: bar.c, time: bar.t || "" };
                                                                             }
                                                                         } catch (e) {}
                                                                     }
@@ -13790,52 +13787,54 @@
                                                             // 分批：单批最多 MKT_QUOTE_CHUNK 个，避免一次性拼太长导致不返回
                                                             var chunks = [];
                                                             for (var i = 0; i < keys.length; i += MKT_QUOTE_CHUNK) chunks.push(keys.slice(i, i + MKT_QUOTE_CHUNK));
-                                                            (function next(idx) {
-                                                                if (idx >= chunks.length) { resolve(out); return; }
-                                                                var ck = chunks[idx];
-                                                                var q = ck.join(",");
-                                                                var parse = function(txt) {
-                                                                    ck.forEach(function(k) {
-                                                                        var m = txt.match(new RegExp("v_" + k + '="([^"]*)"'));
-                                                                        if (m) {
-                                                                            var p = m[1].split("~");
-                                                                            var tPrice = parseFloat(p[3]);    // p[3]=腾讯现价
-                                                                            var tPrev = parseFloat(p[4]);    // p[4]=腾讯昨收
-                                                                            if (!isNaN(tPrice) && tPrice > 0) out[k] = { price: tPrice, prevClose: tPrev };
-                                                                        }
-                                                                    });
-                                                                    return out;
-                                                                };
-                                                                var done = false, to = null;
-                                                                var finish = function() { if (done) return; done = true; if (to) clearTimeout(to); };
-                                                                var fallback = function() {
-                                                                    try {
-                                                                        fetch("https://qt.gtimg.cn/q=" + q).then(function(rr) { return rr.arrayBuffer(); })
-                                                                            .then(function(buf) { finish(); parse(new TextDecoder("gbk").decode(buf)); next(idx + 1); })
-                                                                            .catch(function() { finish(); next(idx + 1); });
-                                                                    } catch (e) { finish(); next(idx + 1); }
-                                                                };
-                                                                try {
-                                                                    var s = document.createElement("script");
-                                                                    s.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
-                                                                    to = setTimeout(fallback, 8000);
-                                                                    s.onload = function() {
-                                                                        if (done) return; done = true; clearTimeout(to);
+                                                            // 各分块并行请求：v_XXX 全局变量按代码命名空间隔离，批次间不互相污染，可安全并发。
+                                                            // 原串行 next(idx) 在分块多/某批脚本加载慢时，会因 8s 兜底超时累加拖到十几~二十秒。
+                                                            function _fetchChunk(ck) {
+                                                                return new Promise(function(res) {
+                                                                    var q = ck.join(",");
+                                                                    var parse = function(txt) {
                                                                         ck.forEach(function(k) {
-                                                                            var raw = window["v_" + k];
-                                                                            if (typeof raw === "string") {
-                                                                                var p = raw.split("~");
+                                                                            var m = txt.match(new RegExp("v_" + k + '="([^"]*)"'));
+                                                                            if (m) {
+                                                                                var p = m[1].split("~");
                                                                                 var tPrice = parseFloat(p[3]);    // p[3]=腾讯现价
                                                                                 var tPrev = parseFloat(p[4]);    // p[4]=腾讯昨收
                                                                                 if (!isNaN(tPrice) && tPrice > 0) out[k] = { price: tPrice, prevClose: tPrev };
                                                                             }
                                                                         });
-                                                                        setTimeout(function() { next(idx + 1); }, 60);
                                                                     };
-                                                                    s.onerror = function() { if (!done) { done = true; clearTimeout(to); } next(idx + 1); };
-                                                                    document.head.appendChild(s);
-                                                                } catch (e) { finish(); next(idx + 1); }
-                                                            })(0);
+                                                                    var done = false, to = null;
+                                                                    var finish = function() { if (done) return; done = true; if (to) clearTimeout(to); res(); };
+                                                                    var fallback = function() {
+                                                                        try {
+                                                                            fetch("https://qt.gtimg.cn/q=" + q).then(function(rr) { return rr.arrayBuffer(); })
+                                                                                .then(function(buf) { parse(new TextDecoder("gbk").decode(buf)); finish(); })
+                                                                                .catch(function() { finish(); });
+                                                                        } catch (e) { finish(); }
+                                                                    };
+                                                                    try {
+                                                                        var s = document.createElement("script");
+                                                                        s.src = "https://qt.gtimg.cn/q=" + q + "&_=" + Date.now();
+                                                                        to = setTimeout(fallback, 4000);
+                                                                        s.onload = function() {
+                                                                            if (done) return; done = true; clearTimeout(to);
+                                                                            ck.forEach(function(k) {
+                                                                                var raw = window["v_" + k];
+                                                                                if (typeof raw === "string") {
+                                                                                    var p = raw.split("~");
+                                                                                    var tPrice = parseFloat(p[3]);    // p[3]=腾讯现价
+                                                                                    var tPrev = parseFloat(p[4]);    // p[4]=腾讯昨收
+                                                                                    if (!isNaN(tPrice) && tPrice > 0) out[k] = { price: tPrice, prevClose: tPrev };
+                                                                                }
+                                                                            });
+                                                                            finish();
+                                                                        };
+                                                                        s.onerror = function() { if (!done) { done = true; clearTimeout(to); } finish(); };
+                                                                        document.head.appendChild(s);
+                                                                    } catch (e) { finish(); }
+                                                                });
+                                                            }
+                                                            Promise.all(chunks.map(function(ck) { return _fetchChunk(ck); })).then(function() { resolve(out); });
                                                         });
                                                     }
 
