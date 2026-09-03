@@ -6423,14 +6423,14 @@ function optionAlpacaMode(arg) {
             return x.symbol === sym
         }) : null
     }
-    /* 非盘中统一规则：盈透记录日期 ≥ 美东昨天 → 盈透；否则 Alpaca 收盘价。
-       [变更] 已移除「周五 16:00 ET ~ 周六 0:00 强制 Alpaca」特例，周五盘后同样按盈透新鲜度判定。 */
+    /* 非盘中统一规则：盈透快照日期 < 美东今天 → 盈透；否则 Alpaca 收盘价。
+       必须等美东进入「快照日期的次日」（IBKR 完成该交易日日终批处理）才用盈透；
+       例：ET 9/3 收盘后 ~ 9/4 0:00 前仍走 Alpaca，9/4 0:00 后 IBKR 的 9/3 mark 才采用。 */
     var p = null;
     try { p = etNowCached(); } catch (e) { p = null; }
     if (p) {
         if (u && u._ibkrMarkDate) {
-            var _etYest = ymdAddDays(p.ymd, -1);      // 美东昨天
-            if (u._ibkrMarkDate >= _etYest) return "ibkr";  // 盈透记录为昨天(或更新) → 盈透
+            if (u._ibkrMarkDate < p.ymd) return "ibkr";  // 盈透记录日早于美东今天 → 盈透
         }
         return "close"
     }
