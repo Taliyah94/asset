@@ -7212,6 +7212,21 @@ function prevWeekdayYmd(s) {
     return s
 }
 
+/* 基金「当日」基准日（美东开盘 9:30 ET 为界；隔周末跳过）。
+   - 已开盘（交易日且 ET >= 9:30）→ 美东今天（只计更新到今天的基金）
+   - 未开盘 / 周末 / 节假日   → 美东今天 - 1 个交易日（prevWeekdayYmd 跳过周末，即「隔天」）
+   美股 / 期权不受此界限制约，随时计入当日盈亏。 */
+function computeFundDayRef() {
+    var ep = null;
+    try { ep = etNowCached(); } catch (e) { ep = null; }
+    if (!ep || !ep.ymd) return null;
+    var etMin = ep.h * 60 + ep.m;
+    var isEtWeekday = (ep.wd !== "Sat" && ep.wd !== "Sun");
+    if (isEtWeekday && etMin >= 9 * 60 + 30) return ep.ymd;   // 已开盘 → 今天
+    return prevWeekdayYmd(ep.ymd);                             // 未开盘 / 周末 → 上一交易日(隔天)
+}
+window.computeFundDayRef = computeFundDayRef;
+
 // (optBase A/B 选择逻辑已移除：期权现价与昨收统一来自 Alpaca 历史 bar)
 
 function fetchUsQuotesAlpaca(symList, cfg) {
@@ -7538,29 +7553,26 @@ function computeCurrent() {
         var a = calcCashAmount(c);
         cashVal += c.currency === "usd" ? a * fx : a
     });
-    // 基金卡片「当日」以各基金最新更新日期为基准：仅更新到该最新日的基金才计入当日盈亏
-    const fundDayTimes = funds.map(f => f._dayTime).filter(t => t && /^\d{4}-\d{2}-\d{2}$/.test(t));
-    const fundLatestDay = fundDayTimes.length ? fundDayTimes.reduce((a, b) => b > a ? b : a) : null;
-    const fundDayPnl = funds.reduce((s, f) => (fundLatestDay && f._dayTime === fundLatestDay) ? s + (f._dayPnl || 0) : s, 0);
-    const fundDayPrev = funds.reduce((s, f) => (fundLatestDay && f._dayTime === fundLatestDay) ? s + (f._dayPrevVal || 0) : s, 0);
+    // ===== 当日卡片：基金按美东开盘为界 + 美股/期权随时计入（替换原「总资产差值」逻辑）=====
+    // 基金基准日 fundDayRef：美东已开盘(>=9:30 ET 且为交易日) → 今天；未开盘/周末/节假日 → 上一交易日(隔天)。
+    //   - 美东 9/4 盘前(未开盘)：ref=9/3 → 把 9/3 基金盈亏全加（不加 9/2）
+    //   - 美东 9/4 开盘后：ref=9/4 → 只加更新到 9/4 的基金
+    // 美股/期权：所有时间都计入（usDayPnl 已按各自昨收口径算好）
+    const fundDayRef = computeFundDayRef();
+    const fundDayPnl = (fundDayRef != null)
+        ? funds.reduce((s, f) => (f._dayTime === fundDayRef) ? s + (f._dayPnl || 0) : s, 0)
+        : funds.reduce((s, f) => s + (f._dayPnl || 0), 0);   // 取不到美东时间兜底：全加
+    const fundDayPrev = (fundDayRef != null)
+        ? funds.reduce((s, f) => (f._dayTime === fundDayRef) ? s + (f._dayPrevVal || 0) : s, 0)
+        : 0;
     const usDayPnl = us.reduce((s, u) => s + (u._dayPnl || 0), 0);
     const fundHasData = fundDayPrev > 0;
-    let fTime = fundLatestDay || "\u2014";
+    let fTime = fundDayRef || "—";
     let uTime = "实时";
-    // 当日卡片盈亏率：以「前一日总资产」为基准（而非各持仓前值合计），与资产日变动口径一致
-    // 【修复 2026-09-04】「前一日」必须按【美东交易日】回退，不能用 todayTs()-864e5（UTC 零点）：
-    // 美东收盘后(20:00 ET 起) UTC 已跨到次日，todayTs()-1天 会落到「刚收盘的当天交易日」，
-    // 导致 assetAt 取到「今天」的资产来自减，当日盈亏恒为 0。
-    // 改为：取美东当前交易日 Dcur，回退一个交易日得到 Dprev，用 assetAt(Dprev) 作基准；取不到美东时间则兜底原逻辑。
-    var _prevDayTs = null;
-    try {
-        var _ep = etNowCached();
-        if (_ep && _ep.ymd) _prevDayTs = parseDate(prevWeekdayYmd(_ep.ymd));
-    } catch (e) {}
-    if (_prevDayTs == null) _prevDayTs = todayTs() - 864e5;
-    const prevDayTotal = assetAt(_prevDayTs);
-    const dayCardPnl = (prevDayTotal != null && prevDayTotal > 0) ? (fundVal + usVal + cashVal) - prevDayTotal : null;
-    const dayRetVal = (prevDayTotal != null && prevDayTotal > 0) ? dayCardPnl / prevDayTotal : null;
+    // 当日卡片盈亏 = 基金(按 fundDayRef) + 美股/期权(随时)
+    const dayCardPnl = fundDayPnl + usDayPnl;
+    const dayPrevBase = fundDayPrev + usPrevVal + cashVal;
+    const dayRetVal = (dayPrevBase > 0) ? dayCardPnl / dayPrevBase : null;
     if (usInvestAutoVal != null && !isNaN(usInvestAutoVal) && usInvestAutoVal > 0) usTotalBuyCost = usInvestAutoVal;
     else if (usInvestManual != null && !isNaN(usInvestManual) && usInvestManual > 0) usTotalBuyCost = usInvestManual;
     return {
@@ -8098,8 +8110,19 @@ function drawAllocation() {
     function renderPredictBanner(container) {
         if (!banner) return;
         var fundMv = 0, fundPnl = 0, mktMv = 0, mktPnl = 0;
-        Array.prototype.slice.call(container.querySelectorAll(".fund-row")).forEach(function(el){ fundMv += parseFloat(el.getAttribute("data-mv")) || 0; fundPnl += parseFloat(el.getAttribute("data-pnl")) || 0; });
-        Array.prototype.slice.call(container.querySelectorAll(".market-item-us")).forEach(function(el){ mktMv += parseFloat(el.getAttribute("data-mv")) || 0; mktPnl += parseFloat(el.getAttribute("data-pnl")) || 0; });
+        // 市值(MV)仍从 DOM 行取；当日盈亏改由数据源同源计算，避免被盘外 dashUsPnlOffSession 清零覆盖
+        Array.prototype.slice.call(container.querySelectorAll(".fund-row")).forEach(function(el){ fundMv += parseFloat(el.getAttribute("data-mv")) || 0; });
+        Array.prototype.slice.call(container.querySelectorAll(".market-item-us")).forEach(function(el){ mktMv += parseFloat(el.getAttribute("data-mv")) || 0; });
+        // 基金「当日」基准日：美东开盘为界；美股/期权所有时间都加（与当日卡片同源，不被盘外逻辑清零）
+        var _fref = (typeof computeFundDayRef === "function") ? computeFundDayRef() : null;
+        if (_fref != null && typeof funds !== "undefined" && funds) {
+            fundPnl = funds.reduce(function(s, f){ return (f._dayTime === _fref) ? s + (f._dayPnl || 0) : s; }, 0);
+        } else if (typeof funds !== "undefined" && funds) {
+            fundPnl = funds.reduce(function(s, f){ return s + (f._dayPnl || 0); }, 0);
+        }
+        if (typeof us !== "undefined" && us) {
+            mktPnl = us.reduce(function(s, u){ return s + (u._dayPnl || 0); }, 0);  // 美股/期权随时计入
+        }
         var cashVal = 0;
         try { if (typeof cash !== "undefined" && cash && cash.length) { var _fx = (typeof fxRate !== "undefined" && fxRate) ? fxRate : 1; cash.forEach(function(c){ var a = (typeof calcCashAmount === "function") ? calcCashAmount(c) : 0; cashVal += (c.currency === "usd") ? a * _fx : a; }); } } catch (e) {}
         var total = fundMv + mktMv + cashVal;
@@ -14442,8 +14465,14 @@ function renderMarketPrediction() {
     var fundMv = 0, mktMv = 0, fundPnl = 0, mktPnl = 0;
     document.querySelectorAll("#unifiedList .fund-row").forEach(function(el) {
         fundMv += parseFloat(el.getAttribute("data-mv")) || 0;
-        fundPnl += parseFloat(el.getAttribute("data-pnl")) || 0;
     });
+    // 基金「当日」盈亏按美东开盘为界同源计算（与当日卡片一致），不从 DOM 行直接累加（避免全加/被覆盖）
+    var _fref = (typeof computeFundDayRef === "function") ? computeFundDayRef() : null;
+    if (_fref != null && typeof funds !== "undefined" && funds) {
+        fundPnl = funds.reduce(function(s, f){ return (f._dayTime === _fref) ? s + (f._dayPnl || 0) : s; }, 0);
+    } else if (typeof funds !== "undefined" && funds) {
+        fundPnl = funds.reduce(function(s, f){ return s + (f._dayPnl || 0); }, 0);
+    }
     document.querySelectorAll("#unifiedList .market-item").forEach(function(el) {
         mktMv += parseFloat(el.getAttribute("data-mv")) || 0;
         mktPnl += parseFloat(el.getAttribute("data-pnl")) || 0;
