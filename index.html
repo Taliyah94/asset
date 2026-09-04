@@ -6414,6 +6414,17 @@ function fetchOptionBarsAlpaca(symList, cfg) {
     });
 }
 
+/* 最近一个「已收盘」的美东交易日（用于期权数据源判定）。
+   - 今天为交易日且已过 16:00 ET → 今天；
+   - 今天未收盘 / 周末 → 往前取最近一个非周末日。 */
+function lastCompletedTradingDay(p) {
+    if (!p || !p.ymd) return null;
+    var etMin = (p.h || 0) * 60 + (p.m || 0);
+    var closed = (p.wd !== "Sat" && p.wd !== "Sun") && etMin >= 16 * 60;
+    if (closed) return p.ymd;
+    return prevWeekdayYmd(p.ymd)
+}
+
 function optionAlpacaMode(arg) {
     var sym = typeof arg === "string" ? arg : (arg && arg.symbol);
     if (isUsRegularSession()) return "live";
@@ -6423,14 +6434,16 @@ function optionAlpacaMode(arg) {
             return x.symbol === sym
         }) : null
     }
-    /* 非盘中统一规则：盈透快照日期 < 美东今天 → 盈透；否则 Alpaca 收盘价。
-       必须等美东进入「快照日期的次日」（IBKR 完成该交易日日终批处理）才用盈透；
-       例：ET 9/3 收盘后 ~ 9/4 0:00 前仍走 Alpaca，9/4 0:00 后 IBKR 的 9/3 mark 才采用。 */
+    /* 统一规则（2026-09-03 重写）：
+       美东当天（盘中+盘后，直至次日 0:00）一律 Alpaca 收盘价；
+       美东进入「最近已完成交易日 D 的次日」后，若盈透 mark 恰为 D → 盈透，否则仍 Alpaca。
+       例：ET 9/3 全天（直至 9/4 0:00）走 Alpaca；9/4 0:00 后盈透更新到 9/3 才用盈透，否则继续 Alpaca。 */
     var p = null;
     try { p = etNowCached(); } catch (e) { p = null; }
     if (p) {
         if (u && u._ibkrMarkDate) {
-            if (u._ibkrMarkDate < p.ymd) return "ibkr";  // 盈透记录日早于美东今天 → 盈透
+            var D = lastCompletedTradingDay(p);                              // 最近一个已收盘交易日
+            if (D && p.ymd > D && u._ibkrMarkDate === D) return "ibkr";      // 已过 D 次日 且 盈透恰为 D → 盈透
         }
         return "close"
     }
@@ -7185,34 +7198,6 @@ function alpacaCfg() {
         src: src
     }
 }
-var OPT_BASE = {
-    A: {
-        prices: {}
-    },
-    B: {
-        prices: {}
-    }
-};
-
-/* ===== 期权「当日盈亏」基准选择（2026-09-01 重构，配合后端 optBase.asOf）=====
-   旧逻辑：盘中取 B、盘外取 A —— 隐含前提是「脚本在美东开盘前跑完」。
-          一旦脚本改到美东收盘后跑（当前 cron 为 UTC 05:10 = 北京 13:10，距美股收盘已 8~9 小时），
-          盘外时 B 已经含当天收盘价，与现价同源、差值恒为 0，而 A 又偏旧一天，怎么选都错。
-   新逻辑：不关心脚本几点跑，只比 asOf（markPrice 真实对应的交易日）：
-     C    = 现价所属的美东交易日（盘前/周末取最近一个已过去的交易日）
-     基准 = A/B 中 asOf 严格早于 C 且最新者 → 保证「现价 − 基准」正好是一个交易日的涨跌
-   例：周二盘后 C=周二 → 选 asOf=周一 的 B；周末看盘 C=周五 → 自动退回 asOf=周四 的 A。
-   老数据没有 asOf 时，回退旧的「盘中 B / 盘外 A」启发式（可能与现价同源，交由画杠兜底）。 */
-
-/* 美东日期 YYYY-MM-DD（不依赖 Intl，按夏令时/冬令时偏移自行换算） */
-function etYmdStr(dt) {
-    var n = dt || new Date;
-    var offMin = (usEtIsDst(n) ? 4 : 5) * 60;
-    var t = new Date(n.getTime() - offMin * 60e3);
-    var p = function(x) { return String(x).padStart(2, "0") };
-    return t.getUTCFullYear() + "-" + p(t.getUTCMonth() + 1) + "-" + p(t.getUTCDate())
-}
-
 /* s(YYYY-MM-DD) 往前推最近一个非周末日期（只按周末粗略判断，不处理美国节假日） */
 function prevWeekdayYmd(s) {
     if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -7227,63 +7212,7 @@ function prevWeekdayYmd(s) {
     return s
 }
 
-/* 现价所属的「美东交易日」C：
-   今天是交易日且已过 9:30（盘中/盘后）→ C = 今天；
-   盘前(<9:30) 或周末                 → C = 上一个交易日 */
-function usQuoteSessionYmd() {
-    var p = null;
-    try { p = etNowCached() } catch (e) { p = null }
-    var todayEt, etMin, weekend;
-    if (p && /^\d{4}-\d{2}-\d{2}$/.test(p.ymd || "")) {
-        todayEt = p.ymd;
-        etMin = p.h * 60 + p.m;
-        weekend = (p.wd === "Sat" || p.wd === "Sun")
-    } else {
-        var n = new Date;
-        var offMin = (usEtIsDst(n) ? 4 : 5) * 60;
-        var raw = n.getUTCHours() * 60 + n.getUTCMinutes() - offMin;
-        etMin = ((raw % 1440) + 1440) % 1440;
-        var dow = (((n.getUTCDay() + (raw < 0 ? -1 : 0)) % 7) + 7) % 7;
-        weekend = (dow === 0 || dow === 6);
-        todayEt = etYmdStr(n)
-    }
-    if (!weekend && etMin >= 9 * 60 + 30) return todayEt;
-    return prevWeekdayYmd(todayEt)
-}
-
-/* 从 optBase 的 A/B 里挑该期权的「昨收」基准。
-   返回 {px, asOf, stale}；都不可用则返回 null。
-   stale=true 表示没找到严格早于 C 的基准（老数据无 asOf / 报表滞后），
-   涨跌不可信，调用方应画杠而不是显示一个失真的百分比。 */
-function pickOptBasePx(OB, sym) {
-    if (!OB || !sym) return null;
-    var cands = [];
-    [OB.B, OB.A].forEach(function(e) {
-        var v = e && e.prices ? e.prices[sym] : null;
-        v = (v != null && isFinite(Number(v)) && Number(v) > 0) ? Number(v) : null;
-        if (v == null) return;
-        cands.push({ px: v, asOf: (e && e.asOf) ? String(e.asOf) : null })
-    });
-    if (!cands.length) return null;
-    var C = usQuoteSessionYmd();
-    if (!C) {                       // 取不到美东日期 → 老启发式
-        var lg0 = isUsRegularSession() ? cands[0] : (cands[1] || cands[0]);
-        return { px: lg0.px, asOf: lg0.asOf, stale: true }
-    }
-    var ok = cands.filter(function(x) { return x.asOf && x.asOf < C });
-    if (ok.length) {                // 正常路径：取早于 C 的最新一个
-        ok.sort(function(a, b) { return a.asOf < b.asOf ? 1 : (a.asOf > b.asOf ? -1 : 0) });
-        return { px: ok[0].px, asOf: ok[0].asOf, stale: false }
-    }
-    var hasAsOf = cands.filter(function(x) { return x.asOf });
-    if (!hasAsOf.length) {          // 纯老数据（无 asOf）→ 沿用旧启发式，行为与升级前完全一致
-        var lg = isUsRegularSession() ? cands[0] : (cands[1] || cands[0]);
-        return { px: lg.px, asOf: null, stale: false }
-    }
-    // 报表滞后：A/B 都不早于 C，取相对最旧的那个并标记 stale
-    hasAsOf.sort(function(a, b) { return a.asOf < b.asOf ? -1 : (a.asOf > b.asOf ? 1 : 0) });
-    return { px: hasAsOf[0].px, asOf: hasAsOf[0].asOf, stale: true }
-}
+// (optBase A/B 选择逻辑已移除：期权现价与昨收统一来自 Alpaca 历史 bar)
 
 function fetchUsQuotesAlpaca(symList, cfg) {
     return new Promise(function(resolve) {
@@ -7543,42 +7472,23 @@ function computeCurrent() {
         if (qqUp && qqUp.price > 0) usd = qqUp.price;
         else if (u._usdCn != null && !isOptionSymbol(u.symbol)) usd = u._usdCn;
         // ===== 期权现价解析（必须在 usVal 累加之前完成，否则市值会用旧价）=====
-        // [修复] Alpaca 取不到价（已到期 / 停牌 / 周末）时，此前会退回 seed 里的陈旧价
-        //        （如 ORCL P138 用 0.18，而 8/28 真实收盘是 0.0421），与涨跌基准 optBase 不同源，
-        //        算出 −327% / −609% 这类不可能的涨跌幅，市值也同步虚高。
-        //        改为回退 optBase 同快照价，保证「现价」与「涨跌基准」同源。
-        // [2026-09-01] 基准不再按「盘中 B / 盘外 A」硬选，改由 pickOptBasePx 比对
-        //        asOf（真实交易日）与现价所属交易日 C 后自动挑选，摆脱对脚本运行时刻的依赖。
-        var _optPx = null, _optPxFromBase = false, _optBase = null, _optBaseStale = false;
+        // [2026-09-03] 现价与昨收基准统一来自 Alpaca（盘中=bars 实时延迟价 / 盘外=收盘价；昨收=Alpaca 历史 bar 前收），
+        // 盈透仅作「过美东次日 0:00 后」的可选替代；两者同源，杜绝陈旧 IBKR mark 冒充实时价导致的失真涨跌幅。
+        var _optPx = null, _optBase = null;
+        // 期权：单一 Alpaca 源（盘中=bars 实时延迟价 / 盘外=收盘价）；盈透仅作「过次日 0:00 后的可选替代」
+        // 昨收基准统一用 Alpaca 历史 bar 前收（qq.prevClose），不再依赖 optBase A/B
         if (isOptionSymbol(u.symbol)) {
-            var _obPick = pickOptBasePx(OPT_BASE, u.symbol);
-            if (_obPick) {
-                _optBase = _obPick.px;
-                _optBaseStale = !!_obPick.stale
-            }
-            // optBase 原始 A/B（用于「当日盈亏」判定与 ibkr 路径）
-            var _obA = OPT_BASE.A && OPT_BASE.A.prices ? (OPT_BASE.A.prices[u.symbol] || OPT_BASE.A.prices[symUp]) : null;
-            var _obB = OPT_BASE.B && OPT_BASE.B.prices ? (OPT_BASE.B.prices[u.symbol] || OPT_BASE.B.prices[symUp]) : null;
-            _obA = (isFinite(Number(_obA)) && Number(_obA) > 0) ? Number(_obA) : null;
-            _obB = (isFinite(Number(_obB)) && Number(_obB) > 0) ? Number(_obB) : null;
+            var _mode = (typeof optionAlpacaMode === "function") ? optionAlpacaMode(u) : "close";
             var _alp = (u._alpacaPrice != null && isFinite(Number(u._alpacaPrice)) && Number(u._alpacaPrice) > 0) ? Number(u._alpacaPrice) : null;
-            var _seed = (u.price != null && isFinite(Number(u.price)) && Number(u.price) > 0) ? Number(u.price) : null;
-            var _inSess = (typeof isUsRegularSession === "function") ? isUsRegularSession() : true;
-            // optBase B 是否「当日」（现价所属交易日 C）→ 盘外决定走 ibkr 还是 bars
-            var _cYmd = (typeof usQuoteSessionYmd === "function") ? usQuoteSessionYmd() : null;
-            var _obBAsOf = (OPT_BASE.B && OPT_BASE.B.asOf) ? String(OPT_BASE.B.asOf) : null;
-            var _obBIsToday = !!(_obBAsOf && _cYmd && _obBAsOf === _cYmd);
-            if (_inSess) {
-                if (_alp != null) _optPx = _alp;                                          // 盘中期权现价 = Alpaca bars 真实延迟价
-                else if (_obB != null) { _optPx = _obB; _optPxFromBase = true; }
-                else if (_seed != null) _optPx = _seed;
-            } else {
-                // 盘外：optBase B 当日新鲜 → ibkr（现价=B，基准=A）；否则回退 Alpaca bars
-                if (_obBIsToday && _obB != null) { _optPx = _obB; _optPxFromBase = true; }
-                else if (_alp != null) _optPx = _alp;
-                else if (_obB != null) { _optPx = _obB; _optPxFromBase = true; }
-                else if (_seed != null) _optPx = _seed;
-            }
+            var _ibk = (u._ibkrMarkPrice != null && isFinite(Number(u._ibkrMarkPrice)) && Number(u._ibkrMarkPrice) > 0) ? Number(u._ibkrMarkPrice) : null;
+            // 现价：ibkr 模式优先用盈透 mark；否则用 Alpaca（实时/收盘）
+            if (_mode === "ibkr" && _ibk != null) _optPx = _ibk;
+            else if (_alp != null) _optPx = _alp;
+            else if (_ibk != null) _optPx = _ibk;
+            // 昨收基准：Alpaca 前收（qq.prevClose 优先，回退 u.prevClose / _alpacaPrevClose）
+            _optBase = (qqUp && qqUp.prevClose > 0) ? Number(qqUp.prevClose)
+                     : (u.prevClose != null && u.prevClose > 0 ? Number(u.prevClose)
+                     : (u._alpacaPrevClose != null && u._alpacaPrevClose > 0 ? Number(u._alpacaPrevClose) : null));
             if (_optPx != null) usd = _optPx;
         }
         usVal += holdSh * mult * usd * fx;
@@ -7599,20 +7509,11 @@ function computeCurrent() {
         }
         dTime = u._quoteTime && u._quoteTime !== "" ? "实时" : hist.length ? ymd(hist[hist.length - 1].t) : "—";
         if (isOptionSymbol(u.symbol)) {
-            // 期权当日涨跌：
-            //   盘中：Alpaca bars 现价 vs optBase 前收基准（严格 Alpaca）。
-            //   盘外：optBase B 当日新鲜 → ibkr（B vs A）；否则 Alpaca bars vs optBase 前收基准。
-            //   报表滞后(_optBaseStale) 或 A/B 无效/同源 → 画杠防失真。
-            //   （_obA / _obB / _inSess 已在上方期权块提取）
-            if (!_optPxFromBase && !_optBaseStale && _optPx != null && _optBase > 0) {
+            // 期权当日涨跌：现价 vs Alpaca 前收，同源（均来自 Alpaca 历史 bar），无需 optBase A/B
+            if (_optPx != null && _optBase != null && _optBase > 0) {
                 dRet = (_optPx - _optBase) / _optBase;
                 dPnl = holdSh * mult * (_optPx - _optBase) * fx;
                 dPrev = holdSh * mult * _optBase * fx;
-                usPrevVal += dPrev;
-            } else if (!_inSess && !_optBaseStale && _obA != null && _obB != null && _obA !== _obB) {
-                dRet = (_obB - _obA) / _obA;
-                dPnl = holdSh * mult * (_obB - _obA) * fx;
-                dPrev = holdSh * mult * _obA * fx;
                 usPrevVal += dPrev;
             } else {
                 dRet = null;
@@ -10811,14 +10712,7 @@ function usIconForSym(sym) {
 async function syncUsFromJson() {
     try {
         var j = await loadAssetJson();
-        OPT_BASE = j.optBase || {
-            A: {
-                prices: {}
-            },
-            B: {
-                prices: {}
-            }
-        };
+        // 期权现价/昨收统一由 Alpaca 历史 bar 提供，不再读取 optBase A/B
         if (!j || !Array.isArray(j.holdings) || !j.holdings.length) return;
         var todayStr = ymd(todayTs());
         var lastDaily = j.totalNetValueDaily && j.totalNetValueDaily.length ? j.totalNetValueDaily[j.totalNetValueDaily.length - 1].date : lastFxRowDate();
@@ -10850,6 +10744,8 @@ async function syncUsFromJson() {
             }
             item._markDate = h.date && typeof h.date === "string" ? h.date : lastDaily;
             item._ibkrMarkDate = item._markDate;
+            // 独立保存盈透 markPrice（不被后续 Alpaca fetch 覆盖 u.price 影响），供 ibkr 模式取价
+            item._ibkrMarkPrice = (h.markPrice != null && !isNaN(Number(h.markPrice))) ? Number(h.markPrice) : 0;
             item.trades.push({
                 date: todayStr,
                 type: "buy",
@@ -11059,8 +10955,10 @@ async function refresh() {
             u._ok = true;
             if (isOptionSymbol(u.symbol)) {
                 if (optionAlpacaMode(u) !== "ibkr") u._markDate = ymd(todayTs());
-                // 盘中期权现价=bars 真实延迟价，写入 _alpacaPrice 使其优先于 optBase（满足"盘中取bar作为现价"）
-                if (q.price != null) u._alpacaPrice = q.price;   // 期权现价(盘中=bars真实延迟 / 盘外=bars或optBase回退)走 _alpacaPrice，优先级由 pane-us 按 _obBIsToday 决定
+                // 盘中期权现价=bars 实时延迟价，写入 _alpacaPrice 使其优先于 IBKR mark（满足"盘中取bar作为现价"）
+                if (q.price != null) u._alpacaPrice = q.price;   // 期权现价走 _alpacaPrice（盘中=bars 实时延迟 / 盘外=Alpaca 收盘价），最终采用与否由 optionAlpacaMode 决定
+                // ibkr 模式：以盈透 mark 为官方收盘价（Alpaca 仅作实时兜底）
+                if (optionAlpacaMode(u) === "ibkr" && u._ibkrMarkPrice > 0) u.price = u._ibkrMarkPrice;
                 return
             }
             okU++;
@@ -11083,7 +10981,12 @@ async function refresh() {
             })).sort((a, b) => a.t - b.t)
         } else {
             u._ok = false;
-            failU++
+            failU++;
+            // 期权拉取失败：Alpaca 模式绝不用陈旧 IBKR mark 兜底（显示 —）；仅 ibkr 模式才保留盈透 mark
+            if (isOptionSymbol(u.symbol)) {
+                if (optionAlpacaMode(u) === "ibkr" && u._ibkrMarkPrice > 0) u.price = u._ibkrMarkPrice;
+                else u.price = 0;
+            }
         }
     });
 
@@ -11495,8 +11398,10 @@ async function refreshUsOnly() {
             u._ok = true;
             if (isOptionSymbol(u.symbol)) {
                 if (optionAlpacaMode(u) !== "ibkr") u._markDate = ymd(todayTs());
-                // 盘中期权现价=bars 真实延迟价，写入 _alpacaPrice 使其优先于 optBase（满足"盘中取bar作为现价"）
-                if (q.price != null) u._alpacaPrice = q.price;   // 期权现价(盘中=bars真实延迟 / 盘外=bars或optBase回退)走 _alpacaPrice，优先级由 pane-us 按 _obBIsToday 决定
+                // 盘中期权现价=bars 实时延迟价，写入 _alpacaPrice 使其优先于 IBKR mark（满足"盘中取bar作为现价"）
+                if (q.price != null) u._alpacaPrice = q.price;   // 期权现价走 _alpacaPrice（盘中=bars 实时延迟 / 盘外=Alpaca 收盘价），最终采用与否由 optionAlpacaMode 决定
+                // ibkr 模式：以盈透 mark 为官方收盘价（Alpaca 仅作实时兜底）
+                if (optionAlpacaMode(u) === "ibkr" && u._ibkrMarkPrice > 0) u.price = u._ibkrMarkPrice;
                 return
             }
             okU++;
@@ -11515,7 +11420,12 @@ async function refreshUsOnly() {
             })).sort((a, b) => a.t - b.t)
         } else {
             u._ok = false;
-            failU++
+            failU++;
+            // 期权拉取失败：Alpaca 模式绝不用陈旧 IBKR mark 兜底（显示 —）；仅 ibkr 模式才保留盈透 mark
+            if (isOptionSymbol(u.symbol)) {
+                if (optionAlpacaMode(u) === "ibkr" && u._ibkrMarkPrice > 0) u.price = u._ibkrMarkPrice;
+                else u.price = 0;
+            }
         }
     });
     const _holdSyms = collectHoldingSymbols();
