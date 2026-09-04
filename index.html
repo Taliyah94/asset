@@ -3212,9 +3212,8 @@ tbody tr:hover {
     border-radius: 14px;
 }
 .market-predict .mp-top {
-    display: flex; align-items: baseline; gap: 14px;
-    margin-top: 2px; flex-wrap: nowrap;
-    justify-content: center;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; margin-top: 2px;
 }
 .market-predict .mp-total { font-size: 28px; font-weight: 700; line-height: 1.2; }
 .market-predict .mp-pnl { font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
@@ -7739,7 +7738,7 @@ function allocIconSvg(ic, x, y, S) {
 var allocMode = "asset";
 var allocLegPage = 0;        // 净资产分布图例当前页
 var allocLegItems = [];      // 图例完整条目（每页切片渲染）
-var ALLOC_PER_PAGE = 6;      // 图例每页条数，固定高度避免覆盖层滚动
+var ALLOC_PER_PAGE = 8;      // 图例每页固定 8 条；多了自动多页
 function drawAllocation() {
     var box = document.getElementById("allocChart");
     if (!box) return;
@@ -7923,6 +7922,7 @@ function renderAllocLegend() {
     var lg = document.getElementById("allocLegend");
     if (!lg) return;
     if (!allocLegItems.length) { lg.innerHTML = ""; return; }
+    // 每页固定 ALLOC_PER_PAGE 条（8），多了自动多页
     var PER = ALLOC_PER_PAGE;
     var pages = Math.max(1, Math.ceil(allocLegItems.length / PER));
     if (allocLegPage < 0) allocLegPage = 0;
@@ -11311,11 +11311,12 @@ async function refresh() {
         const bad = okF < funds.length || okU < realU || nx && !nx.full;
         setStatus(bad ? "fail" : "live", "")
     }
-    // 若当前在市场行情页，刷新后同步刷新顶部「总资产 / hero对比 / 预测对比」横幅
+    // 若当前在市场行情页，刷新后同步刷新顶部「总资产 / hero对比 / 预测对比」横幅（含重算预测覆盖页总资产）
     try {
         var _mpEl = document.getElementById("pageMarket");
         if (_mpEl && _mpEl.classList.contains("active")) {
             try { renderFundHoldings(); } catch (e) {}
+            try { if (typeof buildPredictList === "function") buildPredictList(); } catch (e) {}
             try { if (typeof renderMarketPrediction === "function") renderMarketPrediction(); } catch (e) {}
         }
     } catch (e) {}
@@ -13142,6 +13143,8 @@ function showPage(name) {
         setTimeout(function() {
             try { fetchMarketData(); } catch(e) {}
             try { renderFundHoldings(); } catch(e) {}
+            // 打开市场页时先重算「预测覆盖页总资产」(window.__predBannerTotal)，使第三行(市场vs预测)有值；随后行情回来 renderMarketList 会再刷新
+            try { if (typeof buildPredictList === "function") buildPredictList(); } catch(e) {}
             // 打开市场页时立即基于当前数据刷新顶部「总资产 / hero对比 / 预测对比」，避免不自动刷新
             try { if (typeof renderMarketPrediction === "function") renderMarketPrediction(); } catch(e) {}
         }, 0)
@@ -13944,6 +13947,15 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
     }
     renderUnifiedList();
     renderMarketPrediction();
+    // 市场行情页激活或预测覆盖层打开时，跟随行情刷新重算「预测覆盖页总资产」(window.__predBannerTotal)，
+    // 使市场页第三行(市场vs预测)实时刷新；其余页面跳过，避免无用重绘
+    try {
+        var _mpA = document.getElementById("pageMarket");
+        var _ovA = document.getElementById("predictOverlay");
+        if ((_mpA && _mpA.classList.contains("active")) || (_ovA && _ovA.classList.contains("open"))) {
+            if (typeof buildPredictList === "function") buildPredictList();
+        }
+    } catch (e) {}
 }
 
 function removeMarketSymbol(sym) {
