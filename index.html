@@ -7548,7 +7548,17 @@ function computeCurrent() {
     let fTime = fundLatestDay || "\u2014";
     let uTime = "实时";
     // 当日卡片盈亏率：以「前一日总资产」为基准（而非各持仓前值合计），与资产日变动口径一致
-    const prevDayTotal = assetAt(todayTs() - 864e5);
+    // 【修复 2026-09-04】「前一日」必须按【美东交易日】回退，不能用 todayTs()-864e5（UTC 零点）：
+    // 美东收盘后(20:00 ET 起) UTC 已跨到次日，todayTs()-1天 会落到「刚收盘的当天交易日」，
+    // 导致 assetAt 取到「今天」的资产来自减，当日盈亏恒为 0。
+    // 改为：取美东当前交易日 Dcur，回退一个交易日得到 Dprev，用 assetAt(Dprev) 作基准；取不到美东时间则兜底原逻辑。
+    var _prevDayTs = null;
+    try {
+        var _ep = etNowCached();
+        if (_ep && _ep.ymd) _prevDayTs = parseDate(prevWeekdayYmd(_ep.ymd));
+    } catch (e) {}
+    if (_prevDayTs == null) _prevDayTs = todayTs() - 864e5;
+    const prevDayTotal = assetAt(_prevDayTs);
     const dayCardPnl = (prevDayTotal != null && prevDayTotal > 0) ? (fundVal + usVal + cashVal) - prevDayTotal : null;
     const dayRetVal = (prevDayTotal != null && prevDayTotal > 0) ? dayCardPnl / prevDayTotal : null;
     if (usInvestAutoVal != null && !isNaN(usInvestAutoVal) && usInvestAutoVal > 0) usTotalBuyCost = usInvestAutoVal;
