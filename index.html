@@ -81,7 +81,6 @@ body {
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
     max-width: 100%;
 }
 
@@ -1144,8 +1143,6 @@ tbody tr:hover {
     display: flex;
     flex-direction: column;
     gap: 1px;
-    max-height: 260px;
-    overflow: auto;
     margin: 0 -4px;
 }
 
@@ -1422,8 +1419,6 @@ tbody tr:hover {
     background: #fff;
     border-radius: 16px;
     width: min(460px, 100%);
-    max-height: 90vh;
-    overflow: auto;
     padding: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
 }
@@ -2083,8 +2078,6 @@ tbody tr:hover {
     background: #fff;
     border-radius: 16px;
     width: min(420px, 100%);
-    max-height: 90vh;
-    overflow: auto;
     padding: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
 }
@@ -2560,13 +2553,11 @@ tbody tr:hover {
 }
 
 .alloc-overlay {
+    /* 全屏覆盖，无内部滚动；底层页面在 JS 里用 body{position:fixed} 真正锁死（iOS 上 overflow:hidden 锁不住，会冒出第二条滚动条） */
     position: fixed;
     inset: 0;
     z-index: 200;
     background: #f5f7fb;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
     /* 预留底部空间，避免被底部悬浮导航栏遮挡最下面一行（与 .predict-overlay 一致） */
     padding-bottom: 96px;
     display: none;
@@ -2810,6 +2801,52 @@ tbody tr:hover {
     gap: 7px;
 }
 
+/* 图例分页：每页固定条数，高度固定，覆盖层不滚动 */
+.alloc-leg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.alloc-leg-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 4px;
+    padding-top: 8px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.alloc-leg-pager .leg-pg-btn {
+    border: 1px solid var(--line, #e7eaf1);
+    background: #fff;
+    color: #334155;
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+}
+
+.alloc-leg-pager .leg-pg-btn:hover:not([disabled]) {
+    background: #f1f5f9;
+}
+
+.alloc-leg-pager .leg-pg-btn[disabled] {
+    opacity: .35;
+    cursor: default;
+}
+
+.alloc-leg-pager .leg-pg-info {
+    min-width: 68px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
 .alloc-leg-item {
     display: flex;
     align-items: center;
@@ -2890,7 +2927,7 @@ tbody tr:hover {
     }
 
     .alloc-chart {
-        max-width: none;
+        max-width: 320px;
         width: 100%;
         margin: 0 auto;
     }
@@ -3183,6 +3220,12 @@ tbody tr:hover {
 .market-predict .mp-pnl { font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
 .market-predict .mp-pnl.up { color: #2e7d32; }
 .market-predict .mp-pnl.down { color: #c62828; }
+/* 市场行情总资产下方两行对比小字：hero 对比(括号总资产黑色、前面涨跌色) + 预测对比(全黑) */
+.market-predict .mp-cmp { margin-top: 6px; font-size: 12px; line-height: 1.55; color: #1f2733; font-variant-numeric: tabular-nums; font-family: var(--font-num); }
+.market-predict .amt { color: #1f2733; font-weight: 600; }
+.market-predict .up { color: #2e7d32; }
+.market-predict .down { color: #c62828; }
+.market-predict .mp-cmp-pred { text-align: center; }
 
 /* 统一行：市场行与基金行共用 .u-row 网格 */
 .u-row {
@@ -4000,6 +4043,9 @@ background: #ffffff;
                 <div data-page-node-id="qK1yIQxVlwO6gEx75jCjuS" class="mp-top">
                     <div data-page-node-id="sWIsVMsd08n7hUmWuOeTBI" class="mp-total"><!--pnid:1wljCfAQMIZyxnOwLFcCQM-->¥--</div>
                     <div data-page-node-id="jhgo3W4lixbk4u8cQiQGQ0" class="mp-pnl"><!--pnid:I3EB6zktitaPb6gDDrD7TY-->--</div>
+                </div>
+                <div class="mp-cmp">
+                    <div class="mp-cmp-pred" id="mpCmpPred"></div>
                 </div>
             </div>
 
@@ -6531,27 +6577,46 @@ function fetchUsQuotes(symList) {
         var offOpts = optSyms.filter(function(x) {
             return optionAlpacaMode(x) !== "live"
         });
-        // 盘中期权现价改为走历史 bars（真实延迟≥15min）；个别取不到的再回退 snapshot（indicative 假数据兜底）
-        if (liveOpts.length) tasks.push(fetchOptionBarsAlpaca(liveOpts, _ac).then(function(bars) {
-            var missing = liveOpts.filter(function(s) { return !bars[s]; });
-            if (missing.length) {
-                return fetchOptionQuotesAlpaca(missing, _ac).then(function(snap) {
-                    Object.keys(snap).forEach(function(k) { bars[k] = snap[k]; });
-                    return bars;
-                });
-            }
-            return bars;
+        // 盘中期权：现价用 bars(真实延迟≥15min)；昨收基准(prevClose)必须来自 snapshot 的 prevDailyBar.c
+        // （bars 接口本身不含 prevClose），否则期权当日(_optBase)恒为 null → 画杠。
+        // 故始终并行取 snapshot 补全昨收，并把结果同时挂 __alp_ 前缀，供 _alpacaPrevClose/_alpacaPrice 读取。
+        if (liveOpts.length) tasks.push(Promise.all([
+            fetchOptionBarsAlpaca(liveOpts, _ac),
+            fetchOptionQuotesAlpaca(liveOpts, _ac)
+        ]).then(function(rs) {
+            var bars = rs[0] || {}, snap = rs[1] || {}, o = {};
+            Object.keys(snap).forEach(function(k) {
+                if (!bars[k]) bars[k] = { price: null, prevClose: null, time: "" };
+                if (snap[k] && snap[k].prevClose != null) bars[k].prevClose = snap[k].prevClose;
+                if (bars[k].price == null && snap[k] && snap[k].price != null) bars[k].price = snap[k].price;
+            });
+            Object.keys(bars).forEach(function(k) {
+                if (bars[k] && (bars[k].price != null || bars[k].prevClose != null)) {
+                    o[k] = bars[k];
+                    o["__alp_" + k] = bars[k];
+                }
+            });
+            return o;
         }));
-        // 盘外期权：下方 pane-us 按 optBase B 是否当日决定 ibkr 或 bars；此处先把 bars(真实收盘价)取回，取不到再回退 snapshot(indicative 兜底)
-        if (offOpts.length) tasks.push(fetchOptionBarsAlpaca(offOpts, _ac).then(function(bars) {
-            var missing = offOpts.filter(function(s) { return !bars[s]; });
-            if (missing.length) {
-                return fetchOptionCloseCached(missing, _ac).then(function(snap) {
-                    Object.keys(snap).forEach(function(k) { bars[k] = snap[k]; });
-                    return bars;
-                });
-            }
-            return bars;
+        // 盘外期权：现价用 bars(真实收盘价)，昨收基准同样依赖 snapshot（fetchOptionCloseCached 含 prevClose）；
+        // 同样挂 __alp_ 前缀，保证 _alpacaPrevClose 被填充，避免期权当日画杠。
+        if (offOpts.length) tasks.push(Promise.all([
+            fetchOptionBarsAlpaca(offOpts, _ac),
+            fetchOptionCloseCached(offOpts, _ac)
+        ]).then(function(rs) {
+            var bars = rs[0] || {}, snap = rs[1] || {}, o = {};
+            Object.keys(snap).forEach(function(k) {
+                if (!bars[k]) bars[k] = { price: null, prevClose: null, time: "" };
+                if (snap[k] && snap[k].prevClose != null) bars[k].prevClose = snap[k].prevClose;
+                if (bars[k].price == null && snap[k] && snap[k].price != null) bars[k].price = snap[k].price;
+            });
+            Object.keys(bars).forEach(function(k) {
+                if (bars[k] && (bars[k].price != null || bars[k].prevClose != null)) {
+                    o[k] = bars[k];
+                    o["__alp_" + k] = bars[k];
+                }
+            });
+            return o;
         }));
     }
     if (!tasks.length) {
@@ -7162,6 +7227,21 @@ function isUsRegularSession() {
     return etMin >= 9 * 60 + 30 && etMin < 16 * 60;
 }
 
+/* 基金净值是否走 JSON 缓存：仅在「美股收盘后 → 次日 UTC 07:00」窗口内返回 true。
+   其余时间（盘前/盘中/盘后早期）一律实时浏览器读取，保证当日净值最新。
+   边界：美股收盘 = 美东 16:00；次日 07:00 UTC 折算美东 = 夏令时 03:00 / 冬令时 02:00。
+   取不到美东时间时保守返回 true（用缓存），避免实时抓取异常导致空白。 */
+function fundUseJsonCache() {
+    var p = etNowCached();
+    if (!p) return true;
+    var etMin = p.h * 60 + p.m;
+    var afterClose = etMin >= 16 * 60;                 // 美东 16:00 收盘后
+    var dst = usEtIsDst(new Date());
+    var cutoffEtHour = dst ? 3 : 2;                     // 次日 07:00 UTC 折算为美东
+    var beforeCutoff = (p.h < cutoffEtHour) || (p.h === cutoffEtHour && p.m === 0);
+    return afterClose || beforeCutoff;
+}
+
 /* 美股周末间隙：美东 周五盘后收盘(20:00 ET) 之后 → 周日夜盘开盘(20:00 ET) 之前，此窗口内美股休市。
    [有意保留] 删除 Bybit NAS100 预测规则后，该函数已无调用者；
    但「周末休市窗口」是通用判定，后续做「周末跳过行情刷新 / 隐藏实时徽标 / 提示休市」时可直接复用，
@@ -7210,6 +7290,12 @@ function prevWeekdayYmd(s) {
         if (w !== 0 && w !== 6) return t.getUTCFullYear() + "-" + p(t.getUTCMonth() + 1) + "-" + p(t.getUTCDate())
     }
     return s
+}
+
+/* YYYY-MM-DD → "MMDD" 短标签（2026-09-03 → "0903"），用于卡片「当日」日期角标 */
+function mdLabel(s) {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return (s == null || s === "") ? "—" : s;
+    return s.slice(5, 7) + s.slice(8, 10)
 }
 
 /* 基金「当日」基准日（美东开盘 9:30 ET 为界；隔周末跳过）。
@@ -7406,6 +7492,7 @@ function computeCurrent() {
         targetFundPrevVal = 0;
     var fundTotalRealizedPnl = 0,
         fundTotalBuyCost = 0;
+    var maxNavDate = null;   // 所有基金净值里最新的一天（用于基金「当日」标签日封顶）
     funds.forEach(function(f) {
         var list = f._list;
         var fst = getFundTradeStats(f);
@@ -7442,6 +7529,9 @@ function computeCurrent() {
         f._dayPrevVal = dPrev;
         f._stats = fst;
         f._nav = nav;
+        if (f._dayTime && /^\d{4}-\d{2}-\d{2}$/.test(f._dayTime)) {
+            if (maxNavDate == null || f._dayTime > maxNavDate) maxNavDate = f._dayTime
+        }
         var _tPnl = 0,
             _tPrev = 0;
         if (list && list.length) {
@@ -7491,7 +7581,7 @@ function computeCurrent() {
         // 盈透仅作「过美东次日 0:00 后」的可选替代；两者同源，杜绝陈旧 IBKR mark 冒充实时价导致的失真涨跌幅。
         var _optPx = null, _optBase = null;
         // 期权：单一 Alpaca 源（盘中=bars 实时延迟价 / 盘外=收盘价）；盈透仅作「过次日 0:00 后的可选替代」
-        // 昨收基准统一用 Alpaca 历史 bar 前收（qq.prevClose），不再依赖 optBase A/B
+        // 昨收基准统一用 Alpaca 快照 prevDailyBar.c（_alpacaPrevClose），不再依赖腾讯/optBase A/B
         if (isOptionSymbol(u.symbol)) {
             var _mode = (typeof optionAlpacaMode === "function") ? optionAlpacaMode(u) : "close";
             var _alp = (u._alpacaPrice != null && isFinite(Number(u._alpacaPrice)) && Number(u._alpacaPrice) > 0) ? Number(u._alpacaPrice) : null;
@@ -7500,10 +7590,9 @@ function computeCurrent() {
             if (_mode === "ibkr" && _ibk != null) _optPx = _ibk;
             else if (_alp != null) _optPx = _alp;
             else if (_ibk != null) _optPx = _ibk;
-            // 昨收基准：Alpaca 前收（qq.prevClose 优先，回退 u.prevClose / _alpacaPrevClose）
-            _optBase = (qqUp && qqUp.prevClose > 0) ? Number(qqUp.prevClose)
-                     : (u.prevClose != null && u.prevClose > 0 ? Number(u.prevClose)
-                     : (u._alpacaPrevClose != null && u._alpacaPrevClose > 0 ? Number(u._alpacaPrevClose) : null));
+            // 昨收基准：直接采用 Alpaca 快照 prevDailyBar.c（_alpacaPrevClose），移除腾讯 qqUp.prevClose
+            _optBase = (u._alpacaPrevClose != null && u._alpacaPrevClose > 0) ? Number(u._alpacaPrevClose)
+                     : (u.prevClose != null && u.prevClose > 0 ? Number(u.prevClose) : null);
             if (_optPx != null) usd = _optPx;
         }
         usVal += holdSh * mult * usd * fx;
@@ -7553,28 +7642,40 @@ function computeCurrent() {
         var a = calcCashAmount(c);
         cashVal += c.currency === "usd" ? a * fx : a
     });
-    // ===== 当日卡片：基金按美东开盘为界 + 美股/期权随时计入（替换原「总资产差值」逻辑）=====
-    // 基金基准日 fundDayRef：美东已开盘(>=9:30 ET 且为交易日) → 今天；未开盘/周末/节假日 → 上一交易日(隔天)。
-    //   - 美东 9/4 盘前(未开盘)：ref=9/3 → 把 9/3 基金盈亏全加（不加 9/2）
-    //   - 美东 9/4 开盘后：ref=9/4 → 只加更新到 9/4 的基金
-    // 美股/期权：所有时间都计入（usDayPnl 已按各自昨收口径算好）
+    // ===== 当日卡片：基金按「最新净值日 ∩ 美东边界日」+ 美股/期权随时计入 =====
+    // 基金标签日 fundLabelDate = min(最新净值日 maxNavDate, 美东边界日 fundDayRef)
+    //   fundDayRef：美东已开盘(>=9:30 ET 且为交易日) → 今天；否则上一交易日(隔天)
+    //   maxNavDate：所有基金净值里最新的一天（盘前/盘中尚无今日净值时停在昨天）
+    //   → 美东 9/4 盘前：ref=9/4, maxNav=9/3 ⇒ 标签 0903，只加更新到 9/3 的基金
+    //   → 美东 9/4 开盘后、首个 9/4 净值未出：ref=9/4, maxNav=9/3 ⇒ 仍 0903
+    //   → 首个 9/4 净值出现（美东 9/5 开盘前）：ref=9/4, maxNav=9/4 ⇒ 标签 0904
+    // 美股/期权：所有时间都计入，标签=美东边界日 fundDayRef（开盘后即算当天）
     const fundDayRef = computeFundDayRef();
-    const fundDayPnl = (fundDayRef != null)
-        ? funds.reduce((s, f) => (f._dayTime === fundDayRef) ? s + (f._dayPnl || 0) : s, 0)
+    const fundLabelDate = (fundDayRef != null)
+        ? ((maxNavDate != null && maxNavDate < fundDayRef) ? maxNavDate : fundDayRef)
+        : (maxNavDate || null);
+    const fundDayPnl = (fundLabelDate != null)
+        ? funds.reduce((s, f) => (f._dayTime === fundLabelDate) ? s + (f._dayPnl || 0) : s, 0)
         : funds.reduce((s, f) => s + (f._dayPnl || 0), 0);   // 取不到美东时间兜底：全加
-    const fundDayPrev = (fundDayRef != null)
-        ? funds.reduce((s, f) => (f._dayTime === fundDayRef) ? s + (f._dayPrevVal || 0) : s, 0)
+    const fundDayPrev = (fundLabelDate != null)
+        ? funds.reduce((s, f) => (f._dayTime === fundLabelDate) ? s + (f._dayPrevVal || 0) : s, 0)
         : 0;
     const usDayPnl = us.reduce((s, u) => s + (u._dayPnl || 0), 0);
     const fundHasData = fundDayPrev > 0;
-    let fTime = fundDayRef || "—";
-    let uTime = "实时";
-    // 当日卡片盈亏 = 基金(按 fundDayRef) + 美股/期权(随时)
-    const dayCardPnl = fundDayPnl + usDayPnl;
-    const dayPrevBase = fundDayPrev + usPrevVal + cashVal;
-    const dayRetVal = (dayPrevBase > 0) ? dayCardPnl / dayPrevBase : null;
+    let fTime = fundLabelDate || "—";
+    let uTime = fundDayRef || "实时";   // 美股 / 总资产标签 = 美东边界日
+    // 当日卡片盈亏（总资产）：标签=美东边界日 fundDayRef(0904)。
+    //   基金部分仅当「基金已达同一日期」(fundLabelDate===fundDayRef，即首个0904净值已出)才计入；
+    //   否则(基金还停在0903)不计入，避免“0904卡片”混进0903基金盈亏——此时总资产当日=美股0904。
+    //   美股/期权随时计入。
+    const fundIncl = (fundLabelDate != null && fundLabelDate === fundDayRef);
+    const dayCardPnl = (fundIncl ? fundDayPnl : 0) + usDayPnl;
+    // 投资资产金额（成本口径）：仅计入已纳入当日盈亏的持仓成本，保证盈亏率口径一致
     if (usInvestAutoVal != null && !isNaN(usInvestAutoVal) && usInvestAutoVal > 0) usTotalBuyCost = usInvestAutoVal;
     else if (usInvestManual != null && !isNaN(usInvestManual) && usInvestManual > 0) usTotalBuyCost = usInvestManual;
+    const investBase = (fundIncl ? fundTotalBuyCost : 0) + usTotalBuyCost;
+    // 当日卡片盈亏率：当日盈亏额 / 已计入持仓的投资资产金额（口径统一）
+    const dayRetVal = (investBase > 0) ? dayCardPnl / investBase : null;
     return {
         fx: fx,
         fundVal: fundVal,
@@ -7590,10 +7691,11 @@ function computeCurrent() {
         usDayRet: usPrevVal > 0 ? usDayPnl / usPrevVal : null,
         dayPnl: dayCardPnl,
         dayRet: dayRetVal,
-        dayTime: fundTargetDate,
+        investBase: investBase,   // 投资资产金额（成本口径）：总资产当日盈亏率分母，供市场行情/预测覆盖层复用，与资产页同源
+        dayTime: fundDayRef,
         fundDayTime: fTime,
         usDayTime: uTime,
-        fundDayDate: fundTargetDate,
+        fundDayDate: fundLabelDate,
         fundTargetMatched: fundHasData,
         fundTotalRealizedPnl: fundTotalRealizedPnl,
         usTotalRealizedPnl: usTotalRealizedPnl,
@@ -7635,6 +7737,9 @@ function allocIconSvg(ic, x, y, S) {
 }
 
 var allocMode = "asset";
+var allocLegPage = 0;        // 净资产分布图例当前页
+var allocLegItems = [];      // 图例完整条目（每页切片渲染）
+var ALLOC_PER_PAGE = 6;      // 图例每页条数，固定高度避免覆盖层滚动
 function drawAllocation() {
     var box = document.getElementById("allocChart");
     if (!box) return;
@@ -7642,6 +7747,8 @@ function drawAllocation() {
     var isMobile = window.innerWidth <= 560;
     var vb = "16 16 328 328";
     var items = [];
+    allocLegItems = [];
+    allocLegPage = 0;
     try {
         funds.forEach(function(f) {
             var st = getFundTradeStats(f);
@@ -7719,8 +7826,8 @@ function drawAllocation() {
     }, 0);
     if (!items.length || total <= 0) {
         box.innerHTML = '<div class="alloc-empty">暂无可绘制的持仓数据</div>';
-        var lg0 = document.getElementById("allocLegend");
-        if (lg0) lg0.innerHTML = "";
+        allocLegItems = [];
+        renderAllocLegend();
         return
     }
     var CAT_PAL = {
@@ -7737,7 +7844,6 @@ function drawAllocation() {
         rm = (R + rin) / 2;
     var ang = 0,
         sectors = "",
-        leg = "",
         topSvg = "",
         leaders = [],
         leaderSvg = "";
@@ -7764,11 +7870,11 @@ function drawAllocation() {
         var large = a1 - a0 > 180 ? 1 : 0;
         var d = "M" + p0[0].toFixed(2) + "," + p0[1].toFixed(2) + " A" + R + "," + R + " 0 " + large + " 1 " + p1[0].toFixed(2) + "," + p1[1].toFixed(2) + " L" + p2[0].toFixed(2) + "," + p2[1].toFixed(2) + " A" + rin + "," + rin + " 0 " + large + " 0 " + p3[0].toFixed(2) + "," + p3[1].toFixed(2) + " Z";
         sectors += '<path d="' + d + '" fill="' + color + '" stroke="#fff" stroke-width="1.5">' + (it.name ? "<title>" + esc(it.cat) + " · " + esc(isCodeCat && dispCode ? dispCode : it.name) + "  " + (pct * 100).toFixed(1) + "%</title>" : "") + "</path>";
-        if (isCat || pct >= .05) {
-            // 大扇区 / 分类：图标 + 百分比 + 名称 居中堆叠在环内（原样式，不动）
+        if (pct >= .05) {
+            // 大扇区(≥5%，资产与分类通用)：图标 + 百分比 + 名称 居中堆叠在环内
             var mp = polar(cx, cy, rm, mid);
             var lbl = isCodeCat ? dispCode || "" : it.name || "";
-            var showIcon = it.icon && (isCat || pct >= .03);
+            var showIcon = it.icon && pct >= .03;
             var iconS = showIcon ? 24 : 0;
             var pctStr = (pct * 100).toFixed(1) + "%";
             var pctH = 12.5,
@@ -7786,22 +7892,65 @@ function drawAllocation() {
             y += pctH + gap;
             sectors += '<text x="' + mp[0].toFixed(1) + '" y="' + (y + labelH * .72).toFixed(1) + '" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.92)">' + esc(lbl) + "</text>"
         } else if (pct >= .03) {
-            // 小扇区(3%-5%)：图标放环内，百分比贴着外圆弧
-            var mp2 = polar(cx, cy, rm, mid);
-            var ap2 = polar(cx, cy, R - 14, mid);
+            // 小扇区(3%-5%，资产与分类通用)：图标贴外弧、跨过自己的外边界(微微探出饼外)；百分比写在图标内侧
+            var mp2 = polar(cx, cy, R - 6, mid);
+            var ap2 = polar(cx, cy, R - 34, mid);
             var pctStr2 = (pct * 100).toFixed(1) + "%";
             if (it.icon) sectors += allocIconSvg(it.icon, mp2[0], mp2[1], 24);
             sectors += '<text x="' + ap2[0].toFixed(1) + '" y="' + (ap2[1] + 4.5).toFixed(1) + '" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">' + pctStr2 + "</text>"
         }
-        leg += '<div class="alloc-leg-item"><span class="dot" style="background:' + color + '"></span>' + (it.icon ? '<span class="leg-ic">' + itemIconHtml(it.icon) + "</span>" : "") + '<span class="nm">' + esc(it.name) + (it.cat === "基金" && it.code ? ' <span class="code">' + esc(it.code) + "</span>" : "") + (it.cat === "美股" && (it.sub || it.code) ? ' <span class="code">' + esc(it.sub || it.code) + "</span>" : "") + "</span>" + '<span class="pc">' + (pct * 100).toFixed(1) + "%</span>" + '<span class="vl">' + fmt0(it.val) + "</span></div>"
+        allocLegItems.push({
+            color: color,
+            iconHtml: it.icon ? itemIconHtml(it.icon) : "",
+            name: it.name,
+            cat: it.cat,
+            code: it.code,
+            sub: it.sub,
+            pct: pct,
+            val: it.val
+        });
     });
     // 3%-5% 小扇区：图标画在环内、百分比贴着外圆弧，不再用外侧长引线
     var tStr = fmt0(total);
     var tFont = tStr.length > 9 ? 17 : tStr.length > 7 ? 21 : 25;
     var svg = '<svg viewBox="' + vb + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">' + '<circle cx="180" cy="180" r="' + rin + '" fill="#0f172a"/>' + '<text x="180" y="' + (180 + tFont * .35).toFixed(1) + '" text-anchor="middle" font-size="' + tFont + '" font-weight="800" fill="#fff">' + tStr + "</text>" + sectors + topSvg + leaderSvg + "</svg>";
     box.innerHTML = svg;
+    renderAllocLegend();
+}
+
+// 净资产分布图例分页渲染：每页 ALLOC_PER_PAGE 条，带 ◀ ▶ 翻页；高度固定，避免覆盖层滚动
+function renderAllocLegend() {
     var lg = document.getElementById("allocLegend");
-    if (lg) lg.innerHTML = leg
+    if (!lg) return;
+    if (!allocLegItems.length) { lg.innerHTML = ""; return; }
+    var PER = ALLOC_PER_PAGE;
+    var pages = Math.max(1, Math.ceil(allocLegItems.length / PER));
+    if (allocLegPage < 0) allocLegPage = 0;
+    if (allocLegPage >= pages) allocLegPage = pages - 1;
+    var start = allocLegPage * PER;
+    var slice = allocLegItems.slice(start, start + PER);
+    var html = '<div class="alloc-leg-list">';
+    slice.forEach(function(it) {
+        html += '<div class="alloc-leg-item"><span class="dot" style="background:' + it.color + '"></span>'
+            + (it.iconHtml ? '<span class="leg-ic">' + it.iconHtml + "</span>" : "")
+            + '<span class="nm">' + esc(it.name)
+            + (it.cat === "基金" && it.code ? ' <span class="code">' + esc(it.code) + "</span>" : "")
+            + (it.cat === "美股" && (it.sub || it.code) ? ' <span class="code">' + esc(it.sub || it.code) + "</span>" : "")
+            + "</span>"
+            + '<span class="pc">' + (it.pct * 100).toFixed(1) + "%</span>"
+            + '<span class="vl">' + fmt0(it.val) + "</span></div>";
+    });
+    html += '</div>';
+    if (pages > 1) {
+        var prevDis = allocLegPage === 0 ? " disabled" : "";
+        var nextDis = allocLegPage >= pages - 1 ? " disabled" : "";
+        html += '<div class="alloc-leg-pager">'
+            + '<button type="button" class="leg-pg-btn" data-leg-page="prev"' + prevDis + ">◀</button>"
+            + '<span class="leg-pg-info">第 ' + (allocLegPage + 1) + " / " + pages + " 页</span>"
+            + '<button type="button" class="leg-pg-btn" data-leg-page="next"' + nextDis + ">▶</button>"
+            + "</div>";
+    }
+    lg.innerHTML = html;
 }
 (function() {
     var tg = document.getElementById("allocToggle");
@@ -7818,6 +7967,20 @@ function drawAllocation() {
         })
     }
 })();
+// 图例翻页按钮（事件委托，renderAllocLegend 每次重写 innerHTML 也无需重复绑定）
+(function() {
+    var lgEl = document.getElementById("allocLegend");
+    if (!lgEl) return;
+    lgEl.addEventListener("click", function(e) {
+        var b = e.target.closest ? e.target.closest("[data-leg-page]") : null;
+        if (!b || b.hasAttribute("disabled")) return;
+        var a = b.getAttribute("data-leg-page");
+        if (a === "prev") allocLegPage--;
+        else if (a === "next") allocLegPage++;
+        else allocLegPage = parseInt(a, 10) || 0;
+        renderAllocLegend();
+    });
+})();
 
 // 个人净资产分布覆盖层：hero 饼图按钮打开 / 返回按钮关闭
 (function() {
@@ -7825,16 +7988,29 @@ function drawAllocation() {
     var overlay = document.getElementById("allocOverlay");
     var back = document.getElementById("allocBackBtn");
     if (!btn || !overlay) return;
+    var _allocScrollY = 0;
     function openAlloc() {
+        // 用 body{position:fixed} 真正锁死底层页面（iOS 上 overflow:hidden 锁不住，会冒出第二条滚动条）
+        _allocScrollY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.position = "fixed";
+        document.body.style.top = (0 - _allocScrollY) + "px";
+        document.body.style.left = "0";
+        document.body.style.right = "0";
+        document.body.style.width = "100%";
         overlay.classList.add("open");
         overlay.setAttribute("aria-hidden", "false");
-        document.body.style.overflow = "hidden";
         try { drawAllocation() } catch (err) {}
     }
     function closeAlloc() {
         overlay.classList.remove("open");
         overlay.setAttribute("aria-hidden", "true");
-        document.body.style.overflow = "";
+        // 解除 body 锁定并恢复到打开前的滚动位置
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.left = "";
+        document.body.style.right = "";
+        document.body.style.width = "";
+        window.scrollTo(0, _allocScrollY);
     }
     btn.addEventListener("click", openAlloc);
     if (back) back.addEventListener("click", closeAlloc);
@@ -8126,13 +8302,18 @@ function drawAllocation() {
         var cashVal = 0;
         try { if (typeof cash !== "undefined" && cash && cash.length) { var _fx = (typeof fxRate !== "undefined" && fxRate) ? fxRate : 1; cash.forEach(function(c){ var a = (typeof calcCashAmount === "function") ? calcCashAmount(c) : 0; cashVal += (c.currency === "usd") ? a * _fx : a; }); } } catch (e) {}
         var total = fundMv + mktMv + cashVal;
-        var dayPnl = fundPnl + mktPnl;
-        var baseVal = total - dayPnl;
-        var pct = (baseVal > 0 && isFinite(baseVal)) ? dayPnl / baseVal * 100 : 0;
+        // 预测覆盖层：本页市值=预测后总和；盈亏=预测市值总和 − 资产页当前总资产；盈亏率同除以资产页总资产
+        var _cur = (typeof computeCurrent === "function") ? computeCurrent() : null;
+        var baseTotal = (_cur && _cur.total > 0) ? _cur.total : 0;
+        var dayPnl = (total > 0 && baseTotal > 0) ? (total - baseTotal) : 0;
+        var pct = (baseTotal > 0 && isFinite(baseTotal) && total > 0) ? (total - baseTotal) / baseTotal * 100 : 0;
         var fmt = function(v){ return "¥" + Math.round(isFinite(v) ? v : 0).toLocaleString("zh-CN"); };
         var tEl = banner.querySelector(".mp-total"); if (tEl) tEl.textContent = fmt(total);
         var pEl = banner.querySelector(".mp-pnl");
         if (pEl) { if (dayPnl === 0) { pEl.textContent = "--"; pEl.className = "mp-pnl"; } else { var sign = dayPnl > 0 ? "+" : "-"; var tri = dayPnl > 0 ? "▲" : "▼"; var cls = dayPnl > 0 ? "up" : "down"; pEl.textContent = tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + "%)"; pEl.className = "mp-pnl " + cls; } }
+        // 缓存「预测覆盖页总资产」供市场行情页头对比行使用，并反向刷新市场行情页对比行
+        window.__predBannerTotal = total;
+        if (typeof renderMarketPrediction === "function") { try { renderMarketPrediction(); } catch (e) {} }
     }
                                                     
     // 构建预测列表：仅基金行 + 美股持仓行（含当日预测口径的基金重算），剔除加密货币/大宗商品/自选
@@ -8596,7 +8777,7 @@ function buildDetailSeries(opts) {
         const fundMatched = !!cur.fundTargetMatched;
         const kv = (l, v) => '<div class="kv"><span class="l">' + l + "</span>" + (v || '<span class="sub2">—</span>') + "</div>";
         const pnlHtml = v => '<span class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "+" : "") + fmt0(v) + "</span>";
-        ps.innerHTML = '<div class="card"><div class="k">当日</div>' + '<div class="vr"><span class="v ' + dayPnlClass + '">' + (dayPnl >= 0 ? "+" : "") + fmt0(dayPnl) + '</span><span class="pct ' + dayRetCls + '">' + dayRetTxt + "</div>" + "</div>" + '<div class="card"><div class="k">浮动</div>' + '<div class="vr"><span class="v ' + pnlClass + '">' + (cur.pnl >= 0 ? "+" : "") + fmt0(cur.pnl) + '</span><span class="pct ' + floatRetCls + '">' + floatRetTxt + "</div></div>" + '<div class="card"><div class="k">总计</div>' + '<div class="vr"><span class="v ' + totalPnlClass + '">' + (totalPnl >= 0 ? "+" : "") + fmt0(totalPnl) + '</span><span class="pct ' + totalRetCls + '">' + totalRetTxt + "</div>" + "</div>"
+        ps.innerHTML = '<div class="card"><div class="k">' + mdLabel(cur.dayTime) + '</div>' + '<div class="vr"><span class="v ' + dayPnlClass + '">' + (dayPnl >= 0 ? "+" : "") + fmt0(dayPnl) + '</span><span class="pct ' + dayRetCls + '">' + dayRetTxt + "</div>" + "</div>" + '<div class="card"><div class="k">浮动</div>' + '<div class="vr"><span class="v ' + pnlClass + '">' + (cur.pnl >= 0 ? "+" : "") + fmt0(cur.pnl) + '</span><span class="pct ' + floatRetCls + '">' + floatRetTxt + "</div></div>" + '<div class="card"><div class="k">总计</div>' + '<div class="vr"><span class="v ' + totalPnlClass + '">' + (totalPnl >= 0 ? "+" : "") + fmt0(totalPnl) + '</span><span class="pct ' + totalRetCls + '">' + totalRetTxt + "</div>" + "</div>"
     }
     renderBasicData(cur)
 }
@@ -8657,7 +8838,7 @@ function renderCards(cur) {
         const cls = a.name === "现金" ? "card cash-card" : "card";
         html += '<div class="' + cls + '"><div class="k"><span class="dot" style="background:var(' + a.color + ')"></span>' + a.name + "</div>" + '<div class="mv">' + fmt0(a.v) + "</div>";
         if (a.name !== "现金") {
-            html += row2("当日", a.dayPnl != null ? pnlHtml(a.dayPnl) : null, "", a.dayRet != null ? pctHtml(a.dayRet) : null) + row2("浮动", a.pnl != null ? pnlHtml(a.pnl) : null, "", a.ret != null ? pctHtml(a.ret) : null) + row2("总计", a.totalPnl != null ? pnlHtml(a.totalPnl) : null, "", a.totalRet != null ? pctHtml(a.totalRet) : null)
+            html += row2(mdLabel(a.time), a.dayPnl != null ? pnlHtml(a.dayPnl) : null, "", a.dayRet != null ? pctHtml(a.dayRet) : null) + row2("浮动", a.pnl != null ? pnlHtml(a.pnl) : null, "", a.ret != null ? pctHtml(a.ret) : null) + row2("总计", a.totalPnl != null ? pnlHtml(a.totalPnl) : null, "", a.totalRet != null ? pctHtml(a.totalRet) : null)
         }
         html += "</div>"
     });
@@ -9182,12 +9363,15 @@ function getTradeStatsAt(u, ts) {
 }
 
 function renderTradeTable(u) {
-    var trades = (u.trades || []).slice().sort(function(a, b) {
-        return a.date < b.date ? -1 : a.date > a.date ? 1 : 0
+    var trades = (u.trades || []).map(function(t, oi) {
+        return { t: t, oi: oi }
+    }).sort(function(a, b) {
+        return a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0
     });
     if (!trades.length) return '<div class="empty">暂无交易记录</div>';
     var html = '<table class="trade-table"><thead><tr><th>日期</th><th>价格($)</th><th>数量</th><th></th></tr></thead><tbody>';
-    trades.forEach(function(t, i) {
+    trades.forEach(function(x) {
+        var t = x.t, i = x.oi;
         var priceTd, amtTd, qty, amt;
         if (t.type === "dividend") {
             priceTd = '<span class="sub2">—</span>';
@@ -9223,12 +9407,15 @@ function getFundTradeStatsAt(f, ts) {
 }
 
 function renderFundTradeTable(f) {
-    var trades = (f.trades || []).slice().sort(function(a, b) {
-        return a.date < b.date ? -1 : a.date > b.date ? 1 : 0
+    var trades = (f.trades || []).map(function(t, oi) {
+        return { t: t, oi: oi }
+    }).sort(function(a, b) {
+        return a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0
     });
     if (!trades.length) return '<div class="empty">暂无交易记录</div>';
     var html = '<table class="trade-table"><thead><tr><th>日期</th><th>净值</th><th>数量(份)</th><th></th></tr></thead><tbody>';
-    trades.forEach(function(t, i) {
+    trades.forEach(function(x) {
+        var t = x.t, i = x.oi;
         var amt = t.shares * t.price;
         var qtyCls = t.type === "buy" ? "qty-buy" : (t.type === "sell" ? "qty-sell" : "");
         html += "<tr><td>" + esc(ymdCompact(t.date) || "") + "</td><td>" + fmt0(t.price) + "</td><td class=\"" + qtyCls + "\">" + Number(t.shares).toFixed(2) + "</td>" + '<td><button class="btn-trade-sm" data-fund-trade-edit="' + f.id + '" data-fund-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-fund-trade-del="' + f.id + '" data-fund-trade-idx="' + i + '">删</button></td></tr>'
@@ -9374,12 +9561,15 @@ function calcCashAmountAt(c, ts) {
 }
 
 function renderCashTradeTable(c) {
-    var txs = (c.transactions || []).slice().sort(function(a, b) {
-        return a.date < b.date ? -1 : a.date > a.date ? 1 : 0
+    var txs = (c.transactions || []).map(function(t, oi) {
+        return { t: t, oi: oi }
+    }).sort(function(a, b) {
+        return a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0
     });
     if (!txs.length) return '<div class="empty">暂无收支记录</div>';
     var html = '<table class="trade-table"><thead><tr><th>日期</th><th>类型</th><th>金额</th><th></th></tr></thead><tbody>';
-    txs.forEach(function(t, i) {
+    txs.forEach(function(x) {
+        var t = x.t, i = x.oi;
         var typeTag = t.type === "in" ? '<span class="tag ok">收入</span>' : '<span class="tag err">支出</span>';
         html += "<tr><td>" + esc(t.date || "") + "</td><td>" + typeTag + "</td><td>" + fmt0(Number(t.amount) || 0) + "</td>" + '<td><button class="btn-trade-sm" data-cash-trade-edit="' + c.id + '" data-cash-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-cash-trade-del="' + c.id + '" data-cash-trade-idx="' + i + '">删</button></td></tr>'
     });
@@ -9870,7 +10060,16 @@ function drawChartInternal() {
                 y: {
                     position: "left",
                     ticks: {
-                        callback: v => Math.round(v / 1e4) + "万",
+                        // 自适应小数位：tick 间隔细(<1万)时保留一位小数(0.1万=1千=k级精度)以区分相近值；
+                        // 间隔粗(>=1万)时只用整数万，避免 100.0万 这类冗余
+                        callback: function (v, index, ticks) {
+                            var vals = (ticks || []).map(function (t) { return t.value; }).filter(function (x) { return typeof x === "number" && isFinite(x); });
+                            var step = Infinity;
+                            for (var i = 1; i < vals.length; i++) step = Math.min(step, Math.abs(vals[i] - vals[i - 1]));
+                            if (!isFinite(step) || step <= 0) step = 10000;
+                            var decimals = step < 10000 ? 1 : 0;
+                            return (v / 1e4).toFixed(decimals) + "万";
+                        },
                         font: {
                             size: 11
                         },
@@ -10913,9 +11112,10 @@ async function refresh() {
     // 并发多只时后加载的脚本会覆盖先到的值，导致部分基金稳定读不到。串行可彻底消除竞态。
     await mapPool(funds, async (f) => {
         f._ok = undefined;
-        // 优先用 fund_holdings.json 预存的净值历史 nav，跳过串行实时抓取东财（快）
+        // 优先用 fund_holdings.json 预存的净值历史 nav；但仅「美股收盘后→次日 UTC 07:00」窗口内才用它（快且当日净值已由每日 Action 刷新），
+        // 其余时间（含盘中）一律实时浏览器读取，保证当日净值最新（满足"基金的当日净值都要读取"）。
         const _stored = (typeof FUND_HOLDINGS !== "undefined" && FUND_HOLDINGS[f.code] && Array.isArray(FUND_HOLDINGS[f.code].nav) && FUND_HOLDINGS[f.code].nav.length) ? FUND_HOLDINGS[f.code].nav : null;
-        if (_stored) {
+        if (_stored && fundUseJsonCache()) {
             f._list = _stored.map(p => ({ t: p[0], nav: p[1] }));
             f._ok = true;
             okF++;
@@ -10952,6 +11152,17 @@ async function refresh() {
                     if (est.date === ymd(todayTs())) f._est = est.nav
                 }
             }
+        } else if (_stored) {
+            // 实时读取失败 → 回退本地 JSON 缓存，避免当日空白
+            f._list = _stored.map(p => ({ t: p[0], nav: p[1] }));
+            f._ok = true;
+            okF++;
+            const _last = f._list[f._list.length - 1];
+            if (_last && _last.t != null && _last.nav != null) {
+                f._lastNav = _last.nav;
+                f._lastDate = ymd(_last.t)
+            }
+            return f
         } else {
             f._ok = false;
             failF++
@@ -10980,9 +11191,9 @@ async function refresh() {
             u._alpacaPrice = null;
             u._alpacaPrevClose = null;
             var _alp = usRes["__alp_" + u.symbol];
-            if (_alp && _alp.price != null) {
-                u._alpacaPrice = _alp.price;
-                u._alpacaPrevClose = _alp.prevClose
+            if (_alp) {
+                if (_alp.price != null) u._alpacaPrice = _alp.price;   // 现价（需有成交）
+                if (_alp.prevClose != null && _alp.prevClose > 0) u._alpacaPrevClose = _alp.prevClose;  // 昨收基准：即使无成交也取 Alpaca prevDailyBar.c
             }
             if (!u.name) u.name = q.name || "";
             u._ok = true;
@@ -11100,6 +11311,14 @@ async function refresh() {
         const bad = okF < funds.length || okU < realU || nx && !nx.full;
         setStatus(bad ? "fail" : "live", "")
     }
+    // 若当前在市场行情页，刷新后同步刷新顶部「总资产 / hero对比 / 预测对比」横幅
+    try {
+        var _mpEl = document.getElementById("pageMarket");
+        if (_mpEl && _mpEl.classList.contains("active")) {
+            try { renderFundHoldings(); } catch (e) {}
+            try { if (typeof renderMarketPrediction === "function") renderMarketPrediction(); } catch (e) {}
+        }
+    } catch (e) {}
 }
 
 function setStatus(type, text) {
@@ -12923,6 +13142,8 @@ function showPage(name) {
         setTimeout(function() {
             try { fetchMarketData(); } catch(e) {}
             try { renderFundHoldings(); } catch(e) {}
+            // 打开市场页时立即基于当前数据刷新顶部「总资产 / hero对比 / 预测对比」，避免不自动刷新
+            try { if (typeof renderMarketPrediction === "function") renderMarketPrediction(); } catch(e) {}
         }, 0)
     }
 }
@@ -12932,7 +13153,7 @@ bar.addEventListener("click", function(e) {
     // [修复] 覆盖层打开时点悬浮栏：先关闭任意已开的覆盖层(饼图/当日预测)，再切页，使切换后能看到目标页
     var _ao = document.getElementById("allocOverlay");
     var _po = document.getElementById("predictOverlay");
-    if (_ao && _ao.classList.contains("open")) { _ao.classList.remove("open"); _ao.setAttribute("aria-hidden", "true"); document.body.style.overflow = ""; }
+    if (_ao && _ao.classList.contains("open")) { _ao.classList.remove("open"); _ao.setAttribute("aria-hidden", "true"); /* 释放 alloc 覆盖层用 body{position:fixed} 加的锁定 */ document.body.style.position = ""; document.body.style.top = ""; document.body.style.left = ""; document.body.style.right = ""; document.body.style.width = ""; }
     if (_po && _po.classList.contains("open")) { _po.classList.remove("open"); _po.setAttribute("aria-hidden", "true"); document.body.style.overflow = ""; }
     showPage(b.dataset.page)
 });
@@ -14488,9 +14709,11 @@ function renderMarketPrediction() {
         }
     } catch (e) {}
     var total = fundMv + mktMv + cashVal;
-    var dayPnl = fundPnl + mktPnl;
-    var baseVal = total - dayPnl; // 前值为基准（合计 − 当日预测盈亏）
-    var pct = (baseVal > 0 && isFinite(baseVal)) ? dayPnl / baseVal * 100 : 0;
+    // 市场行情：本页市值统统加起来；盈亏=本页市值总和 − 资产页当前总资产；盈亏率同除以资产页总资产
+    var _cur = (typeof computeCurrent === "function") ? computeCurrent() : null;
+    var baseTotal = (_cur && _cur.total > 0) ? _cur.total : 0;
+    var dayPnl = (total > 0 && baseTotal > 0) ? (total - baseTotal) : 0;
+    var pct = (baseTotal > 0 && isFinite(baseTotal) && total > 0) ? (total - baseTotal) / baseTotal * 100 : 0;
     var fmt = function(v) { return "¥" + Math.round(isFinite(v) ? v : 0).toLocaleString("zh-CN"); };
     var tEl = predEl.querySelector(".mp-total"); if (tEl) tEl.textContent = fmt(total);
     var pEl = predEl.querySelector(".mp-pnl");
@@ -14502,8 +14725,24 @@ function renderMarketPrediction() {
             var sign = dayPnl > 0 ? "+" : "-";
             var tri = dayPnl > 0 ? "▲" : "▼";
             var cls = dayPnl > 0 ? "up" : "down";
-            pEl.textContent = tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + "%)";
-            pEl.className = "mp-pnl " + cls;
+            // 市场行情总资产 vs 总资产页hero：前面涨跌色，括号hero总资产黑色
+            pEl.innerHTML = '<span class="' + cls + '">' + tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + '%)</span><span class="amt">（' + fmt(baseTotal) + '）</span>';
+            pEl.className = "mp-pnl";
+        }
+    }
+    // 市场行情总资产下方对比小字：市场行情总资产 vs 预测覆盖页总资产（居中，涨跌色）
+    var predCmp = predEl.querySelector("#mpCmpPred");
+    if (predCmp) {
+        var predTotal = (typeof window.__predBannerTotal === "number" && window.__predBannerTotal > 0) ? window.__predBannerTotal : 0;
+        if (predTotal > 0 && total > 0) {
+            var dP = total - predTotal; // 市场 − 预测
+            var pP = dP / total * 100;
+            var clsP = dP > 0 ? "up" : (dP < 0 ? "down" : "");
+            var triP = dP > 0 ? "▲" : (dP < 0 ? "▼" : "·");
+            var sgnP = dP > 0 ? "+" : (dP < 0 ? "-" : "");
+            predCmp.innerHTML = '<span class="' + clsP + '">' + triP + " " + sgnP + fmt(Math.abs(dP)) + " (" + (dP > 0 ? "+" : "") + pP.toFixed(2) + '%)</span><span class="amt">（' + fmt(predTotal) + '）</span>';
+        } else {
+            predCmp.textContent = "";
         }
     }
 }
