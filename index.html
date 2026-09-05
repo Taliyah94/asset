@@ -1279,7 +1279,7 @@ tbody tr:hover {
     text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 0;
+    font-variant-numeric: tabular-nums;
 }
 
 .pending-tbl td.cls-amt {
@@ -4904,11 +4904,11 @@ background: #ffffff;
                     · 美股、ETF：盘中（9:30–16:00）走腾讯财经；盘前 / 盘后 / 夜盘 / 周末走 Bybit 指数价；两者都取不到才回退 Alpaca<br data-page-node-id="IznwjLr8HTB9regjojblwU"><!--pnid:87UYA1STkNHJjaew9naC5c-->
                     · 加密、大宗（BTC / XAU / CL 等）：Bybit 永续合约，涨跌幅取 24 小时变动<br data-page-node-id="EIFtnw4K98ILppNdAEMEil"><!--pnid:iVI5HE9PqA8oOCn5v0QwWa-->
                     · 基金持仓明细：A股、港股普通走腾讯；港 / 日 / 韩股走东方财富历史 K 线（按目标日取值）<br data-page-node-id="ZD9neDg3zpDAOtlFpvPFmF"><!--pnid:7vivaR4p2jSr9Qw08nbHOi-->
-                    · 行名后的徽标即该行实际数据源：BYB / QT / ALP / 盈透 / 东方<br data-page-node-id="xNM5izW8OGL1WTdcJbzr2N">
+                    · 行名后的徽标即该行实际数据源：BYB / QT / ALP / IB / 东方<br data-page-node-id="xNM5izW8OGL1WTdcJbzr2N">
                     <b data-page-node-id="yYEKb5K848Dz9nUmWIiqth"><!--pnid:1C6qr1u5zs2IXF23MFS1Nn-->③ 市场预测覆盖层</b><br data-page-node-id="xNWaqP5sCMKRGkAZXfKKOe"><!--pnid:WZpsKTSMTtfShzoOmI4cOB-->
                     · 基金行：按成分股当日涨跌加权推算，徽标取成分股中用得最多的那个源；净值已披露到当日则不预测，画杠（—）<br data-page-node-id="eElO4hBYlKhywcr2kKRqeX"><!--pnid:2TgGe9e1eridZNCzsMZYho-->
                     · 美股、ETF 行：现价与涨跌幅沿用「市场行情」口径，只把市值 / 盈亏换成持仓口径<br data-page-node-id="YHapDgwlfKO7KoEXvCGs7f"><!--pnid:Gg1RxOlFiRSehGkb5QjAAM-->
-                    · 期权行：现价与涨跌幅取正股口径（Bybit → Alpaca → 腾讯），徽标按合约真实来源标注 ALP 或盈透</div>
+                    · 期权行：现价与涨跌幅取正股口径（Bybit → Alpaca → 腾讯），徽标按合约真实来源标注 ALP 或 IB</div>
             </div>
             <div data-page-node-id="DBg2sXHy7Dbg5AfPjgcEuq" class="setting-row" id="setIconBrowserBtn">
                 <div data-page-node-id="1kY719hfA4DftNGQuMPVwt" class="label"><span data-page-node-id="xd4HlC3GDVZCtICGW4fRe0" class="li-ic"><!--pnid:37yebTIVVb5lduwfWZbeSB-->🎨</span><!--pnid:6U9ojo0jHXnCVa7bx3TgpP-->图标浏览</div><span data-page-node-id="nepVMg1Eie24narauNKdC6" class="arrow"><!--pnid:aSFUo8hUqD5wHZfulDOjrr-->›</span>
@@ -5281,8 +5281,8 @@ background: #ffffff;
                                                 <div data-page-node-id="PE4xTchyDmhBNoGjZ4hV5a" class="tbl-scroll pending-scroll">
                                                     <table data-page-node-id="Qj9QI4Dd6vouTJHsMJGDUb" class="pending-tbl">
                                                         <colgroup data-page-node-id="RGZzzqQ1JApkCFeco2QIR4">
-                                                            <col data-page-node-id="l9YqHM7tadE4BYaVPBALmZ" style="width:20%">
-                                                            <col data-page-node-id="d2HWMlFjq9ILdD3iuJyhcH" style="width:30%">
+                                                            <col data-page-node-id="l9YqHM7tadE4BYaVPBALmZ" style="width:22%">
+                                                            <col data-page-node-id="d2HWMlFjq9ILdD3iuJyhcH" style="width:28%">
                                                             <col data-page-node-id="qq1ifP2jDbtGFdFfw8QNEs" style="width:26%">
                                                             <col data-page-node-id="9w2cQxIQxTsAU05x4DQ0Ra" style="width:24%">
                                                         </colgroup>
@@ -6259,13 +6259,13 @@ function fetchUsQuotesGtimg(symList) {
 
         function fetchChunk(list) {
             return new Promise(res => {
-                const q = list.map(x => "us" + x).join(",");
+                const q = list.map(x => "us" + (typeof window.normGoogleSym === "function" ? window.normGoogleSym(x) : x)).join(",");
                 let done = false,
                     to = null;
                 const parseQt = txt => {
                     const r2 = {};
                     list.forEach(sym => {
-                        const m = txt.match(new RegExp("v_us" + sym + '="([^"]*)"'));
+                        const m = txt.match(new RegExp("v_us" + (typeof window.normGoogleSym === "function" ? window.normGoogleSym(sym) : sym) + '="([^"]*)"'));
                         if (m) {
                             const p = m[1].split("~");
                             const price = parseFloat(p[3]),
@@ -6547,7 +6547,14 @@ function fetchUsQuotes(symList) {
     });
     var stockSyms = symList.filter(function(x) {
         return !isOptionSymbol(x)
+    }).map(function(x) {
+        return (typeof window.normGoogleSym === "function") ? window.normGoogleSym(x) : x;
     });
+    (function() {
+        var _s = {}, _o = [];
+        stockSyms.forEach(function(x) { if (!_s[x]) { _s[x] = 1; _o.push(x); } });
+        stockSyms = _o;
+    })();
     var tasks = [];
     if (_ac.src === "alpaca" && _ac.keyId && _ac.secret) {
         tasks.push(fetchUsQuotesAlpaca(stockSyms, _ac))
@@ -8028,7 +8035,7 @@ function renderAllocLegend() {
     if (!btn || !overlay || !listEl) return;
                                                     
     // 预测覆盖层：数据源符号（与成分股/市场行同一套标签与配色）
-    var _pSrcLabel = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "盈透", em: "东方", predict: "预测", fund: "基金", none: "--" };
+    var _pSrcLabel = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB", em: "东方", predict: "预测", fund: "基金", none: "--" };
     var _pSrcCls = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr", em: "s-em", predict: "s-predict", fund: "s-fund", none: "s-none" };
     // 取行级数据源徽标（.un-sym 内），避免误伤展开区里成分股各自的徽标
     function predictRowSrcEl(row) {
@@ -9021,6 +9028,15 @@ function renderPendingFilterList(q) {
 
                                                 
 
+// 挂单日期规范化：把 YYYY-M-D / YYYY/M/D / YYYY.M.D 等写成统一 YYYY-MM-DD，
+// 避免手动录入的短格式导致挂单表日期显示长短不一
+function fmtPendingDate(s) {
+    if (s == null) return "";
+    var m = String(s).match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (!m) return String(s);
+    var p = function (n) { return ("0" + n).slice(-2); };
+    return m[1] + "-" + p(m[2]) + "-" + p(m[3]);
+}
 function renderPending() {
     var tb = $("tbPending");
     if (!tb) return;
@@ -9077,7 +9093,7 @@ function renderPending() {
         var val = Number(t.realized) || 0;
         var col = val > 0 ? "var(--up)" : val < 0 ? "var(--down)" : "var(--muted)";
         var sign = val >= 0 ? "+" : "-";
-        return "<tr>" + '<td class="cls-date">' + esc(t.date) + "</td>" + '<td class="cls-code">' + fmtTradeCode(t.symbol) + "</td>" + '<td class="cls-num">' + qtyHtml + '<div class="qty-price">$' + price.toLocaleString("en-US", {
+        return "<tr>" + '<td class="cls-date">' + esc(fmtPendingDate(t.date)) + "</td>" + '<td class="cls-code">' + fmtTradeCode(t.symbol) + "</td>" + '<td class="cls-num">' + qtyHtml + '<div class="qty-price">$' + price.toLocaleString("en-US", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }) + "</div></td>" + '<td class="cls-num" style="color:' + col + ';">' + sign + "$" + Math.abs(val).toLocaleString("en-US", {
@@ -11190,7 +11206,7 @@ async function refresh() {
             }
             u._alpacaPrice = null;
             u._alpacaPrevClose = null;
-            var _alp = usRes["__alp_" + u.symbol];
+            var _alp = usRes["__alp_" + ((typeof window.normGoogleSym === "function") ? window.normGoogleSym(u.symbol) : u.symbol)];
             if (_alp) {
                 if (_alp.price != null) u._alpacaPrice = _alp.price;   // 现价（需有成交）
                 if (_alp.prevClose != null && _alp.prevClose > 0) u._alpacaPrevClose = _alp.prevClose;  // 昨收基准：即使无成交也取 Alpaca prevDailyBar.c
@@ -13075,8 +13091,6 @@ window.refreshNasdaqLive = refreshNasdaqLive;
                                             </script>
 
 
-                                            <!--pnid:Jg9DIorabwMTNh6e9kgCha--><!-- 市场布局配置（置顶/置底/手动顺序/排序）：内存态由置顶/置底按钮与拖拽写入 localStorage 持久化 -->
-                                            <script data-page-node-id="VedAFIA12swBfgR8T8dN8g" data-pnid-children="Bs1hn9Gug5L0BfhESDZwCf" id="pa-market-layout" type="application/json">{"pins":{"CL":"bottom","XAU":"bottom","BTC":"bottom","ORCL":"bottom"},"order":["CL","XAU","BTC","ORCL"],"sort":{"key":"mv","dir":-1}}</script>
                                             <script data-page-node-id="AbpL8ELR2DUu8ITBC1iwVe" data-pnid-children="y3RYhSRDcHvGKiQQBRsExm">
 (function() {
 var bar = document.getElementById("floatingBar");
@@ -13312,6 +13326,15 @@ function bybitCodeOf(sym) {
 window.bybitCodeOf = bybitCodeOf;
 /* 预测页美股行要改用腾讯(QT)现价与涨跌幅，同样因跨脚本块不可见，一并暴露 */
 window.tencentQueryOf = tencentQueryOf;
+// GOOGL(谷歌-A) 与 GOOG(谷歌-C) 在「取价符号」层面合并为 GOOGL：
+// Bybit 仅有 GOOGL 一个 Google 永续合约；腾讯/Alpaca 也统一取 GOOGL 价。
+// 仅归一取价符号，不改变持仓行本身（数量/成本/名称仍按原始录入 GOOGL/GOOG）。
+function normGoogleSym(sym) {
+    var s = String(sym == null ? "" : sym).toUpperCase().replace(/USDT$/, "");
+    if (s === "GOOG" || s === "GOOGL") return "GOOGL";
+    return s;
+}
+window.normGoogleSym = normGoogleSym;
 // 归一到腾讯查询代码（用于腾讯行情请求）。
 // 腾讯接口对大小写敏感且按市场区分：
 //   美股: us + 大写代码(如 usNVDA)；港股: hk + 小写代码(如 hk00700)；A股: sh/sz + 小写代码(如 sh600519)
@@ -13761,7 +13784,7 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
                 if (!isNaN(ch24c)) { pct = ch24c * 100; _srcTag = "bybit"; }
             }
         }
-        var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP" };
+        var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB" };
         // 期权持仓：市场列表显示其正股（价格+涨跌幅），市值取美股持仓口径，盈亏读取美股持仓当日盈亏额
         if (g.isOption) {
             var _optParsed = parseOptionSymbol(g.optionSyms[0]);
@@ -13836,10 +13859,16 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
             var optDayPnlCny = 0;    // 期权当日盈亏额（直接读取美股持仓 u._dayPnl，人民币）
             var optDayPnlOn = false; // 至少有一张合约拿到有效当日盈亏才显示
             var optFirstSh = 0;
+            var _optAlpMode = null;
             g.optionSyms.forEach(function(os) {
                 var _k = String(os).toUpperCase().replace(/[^A-Z0-9]/g, "");
                 var _ou = usBySym[_k];
                 if (!_ou) return;
+                // 期权行图标对齐预测覆盖层：取合约真实数据源模式(optionAlpacaMode) → ibkr(IB) / live / close(ALP)
+                if (_optAlpMode == null) {
+                    try { _optAlpMode = (typeof optionAlpacaMode === "function") ? optionAlpacaMode(_ou)
+                        : (window.optionAlpacaMode ? window.optionAlpacaMode(_ou) : null); } catch (e) { _optAlpMode = null; }
+                }
                 var _hsOs = 0;
                 try { _hsOs = getTradeStats(_ou).holdShares || 0; } catch (e) { _hsOs = 0; }
                 if (!isFinite(_hsOs) || _hsOs === 0) return;  // 只跳过无持仓，空头(负)照常计入
@@ -13853,11 +13882,13 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
                 if (_dp != null) { optDayPnlCny += _dp; optDayPnlOn = true; }
             });
         }
-        var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca" };
+        var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr" };
         // 涨跌基准实际数据源：回退时按 _srcTag 标注(bybit/alpaca)，否则用主源
-        // 期权行例外：展示的是正股价格，徽标跟正股的现价来源(_optPxSrc)走
-        var effSrc = (g.isOption && _optPxSrc) ? _optPxSrc
-                   : (_srcTag || (item ? (item._src || (item._isStock ? "tencent" : "bybit")) : "bybit"));
+        // 期权行例外：展示的是正股价格，但图标改按合约真实数据源(optionAlpacaMode)标注（盘外 ALP / IB），与预测覆盖层一致
+        // 期权行图标对齐预测覆盖层：盘中走腾讯(QT)，盘外按合约真实数据源(optionAlpacaMode)标注 ALP / IB
+        var effSrc = g.isOption
+            ? (_inSession ? "tencent" : ((_optAlpMode === "ibkr") ? "ibkr" : "alpaca"))
+            : (_srcTag || (item ? (item._src || (item._isStock ? "tencent" : "bybit")) : "bybit"));
         var srcKey = effSrc;
         var srcLabel = srcLabelMap[srcKey] || srcKey;
         var srcCls = srcClsMap[srcKey] || "s-none";
@@ -14237,8 +14268,8 @@ return;
         } else if (_fundMkts["hk"] || _fundMkts["jp"] || _fundMkts["kr"]) {
             _fundSrcKey = "tencent";
         }
-        var _srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", fund: "基金" };
-        var _srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", fund: "s-fund" };
+        var _srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB", fund: "基金" };
+        var _srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr", fund: "s-fund" };
         var _fundSrcLabel = _srcLabelMap[_fundSrcKey] || _fundSrcKey;
         var _fundSrcCls = _srcClsMap[_fundSrcKey] || "s-none";
         var caret = '<span class="u-caret">▶</span>';
@@ -14363,8 +14394,8 @@ function fetchFundHoldingsRealtime(usCodes) {
 function fillFundHoldingsQuotes(merged, tencentMap, alpacaMap) {
     var map = {};
     merged.list.forEach(function(it) { map[it.symbol] = it; });
-    var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP" };
-    var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca" };
+    var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB" };
+    var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr" };
     // A股/港股普通(无 Bybit 合约)成分股：收集后批量用 qt.gtimg.cn 拉实时价，涨跌幅 = 实时价 ÷ 东方财富价 − 1
     var qtRows = [];
     document.querySelectorAll('#unifiedList .fund-hd-item[data-fh-sym]').forEach(function(row) {
