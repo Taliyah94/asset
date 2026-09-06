@@ -3220,7 +3220,7 @@ tbody tr:hover {
 .market-predict .mp-pnl.up { color: #2e7d32; }
 .market-predict .mp-pnl.down { color: #c62828; }
 /* 市场行情总资产下方两行对比小字：hero 对比(括号总资产黑色、前面涨跌色) + 预测对比(全黑) */
-.market-predict .mp-cmp { margin-top: 6px; font-size: 12px; line-height: 1.55; color: #1f2733; font-variant-numeric: tabular-nums; font-family: var(--font-num); }
+.market-predict .mp-cmp { margin-top: 6px; font-size: 15px; font-weight: 600; line-height: 1.5; color: #1f2733; font-variant-numeric: tabular-nums; font-family: var(--font-num); }
 .market-predict .amt { color: #1f2733; font-weight: 600; }
 .market-predict .up { color: #2e7d32; }
 .market-predict .down { color: #c62828; }
@@ -4898,7 +4898,7 @@ background: #ffffff;
                     <b data-page-node-id="Nu5Mlqc0uDXVJSDCokvyQL"><!--pnid:GhNy1MjdzUCOVlxc0fzEWE-->① 资产页面</b><br data-page-node-id="ghWEKEzxCy1enRuyhzxTRD"><!--pnid:oSFCrZwteNlkl4dK5u2Brr-->
                     · 基金净值：腾讯基金行情（qt.gtimg.cn）+ 东方财富 pingzhongdata（历史净值 / 季报持仓 / 盘中估值）<br data-page-node-id="VR2euhRW5IrexdliaLDCLR"><!--pnid:xsBJ1FTJloObKXx3AvBwB1-->
                     · 美股、ETF：腾讯财经实时价；同时请求 Alpaca 作为对照与兜底<br data-page-node-id="wS1DHdJPEI6rmOnr8HTB8q"><!--pnid:IO7rZToWOL5rn6mQgOrkOC-->
-                    · 期权：Alpaca 实时价优先；按录入新鲜度判定回落盈透 markPrice 快照——时间栏显示快照日期（如 08-22），走 Alpaca 则显示“实时”<br data-page-node-id="ubxtgGevpzbWYeWOErRk9s"><!--pnid:CFZhK9BnYUguZ55RQuUjxS-->
+                    · 期权：Alpaca 实时价优先；按录入新鲜度判定回落盈透 markPrice 快照——时间栏显示数据源徽标（ALP=Alpaca / IB=盈透）<br data-page-node-id="ubxtgGevpzbWYeWOErRk9s"><!--pnid:CFZhK9BnYUguZ55RQuUjxS-->
                     · 汇率：open.er-api，一次请求同时取 USD/CNY 与 USD/HKD，末尾为该数据的更新日期（非当天实时）<br data-page-node-id="NqVel5NvRZCj9nMS4l4FVk"><!--pnid:2mlCjP1fTYJll181XL8Wx5-->
                     · 现金、挂单：手工录入，不联网<br data-page-node-id="LUSpBgGNzlLquLOdk1qJGt">
                     <b data-page-node-id="u7Pz6EGZ5re4Ys6HxIy7gN"><!--pnid:QCAbwrQj810TBHoSHCMlw3-->② 市场行情</b><br data-page-node-id="nOdTbzxyfnlNlRMjtWe9Xd"><!--pnid:e2NIsQ6mrLABOM99weR7jw-->
@@ -4971,6 +4971,10 @@ background: #ffffff;
                 <div data-page-node-id="3mbbYEWsNWu8zP6L8BLmMZ" class="setting-row">
                     <div data-page-node-id="vgO9TRJwwZJEDYYoFydjgh" class="label"><span data-page-node-id="nO4fZzchvQdp7jN1Ar9gcs" class="li-ic"><!--pnid:KOt5Bw2LAQedcvkbc3qCYy-->💱</span><!--pnid:U5r0oRuaN8l9WrFQGdWZqh-->美元港币汇率</div>
                     <div data-page-node-id="NQMwso5IzKsK7nfvJ2LHOF" class="value" id="fxHkdVal"><!--pnid:83iSMhr4aCIEbHUB4GBd0R-->1$≈HK$7.8000 <span data-page-node-id="pMlaVXbxDJO4UPQSkSCgv0" style="color:#1aa84b; font-weight:600"><!--pnid:m7M3KudybUuKKdQfsj7R6f-->2026-08-14</span></div>
+                </div>
+                <div class="setting-row">
+                    <div class="label"><span class="li-ic">💱</span>美元韩元汇率</div>
+                    <div class="value" id="fxKrwVal">1$≈₩1280</div>
                 </div>
             </div>
         </div>
@@ -5538,6 +5542,8 @@ fxManual = fxManual == null || fxManual === "" ? null : Number(fxManual);
 // 美元港币汇率：只读，复用与美元人民币相同的实时源(open.er-api)，不手动录入
 let fxHkdLive = null; // 实时值，来自 fetchFx().hkd
 let fxHkd = 7.8; // 兜底默认值(联系汇率≈7.75~7.85)
+let fxKrwLive = null; // 实时美元韩元，来自 fetchFx().krw
+let fxKrw = 1280; // 兜底默认值(USD/KRW≈1270~1290)
 let usInvestManual = localStorage.getItem("pa_usinv");
 usInvestManual = usInvestManual == null || usInvestManual === "" ? null : Number(usInvestManual);
 var usInvestAutoVal = null;
@@ -5806,6 +5812,12 @@ function effFx() {
 function effHkd() {
     const v = fxHkdLive != null && !isNaN(fxHkdLive) && fxHkdLive > 0 ? fxHkdLive : fxHkd;
     return v && !isNaN(v) && v > 0 ? v : 7.8
+}
+
+// 美元韩元汇率（只读，实时源优先，兜底 1280）：韩股 special（SAMSUNG/SKHYNIX）美元价 ×此汇率 = 韩元显示
+function effKrw() {
+    const v = fxKrwLive != null && !isNaN(fxKrwLive) && fxKrwLive > 0 ? fxKrwLive : fxKrw;
+    return v && !isNaN(v) && v > 0 ? v : 1280
 }
 
 function fmt(n, dec = 2) {
@@ -7504,11 +7516,13 @@ if (r && r.ok) {
                 let date = null;
                 const src = d.time_last_update_unix ? d.time_last_update_unix * 1e3 : d.time_last_update_utc ? Date.parse(d.time_last_update_utc) : null;
                 if (src && !isNaN(src)) date = ymd(src);
-                // 同一数据源(open.er-api)一次性返回全部货币对，USD-HKD 直接取 rates.HKD，只读不手动录入
+                // 同一数据源(open.er-api)一次性返回全部货币对，USD-HKD / USD-KRW 直接取 rates，只读不手动录入
                 const hkd = (d.rates.HKD && !isNaN(Number(d.rates.HKD))) ? Number(d.rates.HKD) : null;
+                const krw = (d.rates.KRW && !isNaN(Number(d.rates.KRW))) ? Number(d.rates.KRW) : null;
                 return {
                     rate: Number(d.rates.CNY),
                     hkd: hkd,
+                    krw: krw,
                     date: date
                 }
             }
@@ -7696,6 +7710,21 @@ function computeCurrent() {
                 dPnl = null;
             }
         }
+        // 行级数据源徽标（明细表时间栏显示，替代笼统的「实时」）：
+        //   QT=腾讯 gtimg 实时价 / ALP=Alpaca（盘中延迟 bar 或收盘价）/ IB=盈透 markPrice
+        // 判定口径与上面「usd 最终取值」完全一致，谁被采用就标谁。
+        var dSrc = null;
+        if (isOptionSymbol(u.symbol)) {
+            if (_mode === "ibkr" && _ibk != null) dSrc = "IB";          // ibkr 模式：盈透 mark 为官方价
+            else if (_alp != null) dSrc = "ALP";                        // 其余模式：Alpaca 优先
+            else if (_ibk != null) dSrc = "IB";                         // Alpaca 缺失回落盈透
+        } else {
+            if (qqUp && qqUp.price > 0) dSrc = "QT";                    // 腾讯 _holdQ 实时价（首选）
+            else if (u._usdCn != null) dSrc = "QT";                     // __cn_ 同样来自 gtimg
+            else if (u._alpacaPrice != null && Number(u._alpacaPrice) > 0) dSrc = "ALP";
+            else if (u._quoteTime && u._quoteTime !== "") dSrc = (alpacaCfg().src === "alpaca") ? "ALP" : "QT"; // 主行情源兜底
+        }
+        u._daySrc = dSrc;
         u._dayRet = dRet;
         u._dayPnl = dPnl;
         u._dayTime = dTime;
@@ -9260,7 +9289,7 @@ function renderTables() {
             var usSrcTxt = u._dayPredictSource === "bybit" ? "Bybit·预测" : usAlpPriceTxt;
             var _optMode = isOptionSymbol(u.symbol) ? optionAlpacaMode(u) : null;
             var _isIbkr = _optMode === "ibkr";
-            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main">${itemIconHtml(u.icon)}<span class="nm-text" style="font-size:${nmFs(uName)}px">${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc((uSym||'').split(' ')[0])}</span> ${uo?`<span class="time-bar ${_isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(_isIbkr ? '盈透 markPrice 快照日 ' + (u._markDate || '') : 'Alpaca 实时行情')}">${esc(_isIbkr ? (ymdShort(u._markDate) || '—') : '实时')}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="行情时间">${esc(ymdShort(u._dayTime)||"—")}</span>`} &gt;</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
+            return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main">${itemIconHtml(u.icon)}<span class="nm-text" style="font-size:${nmFs(uName)}px">${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc((uSym||'').split(' ')[0])}</span> ${uo?`<span class="time-bar ${u._daySrc === 'IB' || _isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(u._daySrc === 'IB' ? ('盈透 markPrice' + (u._markDate ? ' · 快照日 ' + u._markDate : '')) : 'Alpaca 行情')}">${esc(u._daySrc || (_isIbkr ? (ymdShort(u._markDate) || '—') : '—'))}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="数据源：QT=腾讯 / ALP=Alpaca / IB=盈透">${esc(u._daySrc || ymdShort(u._dayTime) || "—")}</span>`} &gt;</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
         }).join("")
     }
     var tc = $("tbCash");
@@ -11321,10 +11350,14 @@ async function refresh() {
         fxLastOk = true;
         fxMode = "live";
         if (fr.date) fxLastDate = fr.date;
-        // 同一数据源同时返回 USD-HKD，只读写入
+        // 同一数据源同时返回 USD-HKD / USD-KRW，只读写入
         if (fr.hkd != null && !isNaN(fr.hkd) && fr.hkd > 0) {
             fxHkdLive = fr.hkd;
             if (typeof window.__renderFxHkd === "function") window.__renderFxHkd()
+        }
+        if (fr.krw != null && !isNaN(fr.krw) && fr.krw > 0) {
+            fxKrwLive = fr.krw;
+            if (typeof window.__renderFxKrw === "function") window.__renderFxKrw()
         }
     } else {
         fxUpdated = false;
@@ -11547,6 +11580,23 @@ window.__renderFxHkd = function() {
 };
 window.__renderFxHkd();
 
+// 美元韩元汇率：只读展示，与港币行同口径（成功带日期，失败红字，未取到显示 —）
+window.__renderFxKrw = function() {
+    const el = document.getElementById("fxKrwVal");
+    if (!el) return;
+    if (fxLastOk === false) {
+        el.innerHTML = '<span style="color:#e23b3b;font-weight:600;">失败</span>';
+        el.style.color = "";
+        return;
+    }
+    const v = effKrw();
+    let html = "1$≈₩" + (!isNaN(v) ? Math.round(Number(v)).toLocaleString("en-US") : "—");
+    if (fxLastDate) html += ' <span style="color:#1aa84b;font-weight:600;">' + fxLastDate + "</span>";
+    el.innerHTML = html;
+    el.style.color = ""
+};
+window.__renderFxKrw();
+
 function renderFxSetting() {
     const el = document.getElementById("fxSetVal");
     if (!el) return;
@@ -11564,8 +11614,9 @@ function renderFxSetting() {
         el.style.color = ""
     }
     renderFxStatus();
-    // 日期/状态变化时同步刷新港币行，保持两行口径一致
-    if (typeof window.__renderFxHkd === "function") window.__renderFxHkd()
+    // 日期/状态变化时同步刷新港币/韩元行，保持三行口径一致
+    if (typeof window.__renderFxHkd === "function") window.__renderFxHkd();
+    if (typeof window.__renderFxKrw === "function") window.__renderFxKrw()
 }
 
 function renderBasicData(cur) {
@@ -13345,16 +13396,19 @@ _marketSymbols = getMarketSymbols();
 // 独立拉取腾讯行情现价(p[3])作为股票盈亏率基准价；键格式：美股 us+代码，港股 hk+代码，A股 sh/sz+代码
 // 腾讯财经代码 ↔ Bybit 代码对照表
 //   tencent: 腾讯查询用的完整代码（美股带 us、港股带 hk、A股带 sh/sz 前缀）
-//   bybit:   Bybit 永续合约代码（如 ZHIPU / AMDSTOCK / GOOGL）
-// 例如：智谱(港股 hk02513)↔ZHIPU、AMD(usAMD)↔AMDSTOCK、GOOG(usGOOG)↔GOOGL
+//   bybit:   Bybit 永续合约代码（如 ZHIPU / SAMSUNG / SKHYNIX / AMDSTOCK / GOOGL）
+// 例如：智谱(港股 hk02513)↔ZHIPU、三星(韩股 kr005930)↔SAMSUNG、海力士(kr000660)↔SKHYNIX、AMD(usAMD)↔AMDSTOCK、GOOG(usGOOG)↔GOOGL
 // 新增对应关系时在此数组加一行即可（自动生成双向映射）
 var SYM_MAP = [
     // hk:true 表示「港股 special」：Bybit 美元计价，需 ×USD-HKD 显示港币金额；涨跌幅用腾讯港股基准(币种一致)
     { tc: "02513", tq: "hk02513", bb: "ZHIPU", hk: true },   // 智谱(港股)
+    // kr:true 表示「韩股 special」：Bybit 美元计价，需 ×USD-KRW 显示韩元金额；涨跌幅用快照/腾讯韩股基准
+    { tc: "005930", tq: "kr005930", bb: "SAMSUNG", kr: true }, // 三星电子(韩股)
+    { tc: "000660", tq: "kr000660", bb: "SKHYNIX", kr: true }, // SK海力士(韩股)
     { tc: "AMD",   tq: "usAMD",   bb: "AMDSTOCK" }, // AMD
     { tc: "GOOG",  tq: "usGOOGL",  bb: "GOOGL" }    // Google（腾讯财经 usGOOGL=谷歌-A）
 ];
-var T_TO_B = {}, B_TO_TQ = {}, BB_IS_HK = {};
+var T_TO_B = {}, B_TO_TQ = {}, BB_IS_HK = {}, BB_IS_KR = {};
 SYM_MAP.forEach(function(p) {
     var tc = String(p.tc).toUpperCase();   // 裸腾讯代码(用户输入)
     var tq = String(p.tq);                  // 腾讯查询代码(带前缀，保持小写：腾讯接口认小写 hk/us/sh/sz 前缀)
@@ -13362,12 +13416,17 @@ SYM_MAP.forEach(function(p) {
     T_TO_B[tc] = bb; T_TO_B[bb] = bb; T_TO_B[tq.toUpperCase()] = bb; // 任意输入 -> Bybit 代码
     B_TO_TQ[tc] = tq; B_TO_TQ[bb] = tq; B_TO_TQ[tq.toUpperCase()] = tq; // 任意输入 -> 腾讯查询代码(小写)
     if (p.hk) BB_IS_HK[bb] = true; // Bybit 代码 -> 是否港股 special
+    if (p.kr) BB_IS_KR[bb] = true; // Bybit 代码 -> 是否韩股 special
 });
 // 是否为港股 special（如智谱）：Bybit 美元价需 ×USD-HKD 显示港币
 function isHkSpecial(sym) {
     // 先归一化到 Bybit 代码(裸腾讯代码如 02513 / 港股 hk02513 / 新格式 mk|code 也能识别)
     var s = bybitCodeOf(sym);
     return !!BB_IS_HK[s];
+}
+// 是否为韩股 special（三星/海力士）：Bybit 美元价需 ×USD-KRW 显示韩元
+function isKrSpecial(sym) {
+    return !!BB_IS_KR[bybitCodeOf(sym)];
 }
 // 归一到 Bybit 代码（用于 Bybit 行情请求）。输入可为裸腾讯代码、带前缀代码或新格式 mk|code
 function bybitCodeOf(sym) {
@@ -13402,6 +13461,7 @@ function tencentQueryOf(sym) {
         if (_mk === "us") return "us" + _cd.toUpperCase();
         if (_mk === "hk") return "hk" + _cd;
         if (_mk === "sh" || _mk === "sz") return _mk + _cd;
+        if (_mk === "kr" || _mk === "jp") return _mk + _cd; // 韩股/日股：腾讯认 kr/jp 小写前缀
         return _cd;
     }
     var s = String(sym || "").toUpperCase().replace(/USDT$/, "");
@@ -13802,8 +13862,24 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
                     }
                     if (!isNaN(phkd)) price = "HK$" + phkd.toFixed(2);
                 }
-                // 以下为普通美股/ETF（港股 special 已在上方单独处理并 continue 式跳过）
-                if (!isHkSpecial(sym)) {
+                // 韩股 special（三星/海力士）：Bybit 美元价 ×USD-KRW = 韩元价；涨跌幅 = 韩元价 vs 腾讯韩股现价(币种一致)
+                else if (isKrSpecial(sym)) {
+                    var tqSymK = tencentQueryOf(sym);
+                    var tqK = tencentMap ? tencentMap[tqSymK] : null;
+                    var krwW = effKrw();
+                    var pkrwW = (!isNaN(p) && krwW > 0) ? p * krwW : NaN;
+                    if (tqK && tqK.price > 0 && !isNaN(pkrwW)) {
+                        pct = (pkrwW - tqK.price) / tqK.price * 100;
+                        _srcTag = "bybit"; // 现价来自 Bybit(美元换算韩元)
+                    } else {
+                        var ch24kw = parseFloat(item._ch24);
+                        if (!isNaN(ch24kw)) pct = ch24kw * 100;
+                        _srcTag = "bybit";
+                    }
+                    if (!isNaN(pkrwW)) price = "₩" + Math.round(pkrwW).toLocaleString("en-US");
+                }
+                // 以下为普通美股/ETF（港/韩股 special 已在上方单独处理并 continue 式跳过）
+                if (!isHkSpecial(sym) && !isKrSpecial(sym)) {
                 // 美股/ETF：
                 //  盘中(!_useBybit)：纯腾讯——现价用腾讯 p[3]，涨跌幅用腾讯自带(现价-昨收)/昨收，不碰 Bybit
                 //  盘外(_useBybit)：Bybit 实时价 vs 腾讯现价(周五收盘)基准
@@ -14293,8 +14369,8 @@ return;
                 // 所有成分股统一带 data-fh-sym（格式 mk|c，便于取东方财富价与区分市场）；
                 // 美股(us) 与 港股special(如智谱) 额外进按币拉取(Bybit 美元计价)，普通 A股/港股走 qt.gtimg.cn。
                 var symKey = (mkt && it.c) ? (mkt + "|" + it.c) : "";
-                // 进 bybit 实时拉取的裸代码（美股 或 港股special）：仍按原口径收集
-                var bybitSym = ((mkt === "us") || isHkSpecial(it.c)) ? (it.c || "").toUpperCase() : "";
+                // 进 bybit 实时拉取的裸代码（美股 或 港股/韩股special）：仍按原口径收集
+                var bybitSym = ((mkt === "us") || isHkSpecial(it.c) || isKrSpecial(it.c)) ? (it.c || "").toUpperCase() : "";
                 if (bybitSym && usCodes.indexOf(bybitSym) < 0) usCodes.push(bybitSym);
                 body += '<div class="fund-hd-item" ' + (symKey ? 'data-fh-sym="' + symKey + '"' : '') + '>'
                     + '<div class="fund-hd-top">'
@@ -14492,6 +14568,21 @@ return;
                 } else {
                     var ch24h2 = parseFloat(it._ch24);
                     if (!isNaN(ch24h2)) { ch = ch24h2 * 100; _fSrc = "bybit"; }
+                }
+            } else if (isKrSpecial(sym)) {
+                // 韩股special(三星 SAMSUNG / 海力士 SKHYNIX)：Bybit 美元价 ×USD-KRW = 韩元价；
+                // 涨跌幅 = (韩元实时价 ÷ 快照/东财目标日收盘) − 1，与港/A/日/韩统一口径
+                var krwH = effKrw();
+                var pkrwH = (!isNaN(p) && krwH > 0) ? p * krwH : NaN;
+                var emKeyK = mkt + code; // 如 kr005930
+                var emPriceK = (window._holdEMPrice && window._holdEMPrice[emKeyK] != null) ? Number(window._holdEMPrice[emKeyK]) : NaN;
+                if (!isNaN(pkrwH)) qEl.textContent = "₩" + Math.round(pkrwH).toLocaleString("en-US");
+                if (!isNaN(pkrwH) && emPriceK > 0) {
+                    ch = (pkrwH / emPriceK - 1) * 100;
+                    _fSrc = "bybit";
+                } else {
+                    var ch24k2 = parseFloat(it._ch24);
+                    if (!isNaN(ch24k2)) { ch = ch24k2 * 100; _fSrc = "bybit"; }
                 }
             } else {
             // 美股/ETF：

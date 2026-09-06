@@ -6,6 +6,7 @@
 用途
 ----
 本脚本从东方财富 fundf10 接口抓取各只基金的「季度报告 · 十大重仓股」，
+topline=11（前十大；半年报虽有更全明细但不取，见下），
 整理成资产看板（asset-v2.html）可导入的 JSON 结构：
 
     {
@@ -27,8 +28,10 @@
 
 字段含义
   report : 季报日期，格式 YYYY-MM-30（季末）；代理基金为文字说明
-  items  : 十大持仓列表
-           c = 证券代码, n = 名称, p = 占净值比例(%), m = 市场(us/hk/sh/sz/jp/kr)
+  items  : 十大持仓列表（按占净值比例降序，固定前 10 条）
+           c = 证券代码, n = 名称, p = 占净值比例(%), m = 市场(us/hk/sh/sz/jp/kr/tw)
+           注：半年报会披露 20-30 条完整明细（含 ISIN 全码/台股），本脚本刻意不取；
+           market_of 仍保留 ISIN/台股识别，以备个别前十大里出现这类代码
   proxy  : true 表示用代理（如纳斯达克100ETF联接用 QQQ 代理，不抓东方财富）
 
 _daily_quotes（顶层，非基金键，前端按基金代码遍历时会被自然忽略）
@@ -87,7 +90,7 @@ QQQ_PROXY = {
 
 USER_AGENT = "Mozilla/5.0"
 REFERER = "https://fundf10.eastmoney.com/"
-BASE_URL = "https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=%s&topline=11"
+BASE_URL = "https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=%s&topline=10"
 
 
 # ---------------------------------------------------------------------------
@@ -105,10 +108,12 @@ EM_MARKET_MAP = {
 }
 
 # 东财未收录时的兜底名单（韩国6位代码与A股6位代码格式完全相同，无法从格式区分）
-KNOWN_JP_CODES = {"285A"}              # 铠侠 KIOXIA（东京证交所）
+KNOWN_JP_CODES = {"285A", "4004"}      # 铠侠 KIOXIA / Resonac（东京证交所）
 KNOWN_KR_CODES = {"000660", "005930"}  # SK海力士 / 三星电子（韩国交易所）
 JP_NAME_KEYS = ("kioxia", "铠侠")
 KR_NAME_KEYS = ("海力士", "三星", "sk hynix", "samsung")
+KNOWN_TW_CODES = {"2317", "2383", "3711"}  # 鸿海 / 台光电 / 日月光投控（台湾证交所）
+TW_NAME_KEYS = ("鸿海", "日月光", "台光电")
 
 # 未收录且名单未命中时，是否用腾讯行情接口反查市场（可识别新增日韩股，需联网）
 ENABLE_QT_PROBE = True
@@ -170,6 +175,15 @@ def market_of(code, name="", em_prefix=None):
         return "jp"
     if code in KNOWN_KR_CODES or any(k in nm for k in KR_NAME_KEYS):
         return "kr"
+
+    # 2.5) ISIN 全码（topline>10 的半年报明细里部分日韩/台股只给 ISIN，
+    #      如 JP3914400001 村田制作所 / KR7009150004 三星电机）
+    m_isin = re.match(r"^([A-Z]{2})[A-Z0-9]{9}\d$", code)
+    if m_isin:
+        return {"JP": "jp", "KR": "kr", "TW": "tw"}.get(m_isin.group(1), "us")
+    # 台股（腾讯无行情，仅标注市场，前端涨跌显示 -- 不参与加权）
+    if code in KNOWN_TW_CODES or any(k in nm for k in TW_NAME_KEYS):
+        return "tw"
 
     # 3) 6位数字：韩股与A股格式完全相同，用腾讯行情反查（失败则回落第 4 步）
     if ENABLE_QT_PROBE and re.match(r"^\d{6}$", code):
@@ -257,16 +271,21 @@ def fetch_nav(code, retries=3, timeout=30):
 
 
 def collect_snapshot_symbols(result):
-    """从抓取结果里收集非美股（港/A/日/韩）的腾讯行情代码，如 hk02513 / sz300408 / jp285A。"""
+    """从抓取结果里收集非美股（港/A/日/韩）的腾讯行情代码，如 hk02513 / sz300408 / jp285A。
+
+    跳过 ISIN 全码（如 JP3914400001）：腾讯不认，查了也是空。
+    """
+    isin = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}\d$")
     syms = []
     for entry in (result or {}).values():
         if not isinstance(entry, dict):
             continue
         for it in entry.get("items") or []:
             mk = (it or {}).get("m")
-            if mk in SNAPSHOT_MARKETS:
+            code = (it or {}).get("c", "")
+            if mk in SNAPSHOT_MARKETS and not isin.match(code):
                 # 代码保留原始大小写：日股 285A 末位大写，腾讯对大小写敏感（jp285a 查不到）
-                s = "%s%s" % (mk, it.get("c", ""))
+                s = "%s%s" % (mk, code)
                 if s not in syms:
                     syms.append(s)
     return syms
