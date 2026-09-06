@@ -2218,53 +2218,9 @@
       "price": 0,
       "realized": 482.89,
       "tradeId": "10027314579"
-    },
-    {
-      "date": "2026-08-05",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 139,
-      "price": 145.51,
-      "realized": 0,
-      "tradeId": "10002615217"
-    },
-    {
-      "date": "2026-08-05",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -139,
-      "price": 143.5,
-      "realized": -280.52,
-      "tradeId": "10002819468"
-    },
-    {
-      "date": "2026-08-05",
-      "symbol": "NVDA  260805P00207500",
-      "underlying": "NVDA",
-      "cat": "OPT",
-      "buySell": "BUY",
-      "quantity": 2,
-      "price": 0,
-      "realized": 206.59,
-      "tradeId": "10011040102"
-    },
-    {
-      "date": "2026-08-05",
-      "symbol": "ORCL  260807P00140000",
-      "underlying": "ORCL",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -3,
-      "price": 1.56,
-      "realized": 0,
-      "tradeId": "10004363607"
     }
   ],
-  "lastSync": "2026-09-05",
+  "lastSync": "2026-09-06",
   "seed": {
     "pa_funds": [
       {
@@ -2563,15 +2519,15 @@
   "ibkrAccruedInterest": 1.31,
   "optBase": {
     "A": {
-      "date": null,
-      "asOf": null,
-      "runAt": null,
-      "prices": {}
-    },
-    "B": {
       "date": "2026-09-05",
       "asOf": "2026-09-04",
       "runAt": "2026-09-05",
+      "prices": {}
+    },
+    "B": {
+      "date": "2026-09-06",
+      "asOf": "2026-09-04",
+      "runAt": "2026-09-06",
       "prices": {}
     }
   }
