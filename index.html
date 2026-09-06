@@ -8597,12 +8597,27 @@ function buildSeries(opts) {
     const fundArr = [],
         retArr = [],
         labels = [];
+    // 逐日 TWR 现金流（外部流入为正，CNY）：基金买入/卖出 + IBKR 入金（EFT/手动入金，USD×fx）
+    const flowCNY = {};
+    const addFlow = (d, v) => {
+        if (v) flowCNY[d] = (flowCNY[d] || 0) + v
+    };
+    funds.forEach(function(f) {
+        (f.trades || []).forEach(function(t) {
+            const d = parseDate(t.date);
+            if (d == null) return;
+            const amt = (Number(t.shares) || 0) * (Number(t.price) || 0);
+            addFlow(ymd(d), t.type === "sell" ? -amt : amt)
+        })
+    });
+    const flowUsd = window._twrFlowUsd || {};
+    Object.keys(flowUsd).forEach(function(d) {
+        addFlow(d, flowUsd[d] * fx)
+    });
+    let prevV = null,
+        cumTwr = 1;
     dates.forEach(ts => {
         let fv = 0;
-        let cumFC = 0,
-            cumBuyFC = 0,
-            cumBuyUC = 0,
-            cumRealFC = 0;
         funds.forEach(function(f) {
             var earliest = getEarliestTradeDate(f);
             if (earliest == null || ts < earliest) return;
@@ -8613,28 +8628,30 @@ function buildSeries(opts) {
             if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
             if (nav != null) {
                 fv += fst2.holdShares * nav;
-                if (fst2.avgCost > 0) cumFC += fst2.holdShares * fst2.avgCost
             }
-            cumBuyFC += fst2.totalBuyCost;
-            cumRealFC += fst2.realizedPnl
         });
-        cumBuyUC = usInvestAutoVal != null && !isNaN(usInvestAutoVal) && usInvestAutoVal > 0 ? usInvestAutoVal : usInvestManual != null && !isNaN(usInvestManual) && usInvestManual > 0 ? usInvestManual : cumBuyUC;
         const fr0 = fxAtDate(ymd(ts));
         let ibkrNetCNY;
-        if (fr0 && fr0.date === ymd(ts) && fr0.net) {
+        if (fr0) {
+            // 净值缺日（周末/节假日/延迟）用最近一期净值结转，避免拿当前市值回填历史造成假跳变
             ibkrNetCNY = fr0.net * fx + fixedTqqqValueAt(ts, fx)
+        } else if (fxRows && fxRows.length) {
+            ibkrNetCNY = fixedTqqqValueAt(ts, fx) // 首个净值日之前，IBKR 尚无资产
         } else {
             const yc = yitouCashItem();
             const ytCNY = yc ? (Number(yc.amount) || 0) * (yc.currency === "usd" ? fx : 1) : 0;
-            ibkrNetCNY = usMarketValueFromList(fx) + ytCNY
+            ibkrNetCNY = usMarketValueFromList(fx) + ytCNY // Asset_parsed.json 未加载完时的兜底
         }
-        const fundGain = (fv - cumFC) + cumRealFC;
-        const usGain = ibkrNetCNY - cumBuyUC;
-        const cumBuyCost = cumBuyFC + cumBuyUC;
-        const r = cumBuyCost > 0 ? (fundGain + usGain) / cumBuyCost : null;
+        // 逐日 TWR：r_t = (V_t − CF_t) / V_{t−1}，累计 = Π(1+r) − 1
+        const V = fv + ibkrNetCNY;
+        const cf = flowCNY[ymd(ts)] || 0;
+        let r = 0;
+        if (prevV != null && prevV > 0) r = (V - cf) / prevV - 1;
+        cumTwr *= 1 + r;
         fundArr.push(+fv.toFixed(2));
-        retArr.push(r == null ? null : +r.toFixed(6));
-        labels.push(ymd(ts))
+        retArr.push(+(cumTwr - 1).toFixed(6));
+        labels.push(ymd(ts));
+        prevV = V
     });
     let idx0 = 0;
     if (!skipRange && rangeDays > 0) {
@@ -8774,7 +8791,13 @@ function fixedTqqqValueAt(ts, fx) {
     const shares = Number(ft.shares) || 0;
     if (!(shares > 0)) return 0;
     let price = valOnOrBefore(item._hist || [], ts, "price");
-    if (price == null || !(price > 0)) price = item.price != null && item.price > 0 ? Number(item.price) : 0;
+    if (price == null || !(price > 0)) {
+        // 历史净值尚未覆盖该日（早于 _hist 起点）时用买入价兜底，避免用当前价回填历史
+        const _h = item._hist || [];
+        const _h0 = _h.length ? _h[0].t : null;
+        if (_h0 != null && ts < _h0 && Number(ft.price) > 0) price = Number(ft.price);
+        else price = item.price != null && item.price > 0 ? Number(item.price) : 0;
+    }
     return shares * price * fx
 }
 
@@ -10032,7 +10055,7 @@ function drawChartInternal() {
         tension: .15,
         yAxisID: "y"
     }, {
-        label: "投资收益率",
+        label: "累计收益率(TWR)",
         data: s.ret,
         type: "line",
         borderColor: "#f59e0b",
@@ -15268,6 +15291,19 @@ function sumForexCnh(j) {
 }(function loadUsInvestAuto() {
     loadAssetJson().then(function(j) {
         usInvestAutoVal = sumForexCnh(j);
+        // 逐日 TWR 外部现金流（USD）：EFT 入金(+credit)/出金(−debit) + 手动入金（描述含 Manual，内部换汇不计）
+        try {
+            var _fl = {};
+            (j.electronicFundTransfers || []).forEach(function(e) {
+                if (!e || !e.date) return;
+                _fl[e.date] = (_fl[e.date] || 0) + (Number(e.credit) || 0) - (Number(e.debit) || 0)
+            });
+            (j.forexTrades || []).forEach(function(e) {
+                if (!e || !e.date) return;
+                if (/manual/i.test(String(e.description || ""))) _fl[e.date] = (_fl[e.date] || 0) + (Number(e.usd) || 0)
+            });
+            window._twrFlowUsd = _fl;
+        } catch (e2) {}
         var cur = computeCurrent();
         renderHero(cur);
         renderCards(cur);
