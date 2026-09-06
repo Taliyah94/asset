@@ -6997,6 +6997,16 @@ function emTargetDate() {
     var mi = p.h * 60 + p.m - 570; // 减 9.5h
     var ymd = p.ymd;
     if (mi < 0) ymd = (typeof ymdAddDays === "function") ? ymdAddDays(ymd, -1) : ymd;
+    /* 港股/A股/日股/韩股均为周一~周五交易。美东周五 9:30 开盘 到 周一 9:30 开盘前，
+       这些市场最近一个交易日都是周五 → 目标日钳制到周五，确保整段窗口都用「周五的东方 bar」。
+       否则周六 9:30 后 emTargetDate 会返回周六/周日：下游虽能向前兜底取周五 bar，
+       但日/韩股市场页的「腾讯行情日期 ≥ 目标日」判定会因此失效而画 0%，与港股/A股口径不一致。 */
+    try {
+        var _d = new Date(ymd.substr(0, 4) + "/" + ymd.substr(5, 2) + "/" + ymd.substr(8, 2));
+        var _wd = _d.getDay();
+        if (_wd === 0) ymd = (typeof ymdAddDays === "function") ? ymdAddDays(ymd, -2) : ymd; // 周日 → 周五
+        else if (_wd === 6) ymd = (typeof ymdAddDays === "function") ? ymdAddDays(ymd, -1) : ymd; // 周六 → 周五
+    } catch (e) {}
     return ymd
 }
 
