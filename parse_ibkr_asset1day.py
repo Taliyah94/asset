@@ -18,14 +18,13 @@ Asset_parsed.json（DEFAULT_JSON = 脚本所在目录，不一定是仓库根）
                          前端卡片据此并入「盈透现金」；每日同步自动刷新，免手工改。
   holdings[]             当前持仓（symbol/position/costBasisPrice/markPrice ...）
   trades[]               近一月交易明细（1day 当日 + asset 全量，合并去重，按日期倒序）
-  optBase               {A:{date,asOf,runAt,prices}, B:{...}} 期权当日盈亏基准（见文末说明）
   lastSync              'YYYY-MM-DD'（北京时间日期），标记「当日已同步」，供 cron 去重
 
 与 365day 解析脚本(parse_ibkr_asset.py) 的分工（本脚本实际会动哪些字段）：
   - account            会被本脚本**覆盖更新**（取自 1day 报表的 AccountInformation；
                        只有 1day 报表不含该节点时才保留原值，与 IBKR_QUERY_ID_ASSET 无关）
   - forexTrades        仅当设置了 IBKR_QUERY_ID_ASSET 时**整体重写**（保留 _fixed 手动记录）
-  - trades / holdings / totalNetValueDaily / cashDaily / optBase   本脚本写入
+  - trades / holdings / totalNetValueDaily / cashDaily   本脚本写入
   - electronicFundTransfers   本脚本**既不读也不写**，沿用 365day 脚本产出的结果
 
 运行方式
@@ -66,19 +65,8 @@ Asset_parsed.json（DEFAULT_JSON = 脚本所在目录，不一定是仓库根）
 
 optBase（期权当日盈亏基准）说明
 ------------------------------
-- A = 上次运行算出的 B；B = 本次运行从持仓里提取的期权 markPrice 快照。
-  每次运行把旧 B 降级为 A，实现「滚动两日窗口」，前端无需自己维护历史。
-- 脚本每天在 UTC 05:10 跑一次（= 北京时间 13:10），
-  此时美股早已收盘 8 小时（美东 16:00 收盘 = 北京夏令时 04:00 / 冬令时 05:00），
-  因此 B 是**上一个美股交易日收盘**的期权 mark，A 是**再往前一个交易日**收盘的 mark。
-- 每个基准带 3 个日期字段，别混用：
-    asOf   持仓快照的报表日 = prices 里 markPrice **真正对应的交易日**；
-           **前端做日期判断/展示一律用这个**（报表达常滞后，asOf 一般早于运行日）
-    runAt  本次运行的北京时间日期
-    date   等于 runAt，仅保留兼容已有前端，不要用它判断交易日
-- 前端按北京时间切段取数：盘外 04:00~21:30 用 A，盘中 21:30~次日 04:00 用 B
-  （该时段对应美东夏令时 09:30~16:00；冬令时会整体后移一小时，届时需同步调整）。
-- 若某次报表滞后（B.asOf 不比 A.asOf 新），脚本会打印 [warn] 提示，但仍照常写入。
+- **已废弃（2026-09-06）**：期权当日盈亏的前端基准改为 Alpaca 历史 bar
+  （现价与昨收同源，见 index.html），本脚本不再生成 optBase 字段。
 
 调度说明（2026-09-02 统一：脚本与 workflow 口径一致，纯 UTC 不再绑美东）
 --------------------------------------------------------------------------
@@ -93,8 +81,7 @@ optBase（期权当日盈亏基准）说明
   跑第二次只会白白消耗 Actions 时长。
 
   注：不再按美东时区换算，免去夏令时/冬令时半年一次的手动切换。
-  北京 13:10 在美股收盘后、且恰好落在 A/B 基准窗口的「盘外段」（04:00~21:30），
-  取数逻辑与调度时间天然解耦，无需随季节调整。
+  北京 13:10 在美股收盘后，取数逻辑与调度时间天然解耦，无需随季节调整。
 
 - 单次运行很轻：每个阶段最多 2 次尝试（首次 + 退避 20 秒重试 1 次），
   最坏约 40 秒 + 请求耗时；正常几秒完成。workflow 侧 timeout 给 5 分钟足够。
@@ -497,53 +484,6 @@ def do_parse_and_write(xml_txt, result, json_path):
     holdings, latest = parse_holdings(root)
     result["holdings"] = holdings
     print(f"[holdings] 报表日 {latest}，当前持仓 {len(holdings)} 项")
-
-    # ---- 期权 A/B 基准：缓存 2 天，每日循环 ----
-    # 数据口径（与前端「期权当日盈亏」对齐）：
-    #   A = 上一次运行算出的 B（即上一次运行时的期权 markPrice）
-    #   B = 本次运行算出的期权 markPrice
-    #   每次运行把旧 B 整块降级为 A，实现滚动两日窗口。
-    # 前端取数：盘外(北京 04:00~21:30) 用 A；盘中(21:30~次日 04:00) 用 B。
-    #   ※ 该时段是**美东夏令时** 09:30~16:00 的换算；冬令时要整体后移 1 小时。
-    # 脚本每天在 UTC 05:10 跑一次（见文件头 cron 说明，= 北京 13:10，不再绑美东时区），
-    # 此时美股早已收盘（美东 16:00 = 北京夏令时 04:00 / 冬令时 05:00），
-    # 所以 B 实际是「上一个美股交易日收盘」的期权 mark，A 是「再往前一个交易日」的 mark。
-    #
-    # 三个日期字段的分工（别混用）：
-    #   asOf   持仓快照的报表日，即 prices 里 markPrice **真正对应的交易日**。
-    #          前端做日期判断/展示一律用这个。报表达常滞后一天，故 asOf 通常早于运行日。
-    #   runAt  本次运行的北京时间日期（= 老字段 date 的语义）。
-    #   date   保留原语义（= runAt），仅为兼容已有前端，不要用它做交易日判断。
-    # 配合 lastSync 每日只更新一次；A/B 循环完全由上次 B 降级为 A 实现，无需前端维护。
-    _opt_prev_b = (result.get("optBase") or {}).get("B") or {}
-    _opt_today = beijing_now().strftime("%Y-%m-%d")
-    _opt_asof = latest or None          # 无持仓时 latest 为 None/空串
-    _opt_prices = {}
-    for _h in holdings:
-        _sym = (_h.get("symbol") or "")
-        # 期权符号形如 ORCL  260814P00140000（含空格、6位日期+C/P+8位行权价）
-        if not re.match(r"^\s*[A-Za-z]{1,6}\s*\d{6}[CP]\d{8}\s*$", _sym):
-            continue
-        _mp = _h.get("markPrice")
-        if isinstance(_mp, (int, float)) and _mp > 0:
-            _opt_prices[_sym] = _mp
-    _opt_a = {"date": _opt_prev_b.get("date"),
-              "asOf": _opt_prev_b.get("asOf"),
-              "runAt": _opt_prev_b.get("runAt"),
-              "prices": dict(_opt_prev_b.get("prices") or {})}
-    _opt_b = {"date": _opt_today,
-              "asOf": _opt_asof,
-              "runAt": _opt_today,
-              "prices": _opt_prices}
-    # 报表达时（如 IBKR 迟迟没出新一天的报表），本次 B 会比 A 还旧，
-    # 前端据此算出的「当日盈亏」方向会是反的，这里打日志提醒。
-    if _opt_a.get("asOf") and _opt_asof and _opt_asof <= _opt_a["asOf"]:
-        print(f"[warn] optBase 基准未前进：A(asOf={_opt_a['asOf']}) -> "
-              f"B(asOf={_opt_asof})，报表可能滞后，当日盈亏会失真")
-    result["optBase"] = {"A": _opt_a, "B": _opt_b}
-    print(f"[optBase] A(asOf={_opt_a['asOf']}, run={_opt_a['runAt']}) "
-          f"{len(_opt_a['prices'])} 项, "
-          f"B(asOf={_opt_asof}, run={_opt_today}) {len(_opt_b['prices'])} 项")
 
     # ---- 可选：用 asset(365day) 报表刷新 forexTrades 与交易明细 ----
     # 注意：这里**不会**刷新 electronicFundTransfers(efts)，该字段本脚本全程不碰。

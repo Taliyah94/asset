@@ -14,7 +14,15 @@
         "items": [{"c": "AAPL", "n": "苹果", "p": 8.29, "m": "us"}, ...],
         "nav": [[时间戳(ms), 单位净值], ...]   // 净值历史（紧凑二维数组，升序）；proxy 类基金无此字段
       },
-      "016532": {"report": "跟踪纳斯达克100", "proxy": true, "items": [...]}
+      "016532": {"report": "跟踪纳斯达克100", "proxy": true, "items": [...]},
+
+      // 非美股（港/A/日/韩）行情快照：每天存一次，看板按目标日取收盘价与当日涨跌
+      "_daily_quotes": {
+        "kr005930": [{"date": "20260904", "close": 255500, "prevClose": 250000,
+                      "ts": "2026-09-04 14:30:05"}, ...],   // 升序，最多 5 条
+        "hk02513":  [{"date": "20260904", "close": 1075, "prevClose": 1108,
+                      "ts": "2026/09/04 16:08:05"}, ...]
+      }
     }
 
 字段含义
@@ -22,6 +30,13 @@
   items  : 十大持仓列表
            c = 证券代码, n = 名称, p = 占净值比例(%), m = 市场(us/hk/sh/sz/jp/kr)
   proxy  : true 表示用代理（如纳斯达克100ETF联接用 QQQ 代理，不抓东方财富）
+
+_daily_quotes（顶层，非基金键，前端按基金代码遍历时会被自然忽略）
+  看板原本靠东方财富 push2his 取港/A/日/韩的历史日K，但该接口对日股(176.)/韩股(177.)
+  恒返回空，且每次打开页面都要现抓一遍（慢、且受跨域与限流影响）。
+  改为每天用腾讯 qt.gtimg.cn 存一次「现价/昨收/行情时间」，攒出近 5 个交易日的序列，
+  看板直接按目标日取 close 当基准、close/prevClose-1 当当日涨跌，无需再请求东方财富。
+  同日期覆盖，抓取失败保留旧值。
 
 用法
 ----
@@ -97,6 +112,20 @@ KR_NAME_KEYS = ("海力士", "三星", "sk hynix", "samsung")
 
 # 未收录且名单未命中时，是否用腾讯行情接口反查市场（可识别新增日韩股，需联网）
 ENABLE_QT_PROBE = True
+
+# ---------------------------------------------------------------------------
+# 非美股（港/A/日/韩）行情快照
+# ---------------------------------------------------------------------------
+# 东方财富 push2his 对日股(176.) / 韩股(177.) 恒返回空 data，取不到历史日K；
+# 港股/A股虽然能取到，但每次打开页面都要现抓一遍，慢且依赖跨域接口。
+# 腾讯 qt.gtimg.cn 能给出「现价 / 昨收 / 行情时间」但没有历史K。
+# 因此每天跑一次，把当天快照存进 JSON，攒出近 N 个交易日的序列供看板按目标日取值。
+# 美股不在此列：盘前/盘后与 Bybit 实时价另有一套逻辑，继续走腾讯实时。
+SNAPSHOT_MARKETS = ("hk", "sz", "sh", "jp", "kr")
+SNAPSHOT_DAYS = 5                # 每个代码保留最近几个交易日
+SNAPSHOT_KEY = "_daily_quotes"   # 顶层键名（非 6 位基金代码，前端遍历时会被忽略）
+SNAPSHOT_LEGACY_KEYS = ("_jpkr_quotes",)  # 旧键名，读取时兼容合并后不再写回
+QT_BATCH = 20                    # 腾讯行情单次批量查询的代码数
 
 
 def probe_market(code, timeout=6):
@@ -225,6 +254,122 @@ def fetch_nav(code, retries=3, timeout=30):
                 time.sleep(2 * attempt)
     sys.stderr.write("  [nav异常] %s: %s\n" % (code, last_err))
     return None
+
+
+def collect_snapshot_symbols(result):
+    """从抓取结果里收集非美股（港/A/日/韩）的腾讯行情代码，如 hk02513 / sz300408 / jp285A。"""
+    syms = []
+    for entry in (result or {}).values():
+        if not isinstance(entry, dict):
+            continue
+        for it in entry.get("items") or []:
+            mk = (it or {}).get("m")
+            if mk in SNAPSHOT_MARKETS:
+                # 代码保留原始大小写：日股 285A 末位大写，腾讯对大小写敏感（jp285a 查不到）
+                s = "%s%s" % (mk, it.get("c", ""))
+                if s not in syms:
+                    syms.append(s)
+    return syms
+
+
+def fetch_qt_quotes(syms, retries=3, timeout=15):
+    """批量拉腾讯行情，返回 {sym: {"date","close","prevClose","ts"}}。
+
+    qt.gtimg.cn 字段：p[3] 现价 / p[4] 昨收 / p[30] 行情时间。
+    时间格式两种：A股 "20260828161406"、日韩股 "2026-09-04 14:30:29"，
+    统一取前 8 位数字当日期（YYYYMMDD），便于字符串比较。
+    单个代码失败不影响其他代码。
+    """
+    out = {}
+    if not syms:
+        return out
+    for i in range(0, len(syms), QT_BATCH):
+        chunk = syms[i:i + QT_BATCH]
+        url = "https://qt.gtimg.cn/q=" + ",".join(chunk)
+        txt = None
+        for attempt in range(1, retries + 1):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+                txt = urllib.request.urlopen(req, timeout=timeout).read().decode("gbk", "ignore")
+                break
+            except Exception as e:  # noqa: BLE001 - 网络异常统一重试
+                if attempt == retries:
+                    sys.stderr.write("  [行情失败] %s: %s\n" % (",".join(chunk), e))
+                else:
+                    time.sleep(2 * attempt)
+        if not txt:
+            continue
+        for sym in chunk:
+            m = re.search('v_%s="([^"]*)"' % re.escape(sym), txt)
+            if not m:
+                continue
+            p = m.group(1).split("~")
+            if len(p) < 31:
+                continue
+            try:
+                close, prev = float(p[3]), float(p[4])
+            except (ValueError, IndexError):
+                continue
+            if close <= 0:
+                continue
+            date = re.sub(r"\D", "", p[30])[:8]
+            if len(date) != 8:
+                continue
+            out[sym] = {
+                "date": date,
+                "close": round(close, 4),
+                "prevClose": round(prev, 4) if prev > 0 else None,
+                "ts": p[30],
+            }
+    return out
+
+
+def load_existing_snapshots(path):
+    """读取已存盘 JSON 里的快照，兼容旧键 _jpkr_quotes（合并后只按新键写回）。"""
+    out = {}
+    if not (path and os.path.exists(path)):
+        return out
+    try:
+        with open(path, encoding="utf-8") as f:
+            obj = json.load(f)
+    except Exception as e:  # noqa: BLE001 - 旧文件损坏则当空，不阻断主流程
+        sys.stderr.write("  [快照] 读取旧文件失败，本次不累积：%s\n" % e)
+        return out
+    for key in (SNAPSHOT_KEY,) + SNAPSHOT_LEGACY_KEYS:
+        part = obj.get(key)
+        if not isinstance(part, dict):
+            continue
+        for sym, rows in part.items():
+            if not isinstance(rows, list):
+                continue
+            by_date = {}
+            for r in out.get(sym, []) + rows:
+                if isinstance(r, dict) and r.get("date"):
+                    by_date[r["date"]] = r
+            if by_date:
+                out[sym] = [by_date[d] for d in sorted(by_date)]
+    return out
+
+
+def merge_quote_snapshots(old, new, keep=SNAPSHOT_DAYS):
+    """合并新旧快照：同日期覆盖，按日期升序，只留最近 keep 条。
+
+    old 为已存盘的结构 {"kr005930": [{date, close, prevClose, ts}, ...]}，
+    new 为本次抓取结果；抓取失败（new 缺某个 sym）时该 sym 原样保留。
+    """
+    merged = {}
+    if isinstance(old, dict):
+        for k, v in old.items():
+            if isinstance(v, list):
+                rows = [x for x in v if isinstance(x, dict) and x.get("date")]
+                if rows:
+                    merged[k] = rows
+    for sym, rec in (new or {}).items():
+        rows = [x for x in merged.get(sym, []) if x.get("date") != rec["date"]]
+        rows.append(rec)
+        rows.sort(key=lambda x: x["date"])
+        merged[sym] = rows[-keep:]
+    return merged
 
 
 class _TableParser(HTMLParser):
@@ -374,6 +519,10 @@ def main(argv=None):
                     help="减少 stderr 输出")
     ap.add_argument("--retries", type=int, default=3,
                     help="单只基金抓取失败重试次数（默认 3）")
+    ap.add_argument("--no-snapshots", action="store_true",
+                    help="跳过日股/韩股行情快照抓取")
+    ap.add_argument("--snapshot-days", type=int, default=SNAPSHOT_DAYS,
+                    help="行情快照保留天数（默认 %d）" % SNAPSHOT_DAYS)
     args = ap.parse_args(argv)
 
     fetch_content.__defaults__ = (args.retries, 30)
@@ -393,6 +542,21 @@ def main(argv=None):
         return 2
 
     result = scrape(codes, proxy, quiet=args.quiet)
+
+    # 非美股（港/A/日/韩）行情快照：每天存一条，攒出近 N 个交易日序列供看板直接读取
+    if not args.no_snapshots:
+        syms = collect_snapshot_symbols(result)
+        if syms:
+            quotes = fetch_qt_quotes(syms)
+            if not args.quiet:
+                sys.stderr.write("  [快照] 港/A/日/韩 %d 个代码，取到 %d 个\n" % (len(syms), len(quotes)))
+            # 读取已存盘文件里的旧快照，合并后回写（--no-write 时也能累积）
+            old = load_existing_snapshots(args.output)
+            merged = merge_quote_snapshots(old, quotes, keep=max(1, args.snapshot_days))
+            if merged:
+                result[SNAPSHOT_KEY] = merged
+        elif not args.quiet:
+            sys.stderr.write("  [快照] 无非美股持仓，跳过\n")
 
     js = json.dumps(result, ensure_ascii=False, indent=2)
 
