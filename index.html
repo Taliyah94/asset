@@ -9324,7 +9324,7 @@ function renderTables() {
                 if (t.type === "in") totalIn += Number(t.amount) || 0;
                 else totalOut += Number(t.amount) || 0
             });
-            return '<tr class="us-row-toggle" data-cash-row="' + c.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(c.icon) + "<span>" + esc(c.note || c.id) + '</span></div></td>' + '<td class="' + amtCls + '">' + amtHtml + "</td>" + '<td><button class="sm" data-edit="cash" data-id="' + c.id + '">编辑</button>' + '<button class="sm danger" data-del="cash" data-id="' + c.id + '">删</button></td></tr>' + '<tr class="us-trade-detail hidden" id="cash-detail-' + c.id + '"><td colspan="3"><div class="trade-inner">' + '<div class="trade-stats cash-stats"><span><b>收</b> ' + fmt0(isUsd ? totalIn * fx : totalIn) + "</span><span><b>支</b> " + fmt0(isUsd ? totalOut * fx : totalOut) + "</span><span><b>净</b> " + fmt0(amt >= 0 ? amt : -amt) + "</span><span><b>笔数</b> " + txs.length + "</span></div>" + '<div class="trade-actions"><button class="sm primary" data-cash-trade-in="' + c.id + '">+ 收入</button><button class="sm danger" data-cash-trade-out="' + c.id + '">- 支出</button></div>' + renderCashTradeTable(c) + "</div></td></tr>"
+            return '<tr class="us-row-toggle" data-cash-row="' + c.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(c.icon) + "<span>" + esc(c.note || c.id) + '</span></div></td>' + '<td class="' + amtCls + '">' + amtHtml + "</td>" + '<td><button class="sm" data-edit="cash" data-id="' + c.id + '">编辑</button>' + '<button class="sm danger" data-del="cash" data-id="' + c.id + '">删</button></td></tr>' + '<tr class="us-trade-detail hidden" id="cash-detail-' + c.id + '"><td colspan="3"><div class="trade-inner">' + '<div class="trade-stats cash-stats"><span><b>收</b> ' + (isUsd ? fmtUSD(totalIn) : fmt0(totalIn)) + "</span><span><b>支</b> " + (isUsd ? fmtUSD(totalOut) : fmt0(totalOut)) + "</span><span><b>净</b> " + (isUsd ? fmtUSD(amt >= 0 ? amt : -amt) : fmt0(amt >= 0 ? amt : -amt)) + "</span><span><b>笔数</b> " + txs.length + "</span></div>" + '<div class="trade-actions"><button class="sm primary" data-cash-trade-in="' + c.id + '">+ 收入</button><button class="sm danger" data-cash-trade-out="' + c.id + '">- 支出</button></div>' + renderCashTradeTable(c) + "</div></td></tr>"
         }).join("")
     }
     renderPending();
@@ -9668,7 +9668,7 @@ function renderCashTradeTable(c) {
     txs.forEach(function(x) {
         var t = x.t, i = x.oi;
         var typeTag = t.type === "in" ? '<span class="tag ok">收入</span>' : '<span class="tag err">支出</span>';
-        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + typeTag + "</td><td>" + fmt0(Number(t.amount) || 0) + "</td>" + '<td><button class="btn-trade-sm" data-cash-trade-edit="' + c.id + '" data-cash-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-cash-trade-del="' + c.id + '" data-cash-trade-idx="' + i + '">删</button></td></tr>'
+        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + typeTag + "</td><td>" + (c.currency === "usd" ? fmtUSD(Number(t.amount) || 0) : fmt0(Number(t.amount) || 0)) + "</td>" + '<td><button class="btn-trade-sm" data-cash-trade-edit="' + c.id + '" data-cash-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-cash-trade-del="' + c.id + '" data-cash-trade-idx="' + i + '">删</button></td></tr>'
     });
     html += "</tbody></table>";
     return html
