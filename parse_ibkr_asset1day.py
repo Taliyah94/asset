@@ -567,6 +567,7 @@ def main():
             "account": {},
             "totalNetValueDaily": [],
             "cashDaily": [],
+            "ibkrAccruedInterest": None,
             "holdings": [],
             "electronicFundTransfers": [],
             "forexTrades": [],
