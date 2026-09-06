@@ -6997,16 +6997,6 @@ function emTargetDate() {
     var mi = p.h * 60 + p.m - 570; // 减 9.5h
     var ymd = p.ymd;
     if (mi < 0) ymd = (typeof ymdAddDays === "function") ? ymdAddDays(ymd, -1) : ymd;
-    /* 港股/A股/日股/韩股均为周一~周五交易。美东周五 9:30 开盘 到 周一 9:30 开盘前，
-       这些市场最近一个交易日都是周五 → 目标日钳制到周五，确保整段窗口都用「周五的东方 bar」。
-       否则周六 9:30 后 emTargetDate 会返回周六/周日：下游虽能向前兜底取周五 bar，
-       但日/韩股市场页的「腾讯行情日期 ≥ 目标日」判定会因此失效而画 0%，与港股/A股口径不一致。 */
-    try {
-        var _d = new Date(ymd.substr(0, 4) + "/" + ymd.substr(5, 2) + "/" + ymd.substr(8, 2));
-        var _wd = _d.getDay();
-        if (_wd === 0) ymd = (typeof ymdAddDays === "function") ? ymdAddDays(ymd, -2) : ymd; // 周日 → 周五
-        else if (_wd === 6) ymd = (typeof ymdAddDays === "function") ? ymdAddDays(ymd, -1) : ymd; // 周六 → 周五
-    } catch (e) {}
     return ymd
 }
 
@@ -7062,6 +7052,18 @@ async function collectHoldingKline(funds) {
     if (!window._holdEMPrevClose) window._holdEMPrevClose = {}; // 目标日的「前一日收盘」（=上上日基准）
     if (!window._emKline) window._emKline = {};
     var emTarget = (typeof emTargetDate === "function") ? emTargetDate() : null;
+    /* 预测覆盖层专属钳制：港股/A股/日股/韩股均周一~周五交易，美东周五 9:30 开盘
+       到 周一 9:30 开盘前，这些市场最近一个交易日都是周五 → 目标日钳到周五，
+       确保整段窗口都用「周五的东方 bar」。此钳制只作用于预测覆盖层的东方 K 线，
+       不改动全局 emTargetDate（市场行情页保持原行为）。 */
+    if (emTarget) {
+        try {
+            var _pd = new Date(emTarget.substr(0, 4) + "/" + emTarget.substr(5, 2) + "/" + emTarget.substr(8, 2));
+            var _pw = _pd.getDay();
+            if (_pw === 0) emTarget = ymdAddDays(emTarget, -2); // 周日 → 周五
+            else if (_pw === 6) emTarget = ymdAddDays(emTarget, -1); // 周六 → 周五
+        } catch (e) {}
+    }
     var emNeed = {};
     (funds || []).forEach(function(f) {
         /* [修复] 东财目标日收盘价是市场行情页「现价 ÷ 基准 − 1」的通用基准，
