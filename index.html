@@ -2396,10 +2396,10 @@ tbody tr:hover {
 #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-main { font-size: 13px; }
 #pane-fund .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-sub,
 #pane-us .tbl-scroll>table tr.us-row-toggle>td:not(:first-child) .cell-sub { font-size: 11px; }
-/* 美股表第 4 列「当日」：列宽只占 15%，金额较容易溢出；把 cell-main 略降到 12px、cell-sub 9.5px
-      让数字更紧凑，配合 fitNumCells 在手机端自动收缩也不会再触碰 ellipsis */
-#pane-us .tbl-scroll>table tr.us-row-toggle>td:nth-child(4) .cell-main { font-size: 12px; }
-#pane-us .tbl-scroll>table tr.us-row-toggle>td:nth-child(4) .cell-sub { font-size: 9.5px; }
+/* 美股表第 4 列「当日」：去掉特例缩小，与其它数值列保持一致（cell-main 13px、cell-sub 11px）；
+      溢出时仍由 fitNumCells 在手机端自动收缩，但不再被 CSS 预先压小 */
+#pane-us .tbl-scroll>table tr.us-row-toggle>td:nth-child(4) .cell-main { font-size: 13px; }
+#pane-us .tbl-scroll>table tr.us-row-toggle>td:nth-child(4) .cell-sub { font-size: 11px; }
 /* 表头字号与现金对齐（12px）、居中对齐，排序箭头 10px */
 #pane-fund .tbl-scroll>table thead th,
 #pane-us .tbl-scroll>table thead th { font-size: 12px; text-align: center; padding-left: 3px; padding-right: 3px; }
@@ -8211,9 +8211,6 @@ function renderAllocLegend() {
             if (holdSh <= 0 || !(fx > 0)) return { dash: true };
             if (inSession || isOpt) return { dash: true };
             var predPrice = null, predPct = null;
-            /* [变更] 已移除「Bybit NAS100(QQQUSDT) 涨跌 ×3 杠杆推断 TQQQ」规则：
-               QQQ / TQQQ 在 Bybit 均有可直接读取的合约，市场行情已直读，无需指数近似。
-               盘外持仓预测统一走 Alpaca 快照价，取不到则画杠。 */
             if (u._alpacaPrice != null && isFinite(u._alpacaPrice) && usd > 0) {
                 predPrice = u._alpacaPrice;
                 predPct = (u._alpacaPrice - usd) / usd * 100;
@@ -11226,7 +11223,6 @@ async function refresh() {
     const _pUsHistory = fetchUsHistory(symList);
     const _pFx        = fetchFx();
     const _pHoldQ     = fetchMktQuotes(collectHoldingSymbols());
-    /* [变更] 移除 Bybit NAS100 预测源：不再按周末间隙启用指数推断 */
     // 基金净值必须串行抓取（concurrency=1）：东财 pingzhongdata 脚本把净值写入
     // 同一个全局变量 window.Data_netWorthTrend，浏览器里该 var 声明无法被拦截/隔离，
     // 并发多只时后加载的脚本会覆盖先到的值，导致部分基金稳定读不到。串行可彻底消除竞态。
@@ -11889,8 +11885,6 @@ async function loadFundHoldingsFromGithub() {
 }
 // 自动刷新入口：刷新美股 + 刷新市场行情（共用 2 分钟定时器）
 async function refreshAuto() {
-    // [修复] 改为 async：等待美股与市场数据刷新完成后再决定是否重绘预测覆盖层，
-    // 保证预测页跟随市场行情一起 2 分钟自动刷新。
     try { await refreshUsOnly(); } catch (e) {}
     // 注意：不要在这里用 _marketSymbols.length > 0 做守卫。
     // fetchMarketData 内部会自动并入美股持仓(us)作为行情源，
@@ -12741,7 +12735,7 @@ function load() {
     try {
         var s = JSON.parse(localStorage.getItem(KEY));
         if (s && typeof s.pe === 'number') {
-            if (s.vix != null && s.vxn == null) s.vxn = s.vix; // 旧数据 VIX -> VXN 兼容迁移
+            if (s.vix != null && s.vxn == null) s.vxn = s.vix;
             return s;
         }
     } catch (e) {}
@@ -13506,7 +13500,6 @@ function fetchTencentClose(syms) {
         // 分批：单批最多 MKT_QUOTE_CHUNK 个，避免一次性拼太长导致不返回
         var chunks = [];
         for (var i = 0; i < keys.length; i += MKT_QUOTE_CHUNK) chunks.push(keys.slice(i, i + MKT_QUOTE_CHUNK));
-        // 各分块并行请求：v_XXX 全局变量按代码命名空间隔离，批次间不互相污染，可安全并发。
         // 原串行 next(idx) 在分块多/某批脚本加载慢时，会因 8s 兜底超时累加拖到十几~二十秒。
         function _fetchChunk(ck) {
             return new Promise(function(res) {
@@ -13622,7 +13615,7 @@ function fitMarketNames() {
 不立即同步重排导致 scrollWidth 仍是旧值、while 循环直接误判结束。
 缩到下限仍放不下时改为允许换行（限 2 行），保证数字可读而不是粗暴截断。
 挂载在统一列表渲染(renderUnifiedList)、详情表格渲染(renderTables)与挂单渲染(renderPending)末尾，
-同步与异步刷新均会触发。挂到 window 便于控制台调试与外部调用。 */
+同步与异步刷新均会触发。*/
 function fitNumCells() {
 var MIN_FS = 7;
 var STEP = 1;
@@ -14124,7 +14117,6 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
     });
     var listEl = document.getElementById("unifiedList");
     if (listEl) {
-        // 移除旧市场行（保留基金行）
         Array.prototype.slice.call(listEl.querySelectorAll(":scope > .market-item")).forEach(function(el) { el.remove(); });
         var tmp = document.createElement("div");
         tmp.innerHTML = html;
@@ -14455,7 +14447,6 @@ return;
     });
     var listEl = document.getElementById("unifiedList");
     if (listEl) {
-        // 移除旧基金行及其展开 body（保留市场行）
         Array.prototype.slice.call(listEl.querySelectorAll(":scope > .fund-row")).forEach(function(el) {
             var b = el.nextElementSibling;
             if (b && b.classList.contains("fund-acc-body")) b.remove();
@@ -14962,8 +14953,6 @@ function renderMarketPrediction() {
 
 // 股票是否改用 Bybit：非美东常规时段（盘前 / 盘后 / 夜盘 / 周末间隙）一律走 Bybit indexPrice，盘中走腾讯
 // 美股在市场行情页的主数据源：盘中=腾讯财经；其余时段=Bybit indexPrice（Alpaca 仅作最终兜底）
-// 注：此前按 inUsWeekendGap() 启用「Bybit NAS100(QQQUSDT) ×3 推断 TQQQ」的规则已移除，
-//     QQQ / TQQQ 在 Bybit 均有可直接读取的合约，无需再用指数近似
 function marketStockUseBybit() {
     try {
         // 非美东常规时段（含盘前/盘后/夜盘/周末）一律走 Bybit
@@ -15206,7 +15195,6 @@ setTimeout(function() {
         }
     });
 
-    // 行管理面板（刷新功能已由右下角悬浮窗的刷新按钮承担，右上角 refresh 按钮已移除）
     if (typeof initMarketManage === "function") initMarketManage();
 }, 0);
 
