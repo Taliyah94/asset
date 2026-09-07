@@ -25,7 +25,8 @@ topline=11（前十大；半年报虽有更全明细但不取，见下），
                       "ts": "2026/09/04 16:08:05"}, ...]
       },
 
-      // QQQ 日线历史（曲线图「QQQ 涨跌幅(基准)」对比线用）：每天刷新，覆盖组合成立日至今
+      // QQQ 日线历史（曲线图「QQQ 涨跌幅(基准)」对比线用）：每天增量追加新交易日，
+      // 已有历史以存盘数据为准（防源端截断/换源抹史），仅最后一天会被新抓取刷新
       "qqq_daily": [{"d": "2026-02-06", "c": 518.20}, ...]   // 升序，{d:日期, c:收盘价}
     }
 
@@ -560,6 +561,50 @@ def fetch_qqq_daily(retries=3, timeout=30):
     return None
 
 
+def load_existing_qqq(path):
+    """读取已存盘 JSON 里的 qqq_daily 日线历史，作为增量追加的基底。"""
+    if not (path and os.path.exists(path)):
+        return []
+    try:
+        with open(path, encoding="utf-8") as f:
+            obj = json.load(f)
+    except Exception as e:  # noqa: BLE001 - 旧文件损坏则当空，退回全量
+        sys.stderr.write("  [QQQ] 读取旧文件失败，本次全量重抓：%s\n" % e)
+        return []
+    part = obj.get("qqq_daily")
+    if not isinstance(part, list):
+        return []
+    out = []
+    for r in part:
+        if not (isinstance(r, dict) and r.get("d") and r.get("c") is not None):
+            continue
+        try:
+            close = float(r["c"])
+        except (ValueError, TypeError):
+            continue
+        if close > 0:
+            out.append({"d": str(r["d"]), "c": round(close, 2)})
+    out.sort(key=lambda x: x["d"])
+    return out
+
+
+def merge_qqq_daily(old, fresh):
+    """增量合并 QQQ 日线：
+    - 旧历史（< 旧数据最后一天）原样保留，防止源端截断或换源抹掉已有历史；
+    - 旧数据最后一天及之后以新抓取为准（刷新当日收盘价 + 追加新交易日）。
+    任一侧为空则直接返回另一侧。"""
+    if not old:
+        return fresh or []
+    if not fresh:
+        return old
+    last_d = old[-1]["d"]
+    by_d = {r["d"]: r for r in old}
+    for r in fresh:
+        if r["d"] >= last_d:
+            by_d[r["d"]] = r
+    return sorted(by_d.values(), key=lambda x: x["d"])
+
+
 # ---------------------------------------------------------------------------
 # 主流程
 # ---------------------------------------------------------------------------
@@ -666,14 +711,17 @@ def main(argv=None):
         elif not args.quiet:
             sys.stderr.write("  [快照] 无非美股持仓，跳过\n")
 
-    # QQQ 日线历史（曲线图 TWR 基准对比）
+    # QQQ 日线历史（曲线图 TWR 基准对比）：增量追加，已有历史以存盘数据为准
     if not args.no_qqq:
+        qqq_old = load_existing_qqq(args.output)
         qqq = fetch_qqq_daily()
-        if qqq:
-            result["qqq_daily"] = qqq
+        qqq_merged = merge_qqq_daily(qqq_old, qqq)
+        if qqq_merged:
+            result["qqq_daily"] = qqq_merged
             if not args.quiet:
-                sys.stderr.write("  [QQQ] 日线 %d 条（%s ~ %s）\n" % (
-                    len(qqq), qqq[0]["d"], qqq[-1]["d"]))
+                _n_new = len(qqq_merged) - len(qqq_old) if qqq_old else len(qqq_merged)
+                sys.stderr.write("  [QQQ] 日线 %d 条（%s ~ %s，新增 %d 条）\n" % (
+                    len(qqq_merged), qqq_merged[0]["d"], qqq_merged[-1]["d"], _n_new))
         elif not args.quiet:
             sys.stderr.write("  [QQQ] 未取得日线，跳过\n")
 

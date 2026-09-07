@@ -5616,11 +5616,21 @@ function computeFundPrediction(f, discDay) {
     if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
     if (typeof getFundTradeStats === "function") { try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {} }
     if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
-    var rawBase = holdSh * nav;
-    var base = rawBase - (f._dayPnl || 0);
-    if (!(typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code])) {
-        return { dash: true, nav: nav, holdSh: holdSh, base: base };
-    }
+                var rawBase = holdSh * nav;
+                var base = rawBase - (f._dayPnl || 0);
+                /* 净值已更新到目标日(discDay)：目标日实际净值已公布，预测值=实际值，
+                   不再乘成分股涨跌幅（主列表克隆来的 data-mv 带 predPct 实时加权，会造成总资产失真） */
+                var _navDate = (typeof fundNavDateStr === "function") ? fundNavDateStr(f) : null;
+                if (discDay && _navDate && String(_navDate) >= String(discDay)) {
+                    var _actPct = (f._dayTime === _navDate && f._dayRet != null && isFinite(f._dayRet)) ? f._dayRet * 100 : 0;
+                    return { dash: false, actual: true, nav: nav, holdSh: holdSh, base: rawBase, rawBase: rawBase,
+                             predPct: _actPct, predNav: nav, predMv: rawBase,
+                             predPnl: (f._dayTime === _navDate) ? (f._dayPnl || 0) : 0,
+                             deltaPnl: 0, src: "fund" };
+                }
+                if (!(typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code])) {
+                    return { dash: true, nav: nav, holdSh: holdSh, base: base };
+                }
     var ph = FUND_HOLDINGS[f.code], av = 0, sw = 0;
     var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
     ph.items.forEach(function(it) {
@@ -8375,7 +8385,7 @@ function renderAllocLegend() {
                 if (navEl) { navEl.textContent = (predNav >= 1 ? predNav.toFixed(3) : predNav.toFixed(4)); var ncls = (predNav > nav) ? "up" : (predNav < nav ? "down" : ""); navEl.className = "fund-acc-nav" + (ncls ? " " + ncls : ""); }
                 if (chgEl) { var ccls = predPct >= 0 ? "up" : "down"; var csgn = predPct > 0 ? "+" : ""; chgEl.textContent = csgn + predPct.toFixed(2) + "%"; chgEl.className = "fas-chg fund-chg-pill " + ccls; }
                 if (valEl) { valEl.textContent = "\u00a5" + Math.round(predMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
-                var _fdPnl = (r.rawBase != null && isFinite(r.rawBase)) ? (predMv - r.rawBase) : predPnl;
+                var _fdPnl = r.actual ? (predPnl || 0) : ((r.rawBase != null && isFinite(r.rawBase)) ? (predMv - r.rawBase) : predPnl);
                 if (amtEl) { var acls = _fdPnl >= 0 ? "up" : "down"; var asgn = _fdPnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(_fdPnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
                 row.setAttribute("data-mv", Math.round(predMv));
                 row.setAttribute("data-pnl", Math.round(_fdPnl));
@@ -11027,6 +11037,11 @@ function setView(v) {
     });
     const cv = $("chartView");
     if (cv) cv.classList.toggle("hidden", v !== "curve");
+    // 统计条/图例/悬停行只属于曲线图，其他视图一并隐藏
+    ["chartStats", "chartLegend", "chartTip"].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.toggle("hidden", v !== "curve");
+    });
     const cal = $("calView");
     if (cal) cal.classList.toggle("hidden", v !== "cal");
     const sd = $("seriesDebug");
