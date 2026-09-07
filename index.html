@@ -475,6 +475,128 @@ button.danger:hover {
     overflow: hidden;
 }
 
+.chart-stats {
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 8px;
+    margin: 6px 2px 2px;
+    padding: 8px 6px;
+    background: #fff;
+    border: 1px solid #eef1f6;
+    border-radius: 10px;
+}
+
+.chart-stats .cs-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+}
+
+.chart-stats .cs-label {
+    font-size: 11px;
+    color: #8a94a6;
+    white-space: nowrap;
+}
+
+.chart-stats .cs-val {
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.chart-stats .cs-val.up {
+    color: #e0533d;
+}
+
+.chart-stats .cs-val.down {
+    color: #2b9d5e;
+}
+
+.chart-stats .cs-val.flat {
+    color: #8a94a6;
+}
+
+.chart-tip {
+    display: none;
+    margin: 6px 2px 2px;
+    padding: 8px 10px;
+    background: #fff;
+    border: 1px solid #eef1f6;
+    border-radius: 10px;
+    font-size: 12px;
+    color: #1f2733;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    align-items: center;
+}
+
+.chart-tip.show {
+    display: flex;
+}
+
+.chart-tip .ct-date {
+    font-weight: 700;
+    margin-right: 6px;
+    color: #8a94a6;
+}
+
+.chart-tip .ct-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.chart-tip .ct-row i {
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.chart-tip .ct-row b {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 6px 2px 2px;
+    font-size: 12px;
+    color: #1f2733;
+}
+
+.chart-legend .lg-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity .15s;
+}
+
+.chart-legend .lg-item i {
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.chart-legend .lg-item.off {
+    color: #b6bdc9;
+    text-decoration: line-through;
+}
+
+.chart-legend .lg-item.off i {
+    opacity: .3;
+}
+
 .view-toggle {
     display: flex;
     gap: 6px;
@@ -4131,6 +4253,9 @@ background: #ffffff;
                 <button data-page-node-id="EQ1JwF22YHBphm4RToAwM3" class="active" data-metric="pct" title="按涨跌幅显示（%）"><!--pnid:e9K1y1WnDIvkuTVqQV2D1l-->%</button>
             </div>
             <div data-page-node-id="3Rp0XXbFx8dxiuryH9fPLe" class="chart-box" id="chartView"><canvas data-page-node-id="wpAyd8dhsvNSiPgpMUNQPB" height="1080" id="chart" width="1080" style="box-sizing:border-box; display:block; height:360px; width:360px"></canvas></div>
+            <div data-page-node-id="chartStatsWb" class="chart-stats" id="chartStats"></div>
+            <div data-page-node-id="chartLegendWb" class="chart-legend" id="chartLegend"></div>
+            <div data-page-node-id="chartTipWb" class="chart-tip" id="chartTip"></div>
             <div data-page-node-id="UEqej1XSzsZ6FOvLcQLD4c" class="cal-box hidden" id="calView">
                 <div data-page-node-id="RPF92t7TShqNHZn4vJs2TG" class="cal-nav">
                     <div data-page-node-id="tKKId411Mj3qSzoCiQ8o2u" class="cal-arrow"><!--pnid:i9IWnD6YuFRHjnDluVfOqP-->‹</div>
@@ -10036,10 +10161,35 @@ function deleteDividend(stockId, idx) {
 }
 
 function drawChartInternal() {
+    // QQQ 基准线：把历史收盘价按「组合最早有数据的那一天」(= globalEarliest，即 TWR 起点、ret=0% 那天)
+    // 归一化为累计涨跌幅(小数, 起点 0%)，与「累计收益率(TWR)」同基准、同量级对比（基准对比，非价格本身）。
+    // QQQ 基准线：把历史收盘价按图表「可见窗口首日」归零为涨跌幅(小数, 起点 0%)，
+    // 与 TWR(同样从窗口首日归零)同基准，对比窗口内的相对涨跌幅度（非价格本身、非组合首日累计）。
+    // y1 轴 tick callback 会统一乘 100 显示百分比，这里保持小数即可。
+    function buildQQQRet(labels) {
+        var Q = window.__QQQ_DAILY__;
+        if (!Q || !Q.length) return null;
+        var map = {};
+        Q.forEach(function (x) { map[x.d] = x.c; });
+        var closes = [], last = null;
+        labels.forEach(function (lb) {
+            var c = map[lb];
+            if (c == null) c = last; else last = c; // 非交易日(周末/假期)前向填充
+            closes.push(c);
+        });
+        var base = null;
+        for (var i = 0; i < closes.length; i++) { if (closes[i] != null) { base = closes[i]; break; } }
+        if (base == null) return null;
+        return closes.map(function (c) { return c == null ? null : (c / base - 1); });
+    }
     const s = buildSeries();
     const d = buildDetailSeries();
     const cv = $("chart");
     if (chart) chart.destroy();
+    // TWR 与 QQQ 同基准：均从图表可见窗口首日归零，对比窗口内相对涨跌（而非组合首日累计）
+    var twr0 = null;
+    for (var i = 0; i < s.ret.length; i++) { if (s.ret[i] != null) { twr0 = s.ret[i]; break; } }
+    var twrRel = (twr0 == null) ? s.ret : s.ret.map(function (v) { return v == null ? null : v - twr0; });
     const ds = [{
         label: "总资产",
         data: d.total,
@@ -10052,8 +10202,8 @@ function drawChartInternal() {
         tension: .15,
         yAxisID: "y"
     }, {
-        label: "累计收益率(TWR)",
-        data: s.ret,
+        label: "TWR",
+        data: twrRel,
         type: "line",
         borderColor: "#f59e0b",
         borderWidth: 2,
@@ -10062,6 +10212,22 @@ function drawChartInternal() {
         tension: .15,
         yAxisID: "y1"
     }];
+    // QQQ 基准对比线（仅当 fund_holdings.json 含 qqq_daily 时叠加）
+    var qqqRet = buildQQQRet(d.labels);
+    if (qqqRet) {
+        ds.push({
+            label: "QQQ",
+            data: qqqRet,
+            type: "line",
+            borderColor: "#2563eb",
+            borderWidth: 1.5,
+            borderDash: [5, 3],
+            fill: false,
+            pointRadius: 0,
+            tension: .15,
+            yAxisID: "y1"
+        });
+    }
     const crosshair = {
         id: "crosshair",
         afterDatasetsDraw(c) {
@@ -10085,34 +10251,28 @@ function drawChartInternal() {
             ctx.lineTo(ca.right, pt.y);
             ctx.stroke();
             ctx.setLineDash([]);
-            const date = c.data.labels[st.index] || "";
-            const total = c.data.datasets[0].data[st.index];
-            const ret = c.data.datasets[1].data[st.index];
-            const amtTxt = total == null ? "—" : Math.round(total).toLocaleString("zh-CN");
-            const retTxt = ret == null ? "—" : (ret * 100).toFixed(2) + "%";
-            const bw = 190,
-                bh = 46;
-            const bx = ca.left + 2;
-            const by = ca.bottom - bh - 2;
-            ctx.fillStyle = "rgba(255,255,255,.96)";
-            ctx.strokeStyle = "rgba(31,39,51,.18)";
-            ctx.lineWidth = 1;
-            roundRect(ctx, bx, by, bw, bh, 6);
-            ctx.fill();
-            ctx.stroke();
-            ctx.fillStyle = "#8a94a6";
-            ctx.font = "11px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(date, bx + bw / 2, by + 13);
-            ctx.fillStyle = "#1f2733";
-            ctx.font = "bold 12px sans-serif";
-            ctx.textAlign = "left";
-            ctx.fillText(amtTxt, bx + 10, by + 31);
-            ctx.fillStyle = "#c08a2b";
-            ctx.textAlign = "right";
-            ctx.fillText(retTxt, bx + bw - 10, by + 31);
-            ctx.restore()
+            ctx.restore();
+            // 数值明细改写到图例下方的 DOM 提示条（chartTip），不再画在 canvas 左下角
+            var tip = document.getElementById("chartTip");
+            if (!tip) return;
+            var date = c.data.labels[st.index] || "";
+            var rows = [];
+            c.data.datasets.forEach(function (ds0, di) {
+                if (c.getDatasetMeta(di).hidden) return;
+                var v = ds0.data[st.index];
+                if (v == null) return;
+                var txt = ds0.yAxisID === "y1"
+                    ? (v > 0 ? "+" : (v < 0 ? "−" : "")) + (Math.abs(v) * 100).toFixed(2) + "%"
+                    : "¥" + Math.round(v).toLocaleString("zh-CN");
+                rows.push({ color: ds0.borderColor, label: ds0.label, val: txt });
+            });
+            if (!rows.length) { tip.classList.remove("show"); return; }
+            var html = '<span class="ct-date">' + date + '</span>';
+            rows.forEach(function (r) {
+                html += '<span class="ct-row"><i style="background:' + (r.color || "#1f2733") + '"></i>' + r.label + ' <b>' + r.val + '</b></span>';
+            });
+            tip.innerHTML = html;
+            tip.classList.add("show");
         }
     };
 
@@ -10140,13 +10300,7 @@ function drawChartInternal() {
             },
             plugins: {
                 legend: {
-                    display: false,
-                    labels: {
-                        boxWidth: 12,
-                        font: {
-                            size: 12
-                        }
-                    }
+                    display: false
                 },
                 tooltip: {
                     enabled: false,
@@ -10258,6 +10412,53 @@ function drawChartInternal() {
             }
         })
     }
+    // 图例下方统计条：当前可见周期内 总资产涨跌额 / TWR 涨跌幅 / QQQ 涨跌幅
+    (function () {
+        var boxEl = document.getElementById("chartStats");
+        if (!boxEl || !chart) return;
+        var dsArr = chart.data.datasets;
+        var tot = dsArr[0] ? dsArr[0].data : [];
+        var twr = dsArr[1] ? dsArr[1].data : [];
+        var qqq = dsArr[2] ? dsArr[2].data : [];
+        var fl = function (a) {
+            var f = null, l = null;
+            for (var i = 0; i < a.length; i++) { if (a[i] != null) { if (f == null) f = a[i]; l = a[i]; } }
+            return [f, l];
+        };
+        var tf = fl(tot)[0], tl = fl(tot)[1];
+        var amt = (tf != null && tl != null) ? tl - tf : null;
+        var twrLast = fl(twr)[1];
+        var qqqLast = fl(qqq)[1];
+        var cls = function (v) { return v > 0 ? "up" : (v < 0 ? "down" : "flat"); };
+        var sign = function (v) { return v > 0 ? "+" : (v < 0 ? "−" : ""); };
+        var amtTxt = amt == null ? "—" : sign(amt) + "¥" + Math.abs(Math.round(amt)).toLocaleString("zh-CN");
+        var pct = function (v) { return v == null ? "—" : sign(v) + (Math.abs(v) * 100).toFixed(2) + "%"; };
+        boxEl.innerHTML =
+            '<div class="cs-item"><span class="cs-label">总资产</span><b class="cs-val ' + cls(amt) + '">' + amtTxt + '</b></div>' +
+            '<div class="cs-item"><span class="cs-label">TWR</span><b class="cs-val ' + cls(twrLast) + '">' + pct(twrLast) + '</b></div>' +
+            (qqq.length ? '<div class="cs-item"><span class="cs-label">QQQ</span><b class="cs-val ' + cls(qqqLast) + '">' + pct(qqqLast) + '</b></div>' : "");
+    })();
+    // 自定义 HTML 图例（移到 canvas 外、置于统计条下方，保留点击切换显隐）
+    (function () {
+        var lg = document.getElementById("chartLegend");
+        if (!lg || !chart) return;
+        var html = "";
+        chart.data.datasets.forEach(function (ds, i) {
+            if (!ds.label) return;
+            var color = ds.borderColor || (ds.backgroundColor || "#1f2733");
+            var off = chart.getDatasetMeta(i).hidden ? " off" : "";
+            html += '<span class="lg-item' + off + '" data-ds="' + i + '"><i style="background:' + color + '"></i>' + ds.label + '</span>';
+        });
+        lg.innerHTML = html;
+        lg.onclick = function (e) {
+            var t = e.target.closest(".lg-item");
+            if (!t) return;
+            var i = +t.getAttribute("data-ds");
+            chart.setDatasetVisibility(i, !chart.isDatasetVisible(i));
+            chart.update();
+            t.classList.toggle("off", !chart.isDatasetVisible(i));
+        };
+    })();
 }
 
 function assetAt(ts) {
@@ -11852,6 +12053,8 @@ async function loadFundHoldingsFromGithub() {
         // 非美股（港/A/日/韩）每日行情快照：脚本每天跑一次存进 JSON，
         // 看板按目标日直接取 close / prevClose，无需再请求东方财富历史K。
         window._dailyQuotes = obj._daily_quotes || obj._jpkr_quotes || null;
+        // QQQ 历史快照（静态写进 fund_holdings.json 顶层 qqq_daily），供曲线图基准对比
+        if (Array.isArray(obj.qqq_daily) && obj.qqq_daily.length) window.__QQQ_DAILY__ = obj.qqq_daily;
         var n = 0;
         Object.keys(obj).forEach(function(code) {
             var v = obj[code];
@@ -11877,6 +12080,8 @@ async function loadFundHoldingsFromGithub() {
             drawChart()
         }
         console.log("[fund_holdings] 已从 GitHub 更新 " + n + " 只基金季报");
+        // QQQ 快照就绪后重绘曲线图（即使基金无更新也要带上基准线）
+        if (window.__QQQ_DAILY__ && typeof drawChart === "function") drawChart();
         return n
     } catch (e) {
         console.warn("[fund_holdings] 读取失败，沿用内联兜底数据：", e);

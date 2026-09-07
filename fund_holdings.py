@@ -23,7 +23,10 @@ topline=11（前十大；半年报虽有更全明细但不取，见下），
                       "ts": "2026-09-04 14:30:05"}, ...],   // 升序，最多 5 条
         "hk02513":  [{"date": "20260904", "close": 1075, "prevClose": 1108,
                       "ts": "2026/09/04 16:08:05"}, ...]
-      }
+      },
+
+      // QQQ 日线历史（曲线图「QQQ 涨跌幅(基准)」对比线用）：每天刷新，覆盖组合成立日至今
+      "qqq_daily": [{"d": "2026-02-06", "c": 518.20}, ...]   // 升序，{d:日期, c:收盘价}
     }
 
 字段含义
@@ -474,6 +477,90 @@ def parse(content):
 
 
 # ---------------------------------------------------------------------------
+# QQQ 日线历史（曲线图 TWR 基准对比用）
+# ---------------------------------------------------------------------------
+# 看板的「曲线图」会把 QQQ 当日净值归一化为累计涨跌幅，与组合的 TWR 放在同一
+# 根收益率轴上对比（谁是基准、谁跑赢一目了然）。这需要 QQQ 的每日收盘价序列。
+#
+# 数据源：优先腾讯 appstock fqkline（与脚本其余行情同源），但该接口对美股「带起
+# 止日期」查询会退化、且「最近 N 条」模式对美股只返回首末两条，拿不到连续历史；
+# 故回退新浪美股日K（US_MinKService.getDailyK），实测返回 2001 年至今完整日线。
+# 每天跑一次会重新抓取全量并更新，曲线图据此自动刷新。
+QQQ_SINA = "https://stock.finance.sina.com.cn/usstock/api/jsonp.php/var%20_/US_MinKService.getDailyK?symbol=QQQ&___qn=3&_=1"
+
+
+def fetch_qqq_daily(retries=3, timeout=30):
+    """抓取 QQQ 日线历史，返回 [{"d": "YYYY-MM-DD", "c": 收盘价}, ...]（升序）。
+
+    先试腾讯，失败回退新浪。两者都失败返回 None（不阻断主流程）。
+    """
+    last_err = None
+    # 1) 腾讯 appstock fqkline（同源；仅作为首选项，美股历史可能不全）
+    for attempt in range(1, retries + 1):
+        try:
+            url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=usQQQ,day,,,800,qfq"
+            req = urllib.request.Request(
+                url, headers={"User-Agent": USER_AGENT, "Referer": "https://gu.qq.com/"}
+            )
+            raw = urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", "ignore")
+            obj = json.loads(raw)
+            day = obj.get("data", {}).get("usQQQ", {}).get("day", [])
+            out = []
+            for row in day:
+                if not isinstance(row, (list, dict)):
+                    continue
+                d = row[0] if isinstance(row, list) else row.get("date")
+                c = row[2] if isinstance(row, list) else row.get("close")
+                try:
+                    close = float(c)
+                except (ValueError, TypeError):
+                    continue
+                if close <= 0 or not d:
+                    continue
+                out.append({"d": d, "c": round(close, 2)})
+            if len(out) >= 5:  # 腾讯对美股常只给首末两条，不足以做连续对比
+                out.sort(key=lambda x: x["d"])
+                return out
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            if attempt < retries:
+                time.sleep(2 * attempt)
+    # 2) 新浪美股日K（完整历史）
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(
+                QQQ_SINA, headers={"User-Agent": USER_AGENT, "Referer": "https://stock.finance.sina.com.cn/"}
+            )
+            raw = urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", "ignore")
+            i, j = raw.find("["), raw.rfind("]")
+            if i < 0 or j < 0:
+                continue
+            arr = json.loads(raw[i:j + 1])
+            out = []
+            for x in arr:
+                d = x.get("d")
+                c = x.get("c")
+                if not d or c is None:
+                    continue
+                try:
+                    close = float(c)
+                except (ValueError, TypeError):
+                    continue
+                if close <= 0:
+                    continue
+                out.append({"d": d, "c": round(close, 2)})
+            if out:
+                out.sort(key=lambda x: x["d"])
+                return out
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            if attempt < retries:
+                time.sleep(2 * attempt)
+    sys.stderr.write("  [QQQ] 抓取失败: %s\n" % last_err)
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 主流程
 # ---------------------------------------------------------------------------
 def load_config(path):
@@ -540,6 +627,8 @@ def main(argv=None):
                     help="单只基金抓取失败重试次数（默认 3）")
     ap.add_argument("--no-snapshots", action="store_true",
                     help="跳过日股/韩股行情快照抓取")
+    ap.add_argument("--no-qqq", action="store_true",
+                    help="跳过 QQQ 日线抓取（曲线图基准对比用）")
     ap.add_argument("--snapshot-days", type=int, default=SNAPSHOT_DAYS,
                     help="行情快照保留天数（默认 %d）" % SNAPSHOT_DAYS)
     args = ap.parse_args(argv)
@@ -577,6 +666,17 @@ def main(argv=None):
         elif not args.quiet:
             sys.stderr.write("  [快照] 无非美股持仓，跳过\n")
 
+    # QQQ 日线历史（曲线图 TWR 基准对比）
+    if not args.no_qqq:
+        qqq = fetch_qqq_daily()
+        if qqq:
+            result["qqq_daily"] = qqq
+            if not args.quiet:
+                sys.stderr.write("  [QQQ] 日线 %d 条（%s ~ %s）\n" % (
+                    len(qqq), qqq[0]["d"], qqq[-1]["d"]))
+        elif not args.quiet:
+            sys.stderr.write("  [QQQ] 未取得日线，跳过\n")
+
     js = json.dumps(result, ensure_ascii=False, indent=2)
 
     if args.no_write:
@@ -590,8 +690,10 @@ def main(argv=None):
         except Exception as e:  # noqa: BLE001
             sys.stderr.write("写文件失败：%s\n上方 JSON 仍可直接复制使用\n" % e)
 
-    # 统计：成功（含代理）与失败（无 items）
-    ok = sum(1 for v in result.values() if v.get("items"))
+    # 统计：成功（含代理）与失败（无 items）。跳过顶层非基金键（qqq_daily / _daily_quotes）
+    NON_FUND_KEYS = (SNAPSHOT_KEY,) + SNAPSHOT_LEGACY_KEYS + ("qqq_daily",)
+    ok = sum(1 for k, v in result.items()
+             if k not in NON_FUND_KEYS and isinstance(v, dict) and v.get("items"))
     failed = len([c for c in codes if c not in result or not result[c].get("items")])
     if not args.quiet:
         sys.stderr.write("成功 %d 只，失败 %d 只\n" % (ok, failed))
