@@ -6875,6 +6875,9 @@ function collectHoldingSymbols() {
         var sym = String(u.symbol || "").toUpperCase();
         if (sym) set["us" + sym] = 1
     });
+    // QQQ 保底订阅：基金盘中估值的未知块基准（预测页 getQqqChangeForDay 读 _holdQ["usQQQ"]），
+    // 依赖它的话不应受「是否恰好持有 QQQ/代理基金」影响
+    set["usQQQ"] = 1;
     return Object.keys(set)
 }
 
@@ -12212,6 +12215,8 @@ async function loadFundHoldingsFromGithub() {
                 report: v.report || (FUND_HOLDINGS[code] && FUND_HOLDINGS[code].report) || "",
                 items: v.items,
                 proxy: v.proxy === true,
+                // 股/债/现金占净比（东财 pingzhongdata 抓取）：合并时必须带上，否则明细债/现金行会全显示 0
+                alloc: (v.alloc && typeof v.alloc === "object") ? v.alloc : ((FUND_HOLDINGS[code] && FUND_HOLDINGS[code].alloc) || null),
                 nav: Array.isArray(v.nav) && v.nav.length ? v.nav : (FUND_HOLDINGS[code] && FUND_HOLDINGS[code].nav) || null
             };
             n++
@@ -14772,7 +14777,11 @@ return;
                     + '</div>'
                 + '</div>';
             });
-            body += '<div class="fund-hd-item" data-fh-qqq="1">'
+            // QQQ(未知块) 行走与成分股同一套行情填充：给 data-fh-sym="us|QQQ"，
+            // 由 fillFundHoldingsQuotes 按盘中QT/盘外BYB 口径填（与 016532 持仓里的纳斯达克100ETF 行完全一致）；
+            // 同时把 QQQ 加入 usCodes，保证 Bybit ticker + 腾讯基准一定会拉。
+            if (usCodes.indexOf("QQQ") < 0) usCodes.push("QQQ");
+            body += '<div class="fund-hd-item" data-fh-sym="us|QQQ">'
                 + '<div class="fund-hd-top">'
                     + '<span class="fund-hd-idx">13</span>'
                     + '<span class="fund-hd-name">QQQ·未知块</span>'
@@ -14841,7 +14850,6 @@ return;
         Array.prototype.slice.call(tmp.children).forEach(function(el) { listEl.appendChild(el); });
     }
     renderUnifiedList();
-    fillFundQqqRows(); // QQQ(未知块) 行：_holdQ 已就绪时立即填（行情到达后 fillFundHoldingsQuotes 会再刷一次）
     // 无条件聚合基金（含无季报/无实时持仓的基金），写入 data-chg/data-mv/data-pnl 并填充市值盈亏
     aggregateFundSums();
     // 批量拉美股持仓实时价与盈亏率（复用市场逻辑），完成后会再次聚合刷新
@@ -14920,29 +14928,8 @@ function fetchFundHoldingsRealtime(usCodes) {
     });
 }
 
-// 基金明细 QQQ(未知块) 行：按市场行情口径填充——最新腾讯实时报价（现价、(现价-昨收)/昨收），
-// 与预测覆盖层不同：无目标日闸门，行情页展示的就是最新实时涨跌；无报价则保持 --。
-function fillFundQqqRows() {
-    var q = window._holdQ && window._holdQ["usQQQ"];
-    if (!q) return;
-    document.querySelectorAll('#unifiedList .fund-hd-item[data-fh-qqq]').forEach(function(row) {
-        var qEl = row.querySelector(".fund-hd-quote");
-        var cEl = row.querySelector(".fund-hd-chg");
-        var srcEl = row.querySelector(".market-src");
-        if (!(q.price > 0 && q.prevClose > 0)) return;
-        if (qEl) qEl.textContent = q.price >= 1 ? q.price.toFixed(2) : q.price.toFixed(4);
-        var ch = (q.price - q.prevClose) / q.prevClose * 100;
-        if (cEl) {
-            cEl.textContent = (ch > 0 ? "+" : "") + ch.toFixed(2) + "%";
-            cEl.className = "fund-hd-chg " + (ch >= 0 ? "up" : "down");
-        }
-        if (srcEl) { srcEl.textContent = "QT"; srcEl.className = "market-src s-tencent"; }
-    });
-}
-
 // 把实时数据填充到基金持仓行（按市场逻辑算盈亏率 + 数据源标注）
 function fillFundHoldingsQuotes(merged, tencentMap, alpacaMap) {
-    fillFundQqqRows(); // QQQ(未知块) 行先按最新实时填好，聚合时即可并入加权
     var map = {};
     merged.list.forEach(function(it) { map[it.symbol] = it; });
     var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB" };
