@@ -10422,6 +10422,8 @@ function drawChartInternal() {
             var tip = document.getElementById("chartTip");
             if (!tip) return;
             var date = c.data.labels[st.index] || "";
+            var _d = String(date).replace(/\D/g, "");
+            if (_d.length === 8) date = _d.slice(2); // 2026-09-07 -> 260907
             var rows = [];
             c.data.datasets.forEach(function (ds0, di) {
                 if (c.getDatasetMeta(di).hidden) return;
