@@ -3408,7 +3408,6 @@ tbody tr:hover {
 .market-src.s-tencent { color: #1565c0; background: #e8f1fd; border: 1px solid #c5dbf7; }
 .market-src.s-alpaca { color: #6a1b9a; background: #f3e8fb; border: 1px solid #e0c8f0; }
 .market-src.s-ibkr { color: #8e0000; background: #fdeaea; border: 1px solid #f2bdb8; }
-.market-src.s-fund { color: #00695c; background: #e0f2f1; border: 1px solid #b2dfdb; }
 .market-src.s-none { color: #999; background: #f5f5f5; border: 1px solid #eee; }
 .market-src.s-predict { color: #b26a00; background: #fff7e6; border: 1px solid #f0d9a8; }
 .market-src.s-em { color: #c0392b; background: #fdecea; border: 1px solid #f3c0bb; }
@@ -4155,7 +4154,7 @@ background: #ffffff;
                     <datalist data-page-node-id="EZy8KX53tBYtOj7ZmOnoyJ" id="marketSymbolList"></datalist>
                     <button data-page-node-id="K3sZbAPA41ix1YJE6MMwus" id="marketAddBtn" type="button" style="padding:6px 14px; border:none; border-radius:8px; background:#1a73e8; color:#fff; font-size:13px; cursor:pointer"><!--pnid:MlAHsJBHfkzhhlFU5ZMUqy-->添加</button>
                     <button data-page-node-id="ZUbp57MIullbeRyhpYT5l0" id="mvpnlToggleBtn" title="切换市值/盈亏主次显示" type="button" style="padding:6px 12px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:13px; cursor:pointer"><!--pnid:euujckgMUYG7ZzmvTxNumS-->市值 ▾</button>
-                    <button data-page-node-id="5Pt6B15EE3ECNcyjnTAbhM" id="marketPredictToggle" title="进入当日预测页" type="button" style="padding:6px 12px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:13px; cursor:pointer"><!--pnid:ROeIh89D7SLJ85rSyoxCAi-->📈 预测</button>
+                    <button data-page-node-id="5Pt6B15EE3ECNcyjnTAbhM" id="marketPredictToggle" title="进入基金预测页" type="button" style="padding:6px 12px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:13px; cursor:pointer"><!--pnid:ROeIh89D7SLJ85rSyoxCAi-->📈 预测</button>
                     <button data-page-node-id="rX8sJpmtzg4AYXALWLouQk" id="marketManageBtn" title="管理行（排序/置顶/删除）" type="button" style="padding:6px 10px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:15px; cursor:pointer; line-height:1"><!--pnid:ot7F3HpehkAN3GACDIAbkX-->☰</button>
                 </div>
             </h2>
@@ -5608,38 +5607,6 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 let funds = load("pa_funds", []);
 let us = load("pa_us", []);
 
-/* [修复] 提升为全局函数：原定义(6930/6955)仅在预测 init IIFE 内，
-   而加载期主流程(6569/6631)提前调用会抛 ReferenceError。这里在更早的脚本块定义全局版本。 */
-function computeFundPrediction(f, discDay) {
-    if (typeof f !== "object" || !f || !f.code) return { dash: true };
-    var nav = null, holdSh = 0;
-    if (f._list && f._list.length) { try { nav = valOnOrBefore(f._list, todayTs(), "nav"); } catch (e) {} }
-    if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
-    if (typeof getFundTradeStats === "function") { try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {} }
-    if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
-                var rawBase = holdSh * nav;
-                var base = rawBase - (f._dayPnl || 0);
-                /* 净值已更新到目标日(discDay)：目标日实际净值已公布，预测值=实际值，
-                   不再乘成分股涨跌幅（主列表克隆来的 data-mv 带 predPct 实时加权，会造成总资产失真） */
-                var _navDate = (typeof fundNavDateStr === "function") ? fundNavDateStr(f) : null;
-                if (discDay && _navDate && String(_navDate) >= String(discDay)) {
-                    var _actPct = (f._dayTime === _navDate && f._dayRet != null && isFinite(f._dayRet)) ? f._dayRet * 100 : 0;
-                    return { dash: false, actual: true, nav: nav, holdSh: holdSh, base: rawBase, rawBase: rawBase,
-                             predPct: _actPct, predNav: nav, predMv: rawBase,
-                             predPnl: (f._dayTime === _navDate) ? (f._dayPnl || 0) : 0,
-                             deltaPnl: 0, src: "fund" };
-                }
-                if (!(typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code])) {
-                    return { dash: true, nav: nav, holdSh: holdSh, base: base };
-                }
-    // 新公式：前十大加权 + 未知块(= 100 - 前十大权重 - 债 - 现金) x QQQ当日涨跌
-    var r = fundPredictEstimate(f, discDay);
-    if (r && !r.dash) {
-        r.src = r.src || "fund";
-        return r;
-    }
-    return { dash: true, nav: nav, holdSh: holdSh, base: base };
-}
 function computeUsPrediction(u, fx) {
     if (typeof u !== "object" || !u) return { dash: true };
     var symUp = String(u.symbol || "").toUpperCase();
@@ -7584,7 +7551,7 @@ function fundPredictEstimate(f, discDay) {
     var predPnl = base * predPct / 100;
     return { dash: false, nav: nav, holdSh: holdSh, base: base, rawBase: rawBase,
              predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl,
-             src: "fund", qqqNull: qqqChg == null };
+             qqqNull: qqqChg == null };
 }
 window.fundPredictEstimate = fundPredictEstimate;
 window.getQqqChangeForDay = getQqqChangeForDay;
@@ -7757,8 +7724,6 @@ function computeFundTargetDate() {
 
 function computeCurrent() {
     const fx = effFx();
-    const fundTargetDate = computeFundTargetDate();
-    const fundDiscDay = fundDisclosureDay();
     let fundVal = 0,
         usVal = 0,
         cashVal = 0,
@@ -7766,8 +7731,6 @@ function computeCurrent() {
         usCost = 0,
         fundPrevVal = 0,
         usPrevVal = 0;
-    let targetFundDayPnl = 0,
-        targetFundPrevVal = 0;
     var fundTotalRealizedPnl = 0,
         fundTotalBuyCost = 0;
     var maxNavDate = null;   // 所有基金净值里最新的一天（用于基金「当日」标签日封顶）
@@ -7810,36 +7773,7 @@ function computeCurrent() {
         if (f._dayTime && /^\d{4}-\d{2}-\d{2}$/.test(f._dayTime)) {
             if (maxNavDate == null || f._dayTime > maxNavDate) maxNavDate = f._dayTime
         }
-        var _tPnl = 0,
-            _tPrev = 0;
-        if (list && list.length) {
-            var _idx = -1;
-            for (var _i = 0; _i < list.length; _i++) {
-                if (ymd(list[_i].t) === fundTargetDate) {
-                    _idx = _i;
-                    break
-                }
-            }
-            if (_idx >= 0) {
-                var _tlast = list[_idx].nav;
-                var _tprev = _idx > 0 ? list[_idx - 1].nav : _tlast;
-                if (_tprev && _tprev !== 0) {
-                    _tPnl = holdSh * (_tlast - _tprev);
-                    _tPrev = holdSh * _tprev
-                }
-            }
-        }
-        targetFundDayPnl += _tPnl;
-        targetFundPrevVal += _tPrev;
-        var _pr = computeFundPrediction(f, fundDiscDay);
-        var _predPct = _pr.dash ? null : _pr.predPct;
-        var _predPnl = _pr.dash ? null : _pr.predPnl;
-        var _predPnlHero = _predPnl;
-        f._dayPredict = _predPnl;
-        f._dayPredictPct = _predPct;
-        f._dayPredictHero = _predPnlHero
     });
-    const fundPredictPnl = funds.reduce((s, f) => s + (f._dayPredictHero || 0), 0);
     let usTotalRealizedPnl = 0,
         usTotalBuyCost = 0,
         usPredictPnl = 0;
@@ -8016,9 +7950,7 @@ function computeCurrent() {
         fundTotalRealizedPnl: fundTotalRealizedPnl,
         usTotalRealizedPnl: usTotalRealizedPnl,
         fundTotalBuyCost: fundTotalBuyCost,
-        usTotalBuyCost: usTotalBuyCost,
-        fundPredictPnl: fundPredictPnl,
-        predictTotal: fundVal + fundPredictPnl + usVal + cashVal + (isUsRegularSession() ? 0 : usPredictPnl)
+        usTotalBuyCost: usTotalBuyCost
     }
 }
 
@@ -8345,8 +8277,8 @@ function renderAllocLegend() {
     if (!btn || !overlay || !listEl) return;
                                                     
     // 预测覆盖层：数据源符号（与成分股/市场行同一套标签与配色）
-    var _pSrcLabel = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB", em: "东方", predict: "预测", fund: "基金", none: "--" };
-    var _pSrcCls = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr", em: "s-em", predict: "s-predict", fund: "s-fund", none: "s-none" };
+    var _pSrcLabel = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB", em: "东方", predict: "预测", snap: "快照", none: "--" };
+    var _pSrcCls = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr", em: "s-em", predict: "s-predict", snap: "s-snap", none: "s-none" };
     // 取行级数据源徽标（.un-sym 内），避免误伤展开区里成分股各自的徽标
     function predictRowSrcEl(row) {
         if (!row) return null;
@@ -8359,22 +8291,6 @@ function renderAllocLegend() {
         var k = _pSrcLabel[srcKey] ? srcKey : "none";
         el.textContent = _pSrcLabel[k];
         el.className = "market-src " + _pSrcCls[k];
-    }
-    // 成分股涨跌实际取自哪个数据源（与下方 refillPredictHoldings 判定口径完全一致）
-    function holdingSrcOf(it, pd, ch) {
-        var mk = it.m || "us";
-        var isEM = !!EM_MKTS[mk];
-        if (isEM) {
-            var emPrice = (window._holdEMPrice) ? window._holdEMPrice[mk + it.c] : null;
-            // 日/韩股东财缺失时回落腾讯实时，此时符号应标腾讯
-            if (emPrice != null && isFinite(emPrice)) return "em";
-            var _qf = window._holdQ && window._holdQ[mk + it.c];
-            return (_qf && _qf.price > 0) ? "tencent" : "none";
-        }
-        if (mk === "us") return "tencent"; // 腾讯 gtimg 实时价（美股）
-        if (ch != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) return "predict";
-        var _qq = window._holdQ && window._holdQ[mk + it.c];
-        return (_qq && _qq.price > 0) ? "tencent" : "none";
     }
     // 基金总数据源：成分股里用得最多（有效涨跌计数最多）的那个数据源
     function majoritySrc(tally) {
@@ -8454,7 +8370,7 @@ function renderAllocLegend() {
                     return;
                 }
                 var predNav = r.predNav, predMv = r.predMv, predPnl = r.predPnl, predPct = r.predPct, nav = r.nav;
-                setPredictRowSrc(row, r.src); // 基金总数据源 = 成分股里占多数的数据源
+                setPredictRowSrc(row, "tencent"); // 兜底源 QT(QQQ 未知块经腾讯)；有持仓明细时由 refillPredictHoldings 改写为成分股多数源
                 if (navEl) { navEl.textContent = (predNav >= 1 ? predNav.toFixed(3) : predNav.toFixed(4)); var ncls = (predNav > nav) ? "up" : (predNav < nav ? "down" : ""); navEl.className = "fund-acc-nav" + (ncls ? " " + ncls : ""); }
                 if (chgEl) { var ccls = predPct >= 0 ? "up" : "down"; var csgn = predPct > 0 ? "+" : ""; chgEl.textContent = csgn + predPct.toFixed(2) + "%"; chgEl.className = "fas-chg fund-chg-pill " + ccls; }
                 if (valEl) { valEl.textContent = "\u00a5" + Math.round(predMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
@@ -8465,20 +8381,15 @@ function renderAllocLegend() {
             });
         }
 
-    // 美股持仓行（含期权）：现价与涨跌幅沿用「市场行情」口径（克隆自带，此处不覆盖——
-    // 期权行在市场行情里显示的就是其正股的现价与涨跌幅），只把市值/盈亏换成「美股持仓」口径：
-    // 市值 = 份额 × 合约乘数 × 现价 × 汇率，盈亏 = 持仓当日盈亏。
-    // 期权行徽标按合约真实数据源标注：Alpaca(live/close) → ALP，盈透 markPrice 快照 → 盈透。
+    // 美股持仓行（含期权）：预测页始终画杠 —— 现价/涨跌/盈亏一律 —，只显示市值：
+    // 市值 = 份额 × 合约乘数 × 现价 × 汇率（直接取自美股持仓），源标 none。
         function refillUsPredict(container) {
             if (typeof us === "undefined" || !us) return;
             var fx = (typeof effFx === "function") ? effFx() : 0;
             if (!fx || !isFinite(fx) || fx <= 0) fx = (typeof fxRate !== "undefined" && fxRate) ? fxRate : 1;
             var mode = getUnifiedSort().key;
-            var _fref = (typeof computeFundDayRef === "function") ? computeFundDayRef() : null;
-            var _ft = _fref ? String(_fref).replace(/-/g, "") : "";  // 目标日(美东交易日)，去分隔符便于比较
 
-            // 分桶聚合：正股/ETF 与期权(按正股归并)的 key 可能相同(都是 bybitCodeOf(root)+"USDT")，
-            // 但主列表里是两行不同的行 —— 期权行含 .opt-code、正股行不含，据此区分后分别回填。
+            // 分桶聚合：正股/ETF 与期权(按正股归并)各自累计持仓市值
             var aggS = {}, aggO = {};
             us.forEach(function(u){
                 var sym = String(u.symbol || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -8486,125 +8397,53 @@ function renderAllocLegend() {
                 var isOpt = (typeof isOptionSymbol === "function") ? isOptionSymbol(u.symbol) : false;
                 var st = (typeof getTradeStats === "function") ? getTradeStats(u) : { holdShares: 0 };
                 var holdSh = st.holdShares || 0;
-                if (!holdSh) return; // 空头(份额为负)同样参与，仅 0 份额跳过
+                if (!holdSh) return;
                 var mult = (typeof usUnitMult === "function") ? usUnitMult(u) : 1;
                 var price = (u._usd != null && isFinite(Number(u._usd))) ? Number(u._usd)
                           : ((u.price != null && isFinite(Number(u.price))) ? Number(u.price) : 0);
                 if (!(price > 0)) return;
                 var mv = holdSh * mult * price * fx;                       // 持仓市值(人民币，空头为负)
-                var pnl = (u._dayPnl != null && isFinite(Number(u._dayPnl))) ? Number(u._dayPnl) : null; // 持仓当日盈亏
-                // 休市/未更新判定（与基金明细美股 holdingChg 同源口径）：看腾讯(QT)实时报价的日期
-                // 是否刷到目标日(美东交易日)，未刷到(休市/周末/数据未更新) → 当日未交易 → 画杠，QT 不参与。
-                var _dd = u._dayDataDate;
                 var rootSym = sym;
                 if (isOpt) { var _om = sym.match(/^([A-Z]+)(\d{6})([CP])(\d{8})$/); if (_om) rootSym = _om[1]; }
-                var nonTrade = false;
-                if (_ft) {
-                    var _tq = window._holdQ && window._holdQ["us" + rootSym];
-                    var _qd = (_tq && _tq.date) ? String(_tq.date).replace(/-/g, "") : "";
-                    if (_qd) { if (_qd !== _ft) nonTrade = true; }            // QT 报价日期未到目标日 → 当日未交易
-                    else if (_dd) {                                           // QT 无该标的 → 回落数据源交易日(Alpaca/盈透)判定
-                        var _dt = String(_dd).replace(/-/g, "");
-                        if (_dt !== _ft) nonTrade = true;
-                    }
-                }
                 var key = bybitCodeOf(rootSym) + "USDT";
                 var bucket = isOpt ? aggO : aggS;
-                var a = bucket[key] || (bucket[key] = { mv: 0, pnlW: 0, pnlOn: false, src: null, sym: sym, nonTrade: false });
-                if (nonTrade) a.nonTrade = true;
+                var a = bucket[key] || (bucket[key] = { mv: 0 });
                 a.mv += mv;
-                if (pnl != null) { a.pnlW += pnl; a.pnlOn = true; }
-                if (isOpt) {
-                    // 期权合约现价实际来源：live/close 走 Alpaca，ibkr 走盈透 markPrice 快照
-                    var _md = null;
-                    try {
-                        _md = (typeof optionAlpacaMode === "function") ? optionAlpacaMode(u)
-                            : (typeof window.optionAlpacaMode === "function" ? window.optionAlpacaMode(u) : null);
-                    } catch (e) { _md = null; }
-                    if (_md === "ibkr") a.src = "ibkr";
-                    else if (_md === "live" || _md === "close") { if (a.src !== "ibkr") a.src = "alpaca"; }
-                    else if (u && u._ibkrMarkDate) a.src = "ibkr";
-                    else if (!a.src) a.src = "alpaca";
-                }
             });
 
-            // 市值/盈亏写入（不碰 .u-price 与 .fas-chg-mkt，那两格保持市场行情口径）
-            function applyRow(row, a) {
-                var mv = a.mv, pnl = a.pnlOn ? a.pnlW : null;
-                var valEl = row.querySelector(".mvp-val");
-                var amtEl = row.querySelector(".mvp-amt");
-                if (valEl) { valEl.textContent = (mv < 0 ? "-\u00a5" : "\u00a5") + Math.round(Math.abs(mv)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
-                if (amtEl) {
-                    if (pnl == null) { amtEl.textContent = "\u2014"; amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub"); }
-                    else { var acls = pnl >= 0 ? "up" : "down"; var asgn = pnl >= 0 ? "+" : "-"; amtEl.textContent = asgn + "\u00a5" + Math.round(Math.abs(pnl)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub") + " " + acls; }
-                }
-                row.setAttribute("data-mv", Math.round(mv));
-                row.setAttribute("data-pnl", Math.round(pnl == null ? 0 : pnl));
-            }
-
-            // 正股/ETF 行在预测页一律改回腾讯口径：现价用腾讯价、涨跌幅用(腾讯价-腾讯昨收)/昨收、徽标 QT。
-            // 非预测页(市场行情)仍是盘外 Bybit 口径 —— 那是主列表自己的事，这里只覆盖克隆过来的预测页行。
-            function applyStockQt(row, sym) {
-                var tq = null;
-                try {
-                    var _tqFn = (typeof tencentQueryOf === "function") ? tencentQueryOf : (window.tencentQueryOf || null);
-                    var _tMap = (typeof tencentMap !== "undefined" && tencentMap) ? tencentMap : (window._mktTencentMap || null);
-                    if (_tqFn && _tMap) tq = _tMap[_tqFn(sym)];
-                } catch (e) { tq = null; }
-                if (!tq || !(tq.price > 0)) return false; // 腾讯没数据 → 保留市场行情值，不动徽标
-                var p = tq.price;
-                var pc = (tq.prevClose > 0) ? (p - tq.prevClose) / tq.prevClose * 100 : null;
-                var priceEl = row.querySelector(".u-price");
-                var chgEl = row.querySelector(".u-chg .fas-chg-mkt") || row.querySelector(".u-chg");
-                if (priceEl) {
-                    priceEl.textContent = (p >= 1 ? p.toFixed(2) : p.toFixed(4));
-                    priceEl.className = "u-price " + (pc == null ? "" : (pc > 0 ? "up" : (pc < 0 ? "down" : "")));
-                }
-                if (chgEl) {
-                    if (pc == null) { chgEl.textContent = "\u2014"; chgEl.className = "fas-chg-mkt fund-chg-pill"; }
-                    else { chgEl.textContent = (pc > 0 ? "+" : "") + pc.toFixed(2) + "%"; chgEl.className = "fas-chg-mkt fund-chg-pill " + (pc >= 0 ? "up" : "down"); }
-                }
-                setPredictRowSrc(row, "tencent");
-                return true;
-            }
-
-            // 画杠：休市/未更新(腾讯报价日期 != 目标日)时，清空现价与涨跌、源标 none，与基金预测画杠同源
-            function dashUsRow(row) {
+            // 基金预测页：美股与期权始终画杠(—)、只显示市值；市值取自美股持仓(份额×乘数×现价×汇率)。
+            // 现价/涨跌/盈亏一律画杠，无预测口径；源标 none。
+            function applyRowAlwaysDash(row, a) {
+                var mv = a.mv;
                 var pEl = row.querySelector(".u-price");
                 var cEl = row.querySelector(".u-chg .fas-chg-mkt") || row.querySelector(".u-chg");
                 if (pEl) { pEl.textContent = "\u2014"; pEl.className = "u-price"; }
                 if (cEl) { cEl.textContent = "\u2014"; cEl.className = "fas-chg-mkt fund-chg-pill"; }
+                var valEl = row.querySelector(".mvp-val");
+                var amtEl = row.querySelector(".mvp-amt");
+                if (valEl) { valEl.textContent = (mv < 0 ? "-\u00a5" : "\u00a5") + Math.round(Math.abs(mv)).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                if (amtEl) { amtEl.textContent = "\u2014"; amtEl.className = "mvp-amt fas-amt " + (mode === "pnl" ? "mvp-main" : "mvp-sub"); }
                 setPredictRowSrc(row, "none");
+                row.setAttribute("data-mv", Math.round(mv));
+                row.setAttribute("data-pnl", 0);
             }
 
-            // 正股/ETF 行：持仓口径市值/盈亏；当日已交易(腾讯报价日期==目标日)才切 QT 实时，休市日画杠、QT 不参与
             Object.keys(aggS).forEach(function(key){
                 Array.prototype.forEach.call(container.querySelectorAll('.market-item-us[data-symbol="' + key + '"]'), function(row){
-                    if (row.querySelector(".opt-code")) return; // 期权行跳过
-                    var a = aggS[key];
-                    applyRow(row, { mv: a.mv, pnlW: a.pnlW, pnlOn: a.nonTrade ? false : a.pnlOn, sym: a.sym });
-                    if (a.nonTrade) dashUsRow(row);
-                    else applyStockQt(row, a.sym);
+                    if (row.querySelector(".opt-code")) return;
+                    applyRowAlwaysDash(row, aggS[key]);
                 });
             });
-            // 期权行：盘中走 QT、盘外保留合约源(ALP/盈透)；休市日画杠、QT 不参与
             Object.keys(aggO).forEach(function(key){
                 Array.prototype.forEach.call(container.querySelectorAll('.market-item-us[data-symbol="' + key + '"]'), function(row){
-                    if (!row.querySelector(".opt-code")) return; // 只作用于期权行
-                    var a = aggO[key];
-                    applyRow(row, { mv: a.mv, pnlW: a.pnlW, pnlOn: a.nonTrade ? false : a.pnlOn, sym: a.sym });
-                    if (a.nonTrade) { dashUsRow(row); return; }
-                    var _oRoot = (a.sym || "").match(/^([A-Z]+)\d{6}[CP]\d{8}$/);
-                    var _oSym = _oRoot ? _oRoot[1] : a.sym;
-                    applyStockQt(row, _oSym); // 腾讯价/涨跌（腾讯无价则不动）
-                    var _inSess = (typeof isUsRegularSession === "function") ? isUsRegularSession() : true;
-                    setPredictRowSrc(row, _inSess ? "tencent" : (a.src || "alpaca"));
+                    if (!row.querySelector(".opt-code")) return;
+                    applyRowAlwaysDash(row, aggO[key]);
                 });
             });
         }
                                                     
     // 横幅：仅统计持仓（基金预测口径 + 美股持仓实时）+ 现金，剔除加密货币/大宗商品
-    // 美股/期权行盈亏与资产页同源展示：盘外(普通交易日盘后)不画杠；休市/未更新日(数据源日期!=目标日)由 refillUsPredict 画杠、QT 不参与
+    // 美股/期权行在预测页始终画杠：现价/涨跌/盈亏一律 —，只显示美股持仓口径市值（refillUsPredict）
     function renderPredictBanner(container) {
         if (!banner) return;
         var fundMv = 0, fundPnl = 0, mktMv = 0, mktPnl = 0;
@@ -8710,6 +8549,8 @@ function renderAllocLegend() {
             comps.push({ kind: "alloc", name: "现金", code: "现金", pct: alloc.cash || 0 });
             comps.push({ kind: "qqq", name: "QQQ·未知块", code: "QQQ", pct: tail });
 
+            var srcTally = {}; // 成分股数据源计数：基金行徽标取多数源（里面什么多外面显示什么）
+
             var accBody = row.querySelector(".fund-acc-body");
             if (!accBody) return;
             var hdItems = accBody.querySelectorAll(".fund-hd-item");
@@ -8762,6 +8603,7 @@ function renderAllocLegend() {
                     else if (mk === "us") src = "tencent";
                     else if (chg != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) src = "predict";
                     else if (_qq && _qq.price > 0) src = "tencent";
+                    if (src && src !== "none") srcTally[src] = (srcTally[src] || 0) + 1;
                     if (qEl) {
                         if (price != null && isFinite(price)) qEl.textContent = (price >= 1 ? price.toFixed(2) : price.toFixed(4));
                         else qEl.textContent = "--";
@@ -8793,9 +8635,12 @@ function renderAllocLegend() {
                         var qsign = qqqChg > 0 ? "+" : "";
                         if (cEl) { cEl.textContent = qsign + qqqChg.toFixed(2) + "%"; cEl.className = "fund-hd-chg " + qcls; }
                         if (srcEl) { srcEl.textContent = "QT"; srcEl.className = "market-src s-tencent"; }
+                        srcTally["tencent"] = (srcTally["tencent"] || 0) + 1;
                     }
                 }
             });
+            // 基金行数据源徽标 = 成分股(含QQQ未知块)里占多数的数据源（QT/快照/东方/预测…）；画杠行保持 --
+            setPredictRowSrc(row, (fpred && fpred.dash) ? "none" : majoritySrc(srcTally));
         });
     }
 
@@ -14850,18 +14695,18 @@ return;
         } else {
             body = '<div class="fund-acc-nodata">暂无季报持仓数据（report: ' + (ph ? (ph.report || "未知") : "未加载") + '）</div>';
         }
-        // 基金数据源：按持仓市场 + 当前会话推断（美股经 Bybit/腾讯/Alpaca；港/日股经腾讯财经）
+        // 基金数据源：按持仓市场 + 当前会话推断（美股经 Bybit/腾讯/Alpaca；港/A/日/韩股经腾讯财经）
         var _fundMkts = {};
         items.forEach(function(it) { _fundMkts[it.m || "us"] = true; });
-        var _fundSrcKey = "fund";
+        var _fundSrcKey = "none";
         if (_fundMkts["us"]) {
             _fundSrcKey = (typeof marketStockUseBybit === "function" && marketStockUseBybit()) ? "bybit"
                 : ((typeof isUsRegularSession === "function" && isUsRegularSession()) ? "tencent" : "alpaca");
-        } else if (_fundMkts["hk"] || _fundMkts["jp"] || _fundMkts["kr"]) {
-            _fundSrcKey = "tencent";
+        } else if (items.length) {
+            _fundSrcKey = "tencent"; // 港/A/日/韩股持仓均经腾讯行情(fetchFundHdQt)
         }
-        var _srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB", fund: "基金" };
-        var _srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr", fund: "s-fund" };
+        var _srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB", none: "--" };
+        var _srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr", none: "s-none" };
         var _fundSrcLabel = _srcLabelMap[_fundSrcKey] || _fundSrcKey;
         var _fundSrcCls = _srcClsMap[_fundSrcKey] || "s-none";
         var caret = '<span class="u-caret">▶</span>';
@@ -15234,20 +15079,21 @@ function aggregateFundSums() {
         }
         // 单价：由东财净值推算的当日估算单价（绿涨红跌）
         // 规则：盘中(美东 9:30-16:00)直接用东财净值 × (1 + 加权涨跌幅)，不叠加当日预测；
-        //   盘外(美东非盘中)才考虑基金持仓“当日预测”是否有数据（与列表“当日预测”列同源判断）。
+        //   盘外(美东非盘中)才考虑基金持仓"当日预测"是否有数据（与预测覆盖层同源判断）。
         //   - 无当日预测(-)：单价 = 东财价格 × (1 + 加权盈亏率)
         //   - 有当日预测：  单价 = 东财价格 × (1 + 当日预测盈亏率) × (1 + 加权盈亏率)
-        // 其中“加权盈亏率”= predPct（持仓加权当日涨跌），“当日预测盈亏率”= f._dayPredictPct
+        // 其中"加权盈亏率"= predPct（持仓加权当日涨跌 byb/qt），"当日预测盈亏率"= fundPredictEstimate(f) 预测涨跌幅
         var dayPred = null;
-        // 盘中(美东 9:30-16:00)：直接用东财净值×(1+加权涨跌幅)，无需当日预测
         var _inUsSession = (typeof isUsRegularSession === "function") ? isUsRegularSession() : false;
         if (!_inUsSession) {
-            // 盘外：才考虑基金持仓“当日预测”是否有数据
+            // 盘外：才考虑基金持仓"当日预测"是否有数据（与预测覆盖层同源）
             try {
-                if (f && f._dayPredictPct != null && isFinite(f._dayPredictPct) &&
-                    typeof fundNeedsPredict === "function" && fundNeedsPredict(f, fundDisclosureDay()) &&
-                    window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code]) {
-                    dayPred = f._dayPredictPct;
+                if (f && typeof fundNeedsPredict === "function" && fundNeedsPredict(f, fundDisclosureDay()) &&
+                    typeof fundPredictEstimate === "function") {
+                    var _fpe = fundPredictEstimate(f, fundDisclosureDay());
+                    if (_fpe && !_fpe.dash && _fpe.predPct != null && isFinite(_fpe.predPct)) {
+                        dayPred = _fpe.predPct;
+                    }
                 }
             } catch (e) {}
         }
@@ -16126,7 +15972,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     <div data-page-node-id="8ajdhOhaXLzh6gZXwJ5zSu" aria-hidden="true" class="predict-overlay" id="predictOverlay">
         <div data-page-node-id="Afmkh2lvWa1yh7RI90okYM" class="predict-wrap">
         <div data-page-node-id="lEZFiP1He0GsfMM4DYn9qD" class="predict-overlay-head">
-            <div data-page-node-id="f50HQKZ2Kt3jHOa4emYWgJ" class="predict-overlay-title"><!--pnid:Y8fWvGmUKKpEEIij8USOgT-->市场行情 · 当日预测</div>
+            <div data-page-node-id="f50HQKZ2Kt3jHOa4emYWgJ" class="predict-overlay-title"><!--pnid:Y8fWvGmUKKpEEIij8USOgT-->市场行情 · 基金预测</div>
             <button data-page-node-id="mqiFB842madbs7NbHkhwfh" aria-label="关闭" class="predict-close" id="predictBackBtn" type="button"><!--pnid:bqTBSKyNC2zN4z1kgpyhdd-->✕</button>
         </div>
             <div data-page-node-id="HJKKOg69WVOkRpdrv74Yoy" class="predict-banner" id="predictBanner"></div>
