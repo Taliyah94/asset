@@ -7513,8 +7513,10 @@ function prevWeekdayYmd(s) {
 
 /* YYYY-MM-DD → "MMDD" 短标签（2026-09-03 → "0903"），用于卡片「当日」日期角标 */
 function mdLabel(s) {
-    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return (s == null || s === "") ? "—" : s;
-    return s.slice(5, 7) + s.slice(8, 10)
+    if (!s || s === "") return "—";
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s) || /^(\d{4})(\d{2})(\d{2})$/.exec(s);
+    if (!m) return s;
+    return m[2] + m[3];
 }
 
 /* 基金「当日」基准日（美东开盘 9:30 ET 为界；隔周末跳过）。
@@ -7872,6 +7874,10 @@ function computeCurrent() {
             if (qqUp && qqUp.date) _dataDate = String(qqUp.date);
         } else if (u._quoteTime && /\d{4}-\d{2}-\d{2}/.test(u._quoteTime)) {
             _dataDate = u._quoteTime.slice(0, 10).replace(/-/g, "");
+        }
+        // 归一化为 YYYY-MM-DD，与 fundDayRef 同源比较（修复 usDayPnlForTarget 因 8 位格式不一致恒为 0 的 bug）
+        if (_dataDate && /^\d{8}$/.test(_dataDate)) {
+            _dataDate = _dataDate.slice(0, 4) + "-" + _dataDate.slice(4, 6) + "-" + _dataDate.slice(6, 8);
         }
         u._dayDataDate = _dataDate;
         u._stats = st;
@@ -8422,6 +8428,10 @@ function renderAllocLegend() {
                 if (!(price > 0)) return;
                 var mv = holdSh * mult * price * fx;                       // 持仓市值(人民币，空头为负)
                 var pnl = (u._dayPnl != null && isFinite(Number(u._dayPnl))) ? Number(u._dayPnl) : null; // 持仓当日盈亏
+                // 休市/未更新判定（与资产页 usDayPnlForTarget 同源）：数据源实际交易日 != 美东边界日(目标日) → 当日未交易
+                var _dd = u._dayDataDate;
+                var _fref = (typeof computeFundDayRef === "function") ? computeFundDayRef() : null;
+                var nonTrade = !!(_fref && _dd && _dd !== _fref);
                 var rootSym = sym;
                 if (isOpt) { var _om = sym.match(/^([A-Z]+)(\d{6})([CP])(\d{8})$/); if (_om) rootSym = _om[1]; }
                 var key = bybitCodeOf(rootSym) + "USDT";
@@ -8483,30 +8493,34 @@ function renderAllocLegend() {
                 return true;
             }
 
-            // 正股/ETF 行：现价与涨跌幅切到 QT，市值盈亏仍用持仓口径
+            // 正股/ETF 行：持仓口径市值/盈亏；当日已交易(数据源日期==目标日)才切 QT 实时，休市日画杠、QT 不参与
             Object.keys(aggS).forEach(function(key){
                 Array.prototype.forEach.call(container.querySelectorAll('.market-item-us[data-symbol="' + key + '"]'), function(row){
                     if (row.querySelector(".opt-code")) return; // 期权行跳过
-                    applyRow(row, aggS[key]);
-                    applyStockQt(row, aggS[key].sym);
+                    var a = aggS[key];
+                    applyRow(row, { mv: a.mv, pnlW: a.pnlW, pnlOn: a.nonTrade ? false : a.pnlOn, sym: a.sym });
+                    if (a.nonTrade) dashUsRow(row);
+                    else applyStockQt(row, a.sym);
                 });
             });
-            // 期权行：价格/涨跌幅强制腾讯口径（与正股行一致，盘中 QT）；图标盘中 QT、盘外保留合约源(ALP / 盈透)
+            // 期权行：盘中走 QT、盘外保留合约源(ALP/盈透)；休市日画杠、QT 不参与
             Object.keys(aggO).forEach(function(key){
                 Array.prototype.forEach.call(container.querySelectorAll('.market-item-us[data-symbol="' + key + '"]'), function(row){
                     if (!row.querySelector(".opt-code")) return; // 只作用于期权行
-                    applyRow(row, aggO[key]);
-                    var _oRoot = (aggO[key].sym || "").match(/^([A-Z]+)\d{6}[CP]\d{8}$/);
-                    var _oSym = _oRoot ? _oRoot[1] : aggO[key].sym;
+                    var a = aggO[key];
+                    applyRow(row, { mv: a.mv, pnlW: a.pnlW, pnlOn: a.nonTrade ? false : a.pnlOn, sym: a.sym });
+                    if (a.nonTrade) { dashUsRow(row); return; }
+                    var _oRoot = (a.sym || "").match(/^([A-Z]+)\d{6}[CP]\d{8}$/);
+                    var _oSym = _oRoot ? _oRoot[1] : a.sym;
                     applyStockQt(row, _oSym); // 腾讯价/涨跌（腾讯无价则不动）
                     var _inSess = (typeof isUsRegularSession === "function") ? isUsRegularSession() : true;
-                    setPredictRowSrc(row, _inSess ? "tencent" : (aggO[key].src || "alpaca"));
+                    setPredictRowSrc(row, _inSess ? "tencent" : (a.src || "alpaca"));
                 });
             });
         }
                                                     
     // 横幅：仅统计持仓（基金预测口径 + 美股持仓实时）+ 现金，剔除加密货币/大宗商品
-    // 美股/期权行盈亏与资产页同源展示，盘外不再画杠，保证两页逐行可比
+    // 美股/期权行盈亏与资产页同源展示：盘外(普通交易日盘后)不画杠；休市/未更新日(数据源日期!=目标日)由 refillUsPredict 画杠、QT 不参与
     function renderPredictBanner(container) {
         if (!banner) return;
         var fundMv = 0, fundPnl = 0, mktMv = 0, mktPnl = 0;
