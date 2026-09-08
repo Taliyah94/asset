@@ -8466,6 +8466,8 @@ function renderAllocLegend() {
             var fx = (typeof effFx === "function") ? effFx() : 0;
             if (!fx || !isFinite(fx) || fx <= 0) fx = (typeof fxRate !== "undefined" && fxRate) ? fxRate : 1;
             var mode = getUnifiedSort().key;
+            var _fref = (typeof computeFundDayRef === "function") ? computeFundDayRef() : null;
+            var _ft = _fref ? String(_fref).replace(/-/g, "") : "";  // 目标日(美东交易日)，去分隔符便于比较
 
             // 分桶聚合：正股/ETF 与期权(按正股归并)的 key 可能相同(都是 bybitCodeOf(root)+"USDT")，
             // 但主列表里是两行不同的行 —— 期权行含 .opt-code、正股行不含，据此区分后分别回填。
@@ -8483,15 +8485,25 @@ function renderAllocLegend() {
                 if (!(price > 0)) return;
                 var mv = holdSh * mult * price * fx;                       // 持仓市值(人民币，空头为负)
                 var pnl = (u._dayPnl != null && isFinite(Number(u._dayPnl))) ? Number(u._dayPnl) : null; // 持仓当日盈亏
-                // 休市/未更新判定（与资产页 usDayPnlForTarget 同源）：数据源实际交易日 != 美东边界日(目标日) → 当日未交易
+                // 休市/未更新判定（与基金明细美股 holdingChg 同源口径）：看腾讯(QT)实时报价的日期
+                // 是否刷到目标日(美东交易日)，未刷到(休市/周末/数据未更新) → 当日未交易 → 画杠，QT 不参与。
                 var _dd = u._dayDataDate;
-                var _fref = (typeof computeFundDayRef === "function") ? computeFundDayRef() : null;
-                var nonTrade = !!(_fref && _dd && _dd !== _fref);
                 var rootSym = sym;
                 if (isOpt) { var _om = sym.match(/^([A-Z]+)(\d{6})([CP])(\d{8})$/); if (_om) rootSym = _om[1]; }
+                var nonTrade = false;
+                if (_ft) {
+                    var _tq = window._holdQ && window._holdQ["us" + rootSym];
+                    var _qd = (_tq && _tq.date) ? String(_tq.date).replace(/-/g, "") : "";
+                    if (_qd) { if (_qd !== _ft) nonTrade = true; }            // QT 报价日期未到目标日 → 当日未交易
+                    else if (_dd) {                                           // QT 无该标的 → 回落数据源交易日(Alpaca/盈透)判定
+                        var _dt = String(_dd).replace(/-/g, "");
+                        if (_dt !== _ft) nonTrade = true;
+                    }
+                }
                 var key = bybitCodeOf(rootSym) + "USDT";
                 var bucket = isOpt ? aggO : aggS;
-                var a = bucket[key] || (bucket[key] = { mv: 0, pnlW: 0, pnlOn: false, src: null, sym: sym });
+                var a = bucket[key] || (bucket[key] = { mv: 0, pnlW: 0, pnlOn: false, src: null, sym: sym, nonTrade: false });
+                if (nonTrade) a.nonTrade = true;
                 a.mv += mv;
                 if (pnl != null) { a.pnlW += pnl; a.pnlOn = true; }
                 if (isOpt) {
@@ -8548,7 +8560,16 @@ function renderAllocLegend() {
                 return true;
             }
 
-            // 正股/ETF 行：持仓口径市值/盈亏；当日已交易(数据源日期==目标日)才切 QT 实时，休市日画杠、QT 不参与
+            // 画杠：休市/未更新(腾讯报价日期 != 目标日)时，清空现价与涨跌、源标 none，与基金预测画杠同源
+            function dashUsRow(row) {
+                var pEl = row.querySelector(".u-price");
+                var cEl = row.querySelector(".u-chg .fas-chg-mkt") || row.querySelector(".u-chg");
+                if (pEl) { pEl.textContent = "\u2014"; pEl.className = "u-price"; }
+                if (cEl) { cEl.textContent = "\u2014"; cEl.className = "fas-chg-mkt fund-chg-pill"; }
+                setPredictRowSrc(row, "none");
+            }
+
+            // 正股/ETF 行：持仓口径市值/盈亏；当日已交易(腾讯报价日期==目标日)才切 QT 实时，休市日画杠、QT 不参与
             Object.keys(aggS).forEach(function(key){
                 Array.prototype.forEach.call(container.querySelectorAll('.market-item-us[data-symbol="' + key + '"]'), function(row){
                     if (row.querySelector(".opt-code")) return; // 期权行跳过

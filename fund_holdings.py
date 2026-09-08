@@ -76,8 +76,55 @@ import os
 import re
 import sys
 import time
+import datetime as _dt
 import urllib.request
 from html.parser import HTMLParser
+
+# ---------------------------------------------------------------------------
+# 腾讯行情时间戳 → 美东交易日(YYYYMMDD)
+# 腾讯时间戳为「北京时间」；而前端预测层目标日以「美东」为准，快照日期必须与之
+# 对齐，否则会出现「北京 09-08 抓的数据其实是美东 09-07，却被当成未来跳过」的错位。
+# 故此处把北京时间戳换算成美东日期后再写入快照。
+# ---------------------------------------------------------------------------
+try:
+    from zoneinfo import ZoneInfo as _ZI
+    _TZ_BJ = _ZI("Asia/Shanghai")
+    _TZ_ET = _ZI("America/New_York")
+    def _et_trade_date(ts_raw, fallback):
+        s = re.sub(r"\D", "", ts_raw or "")
+        if len(s) < 14:
+            return fallback
+        try:
+            bj = _dt.datetime.strptime(s[:14], "%Y%m%d%H%M%S").replace(tzinfo=_TZ_BJ)
+            return bj.astimezone(_TZ_ET).strftime("%Y%m%d")
+        except Exception:
+            return fallback
+except Exception:  # 无 IANA 时区库（如 Windows 缺 tzdata）时手动换算
+    def _us_dst(y, m, d):
+        # 美东夏令时：3 月第 2 个周日起，到 11 月第 1 个周日止
+        if m < 3 or m > 11:
+            return False
+        if 3 < m < 11:
+            return True
+        if m == 3:
+            wd = _dt.date(y, 3, 1).weekday()
+            second_sun = 1 + (6 - wd) % 7 + 7
+            return d >= second_sun
+        wd = _dt.date(y, 11, 1).weekday()
+        first_sun = 1 + (6 - wd) % 7
+        return d < first_sun
+    def _et_trade_date(ts_raw, fallback):
+        s = re.sub(r"\D", "", ts_raw or "")
+        if len(s) < 14:
+            return fallback
+        try:
+            bj = _dt.datetime.strptime(s[:14], "%Y%m%d%H%M%S")
+        except Exception:
+            return fallback
+        # 北京 UTC+8；美东夏令时(EDT, UTC-4)差 12h，冬令时(EST, UTC-5)差 13h
+        diff = 13 if _us_dst(bj.year, bj.month, bj.day) else 12
+        et = bj - _dt.timedelta(hours=diff)
+        return et.strftime("%Y%m%d")
 
 # ---------------------------------------------------------------------------
 # 默认基金列表（与 asset-v2.html 的 FUND_HOLDINGS 对齐）
@@ -372,6 +419,10 @@ def fetch_qt_quotes(syms, retries=3, timeout=15):
                 continue
             date = re.sub(r"\D", "", p[30])[:8]
             if len(date) != 8:
+                continue
+            # 腾讯时间戳为北京时间，换算成美东交易日再写快照（与前端预测层目标日口径一致）
+            date = _et_trade_date(p[30], date)
+            if not date:
                 continue
             out[sym] = {
                 "date": date,
