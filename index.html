@@ -7317,12 +7317,15 @@ function holdingChg(it, predictDay) {
         if (_tg && _q2.date && _q2.date < _tg) return null;
         return (_q2.price - _q2.prevClose) / _q2.prevClose * 100
     }
-    // 美股：腾讯 qt.gtimg.cn 实时价（盘前=上一交易日收盘 vs 前收，恰好等于目标日涨跌）
+    // 美股：腾讯 qt.gtimg.cn 实时价。报价日期未刷到美东目标日（休市/周末/数据未更新）→ 返回 null，
+    // 避免把上一交易日的「收盘 vs 前收」当目标日涨跌（与 QQQ 闸门同源口径）。
     if (mk === "us") {
         var _qq = window._holdQ && window._holdQ[mk + it.c];
-        var _rt = null;
-        if (_qq && _qq.price > 0 && _qq.prevClose > 0) _rt = (_qq.price - _qq.prevClose) / _qq.prevClose * 100;
-        return _rt != null ? _rt : null
+        if (!(_qq && _qq.price > 0 && _qq.prevClose > 0)) return null;
+        var _td = (typeof computeFundDayRef === "function") ? String(computeFundDayRef() || "").replace(/-/g, "") : "";
+        var _qd = _qq.date ? String(_qq.date).replace(/-/g, "") : "";
+        if (_td && _qd && _qd !== _td) return null;
+        return (_qq.price - _qq.prevClose) / _qq.prevClose * 100;
     }
     if (predictDay != null && window._holdKline) {
         var kk = window._holdKline[(it.m || "") + it.c + "|" + predictDay];
@@ -7553,29 +7556,31 @@ function fundPredictEstimate(f, discDay) {
     var targetDay = (typeof computeFundDayRef === "function") ? computeFundDayRef() : (discDay || null);
     if (!targetDay) return { dash: true, nav: nav, holdSh: holdSh };
     var qqqChg = getQqqChangeForDay(targetDay);
-    if (qqqChg == null) return { dash: true, nav: nav, holdSh: holdSh }; // 美股休市/周末 → 无有效基准 → 画杠
     var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
     var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
-    var sw = 0, topW = 0;
+    var sw = 0, topW = 0, validW = 0;
     if (ph && Array.isArray(ph.items)) {
         ph.items.forEach(function(it) {
             if (typeof it.p !== "number") return;
             var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
-            if (ch == null) ch = 0;
-            sw += it.p * ch;
             topW += it.p;
+            if (ch != null && isFinite(ch)) { sw += it.p * ch; validW += it.p; }
         });
     }
     var alloc = (ph && ph.alloc) ? ph.alloc : { stock: 100, bond: 0, cash: 0 };
     var tail = Math.max(0, 100 - topW - (alloc.bond || 0) - (alloc.cash || 0)) / 100;
-    var predPct = sw / 100 + tail * qqqChg;
+    // 有任意有效成分涨跌（如日韩港A股在美休市日仍开市）→ 显示部分估值；纯美股且休市 → 画杠
+    var hasValid = validW > 0 || (qqqChg != null && tail > 0);
+    if (!hasValid) return { dash: true, nav: nav, holdSh: holdSh, qqqNull: qqqChg == null };
+    var predPct = sw / 100 + tail * (qqqChg == null ? 0 : qqqChg);
     var rawBase = holdSh * nav;
     var base = rawBase - (f._dayPnl || 0);
     var predNav = nav * (1 + predPct / 100);
     var predMv = predNav * holdSh;
     var predPnl = base * predPct / 100;
     return { dash: false, nav: nav, holdSh: holdSh, base: base, rawBase: rawBase,
-             predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl, src: "fund" };
+             predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl,
+             src: "fund", qqqNull: qqqChg == null };
 }
 window.fundPredictEstimate = fundPredictEstimate;
 window.getQqqChangeForDay = getQqqChangeForDay;
@@ -8645,80 +8650,123 @@ function renderAllocLegend() {
     window.buildPredictList = buildPredictList; // [修复] 暴露为全局：自动刷新预测覆盖层需重绘
     window.refillPredictHoldings = refillPredictHoldings; // 暴露：预测覆盖层基金成分股重算（同源 holdingChg）
 
-    // 预测覆盖层：基金成分股价格/涨跌幅改用「基金总涨跌」同源算法(holdingChg)重算，不再沿用克隆的实时行情
+    // 预测覆盖层：基金成分股价格/涨跌幅改用「基金总涨跌」同源算法(holdingChg)重算；
+    // 明细额外补：债券 / 现金 / QQQ(未知块) 三行占比（普通基金 = 10 成分股 + 3 = 13 行）。
     function refillPredictHoldings(container) {
         if (typeof funds === "undefined" || !funds) return;
         var discDay = (typeof fundDisclosureDay === "function") ? fundDisclosureDay() : null;
+        var targetDay = (typeof computeFundDayRef === "function") ? computeFundDayRef() : discDay;
+        var qqqChg = (typeof getQqqChangeForDay === "function") ? getQqqChangeForDay(targetDay) : null;
         funds.forEach(function(f){
             if (!f.code) return;
             var row = container.querySelector('.fund-row[data-fund-code="' + f.code + '"]');
             if (!row) return;
-            // 基金行已画杠（无当日有效预测）→ 成分股不显示实时 QT，统一画杠（--）
             var fpred = computeFundPrediction(f, discDay);
-            if (fpred.dash) {
-                var ph0 = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
-                var items0 = (ph0 && ph0.items) ? ph0.items.slice(0, 10) : [];
-                var hdItems0 = row.querySelectorAll(".fund-hd-item");
-                items0.forEach(function(it, i){
-                    var el = hdItems0[i];
-                    if (!el) return;
-                    var qEl = el.querySelector(".fund-hd-quote");
-                    var cEl = el.querySelector(".fund-hd-chg");
-                    var srcEl = el.querySelector(".market-src");
-                    if (qEl) qEl.textContent = "--";
-                    if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
-                    if (srcEl) { srcEl.textContent = "--"; srcEl.className = "market-src s-none"; }
-                });
-                return;
-            }
             var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
             if (!ph || !ph.items || !ph.items.length) return;
             var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
-            var items = ph.items.slice(0, 10);
-            var hdItems = row.querySelectorAll(".fund-hd-item");
-            items.forEach(function(it, i){
+            var topItems = ph.items.slice(0, 10);
+            var alloc = (ph && ph.alloc) ? ph.alloc : { stock: 100, bond: 0, cash: 0 };
+            var topW = 0;
+            topItems.forEach(function(it){ if (typeof it.p === "number") topW += it.p; });
+            var tail = Math.max(0, 100 - topW - (alloc.bond || 0) - (alloc.cash || 0));
+
+            // 组件清单：前十大 + 债券 + 现金 + QQQ(未知块)
+            var comps = [];
+            topItems.forEach(function(it){ comps.push({ kind: "holding", it: it }); });
+            comps.push({ kind: "alloc", name: "债券", code: "债券", pct: alloc.bond || 0 });
+            comps.push({ kind: "alloc", name: "现金", code: "现金", pct: alloc.cash || 0 });
+            comps.push({ kind: "qqq", name: "QQQ·未知块", code: "QQQ", pct: tail });
+
+            var accBody = row.querySelector(".fund-acc-body");
+            if (!accBody) return;
+            var hdItems = accBody.querySelectorAll(".fund-hd-item");
+            // 补齐行数：克隆行只有前十大，需补 债券/现金/QQQ 三行
+            var need = comps.length - hdItems.length;
+            for (var k = 0; k < need; k++) {
+                var d = document.createElement("div");
+                d.className = "fund-hd-item";
+                d.innerHTML = '<div class="fund-hd-top"><span class="fund-hd-idx"></span><span class="fund-hd-name"></span><span class="market-src s-none">--</span></div>'
+                    + '<div class="fund-hd-bottom"><span class="fund-hd-code"></span><span class="fund-hd-pct">0.00%</span><span class="fund-hd-quote">--</span><span class="fund-hd-chg">--</span></div>';
+                accBody.appendChild(d);
+            }
+            hdItems = accBody.querySelectorAll(".fund-hd-item");
+
+            comps.forEach(function(c, i){
                 var el = hdItems[i];
                 if (!el) return;
-                var mk = it.m || "us";
-                var _qq = window._holdQ && window._holdQ[mk + it.c];
-                var isEM = !!EM_MKTS[mk];
-                var emPrice = (isEM && window._holdEMPrice) ? window._holdEMPrice[mk + it.c] : null;
-                /* 港股/A股/日股/韩股：价格取东方财富目标日收盘价，与涨跌幅同源，避免口径打架；
-                   日韩股东财缺失时才回落腾讯实时价 */
-                var price = (isEM && emPrice != null && isFinite(emPrice)) ? emPrice
-                         : (_qq && _qq.price > 0 ? _qq.price : null);
-                var chg = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
-                var src = "none";
-                var _emSource = (isEM && window._emSrc) ? window._emSrc[mk + it.c] : null;
-                if (isEM) src = _emSource || ((emPrice != null && isFinite(emPrice)) ? "em" : ((_qq && _qq.price > 0) ? "tencent" : "none"));
-                else if (mk === "us") src = "tencent";
-                else if (chg != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) src = "predict";
-                else if (_qq && _qq.price > 0) src = "tencent";
+                var idxEl = el.querySelector(".fund-hd-idx");
+                var nameEl = el.querySelector(".fund-hd-name");
+                var srcEl = el.querySelector(".market-src");
+                var codeEl = el.querySelector(".fund-hd-code");
+                var pctEl = el.querySelector(".fund-hd-pct");
                 var qEl = el.querySelector(".fund-hd-quote");
                 var cEl = el.querySelector(".fund-hd-chg");
-                var srcEl = el.querySelector(".market-src");
-                if (qEl) {
-                    if (price != null && isFinite(price)) qEl.textContent = (price >= 1 ? price.toFixed(2) : price.toFixed(4));
-                    else qEl.textContent = "--";
-                }
-                if (cEl) {
-                    if (chg != null && isFinite(chg)) {
-                        var cls = chg >= 0 ? "up" : "down";
-                        var sign = chg > 0 ? "+" : "";
-                        cEl.textContent = sign + chg.toFixed(2) + "%";
-                        cEl.className = "fund-hd-chg " + cls;
-                    } else { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
-                }
-                if (srcEl) {
-                    var lbl = (src === "snap") ? "快照" : (src === "em") ? "东方" : (src === "predict") ? "预测" : (src === "tencent" ? "QT" : (src === "bybit" ? "BYB" : (src === "alpaca" ? "ALP" : "--")));
-                    var scls = (src === "snap") ? "s-snap" : (src === "em") ? "s-em" : (src === "predict") ? "s-predict" : (src === "tencent" ? "s-tencent" : (src === "bybit" ? "s-bybit" : (src === "alpaca" ? "s-alpaca" : "s-none")));
-                    srcEl.textContent = lbl;
-                    srcEl.className = "market-src " + scls;
+                if (idxEl) idxEl.textContent = String(i + 1);
+                if (nameEl) nameEl.textContent = c.name;
+                if (codeEl) codeEl.textContent = c.code;
+                if (pctEl) pctEl.textContent = (Number(c.pct) || 0).toFixed(2) + "%";
+                if (qEl) qEl.textContent = "--"; // 债/现金/QQQ 无实时价
+
+                if (c.kind === "holding") {
+                    var it = c.it, mk = it.m || "us";
+                    var _qq = window._holdQ && window._holdQ[mk + it.c];
+                    var isEM = !!EM_MKTS[mk];
+                    var emPrice = (isEM && window._holdEMPrice) ? window._holdEMPrice[mk + it.c] : null;
+                    var price = (isEM && emPrice != null && isFinite(emPrice)) ? emPrice
+                             : (_qq && _qq.price > 0 ? _qq.price : null);
+                    var chg = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
+                    var hasChg = (chg != null && isFinite(chg));
+                    // 无有效目标日数据（如美股休市/周末）→ 该行画杠，不显示 stale 涨跌
+                    if (!hasChg) {
+                        if (qEl) qEl.textContent = "--";
+                        if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
+                        if (srcEl) { srcEl.textContent = "--"; srcEl.className = "market-src s-none"; }
+                        return;
+                    }
+                    var src = "none";
+                    var _emSource = (isEM && window._emSrc) ? window._emSrc[mk + it.c] : null;
+                    if (isEM) src = _emSource || ((emPrice != null && isFinite(emPrice)) ? "em" : ((_qq && _qq.price > 0) ? "tencent" : "none"));
+                    else if (mk === "us") src = "tencent";
+                    else if (chg != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) src = "predict";
+                    else if (_qq && _qq.price > 0) src = "tencent";
+                    if (qEl) {
+                        if (price != null && isFinite(price)) qEl.textContent = (price >= 1 ? price.toFixed(2) : price.toFixed(4));
+                        else qEl.textContent = "--";
+                    }
+                    if (cEl) {
+                        if (chg != null && isFinite(chg)) {
+                            var cls = chg >= 0 ? "up" : "down";
+                            var sign = chg > 0 ? "+" : "";
+                            cEl.textContent = sign + chg.toFixed(2) + "%";
+                            cEl.className = "fund-hd-chg " + cls;
+                        } else { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
+                    }
+                    if (srcEl) {
+                        var lbl = (src === "snap") ? "快照" : (src === "em") ? "东方" : (src === "predict") ? "预测" : (src === "tencent" ? "QT" : (src === "bybit" ? "BYB" : (src === "alpaca" ? "ALP" : "--")));
+                        var scls = (src === "snap") ? "s-snap" : (src === "em") ? "s-em" : (src === "predict") ? "s-predict" : (src === "tencent" ? "s-tencent" : (src === "bybit" ? "s-bybit" : (src === "alpaca" ? "s-alpaca" : "s-none")));
+                        srcEl.textContent = lbl;
+                        srcEl.className = "market-src " + scls;
+                    }
+                } else if (c.kind === "alloc") {
+                    // 债券 / 现金：静态配置，无实时涨跌
+                    if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
+                    if (srcEl) { srcEl.textContent = "配置"; srcEl.className = "market-src s-none"; }
+                } else if (c.kind === "qqq") {
+                    if (qqqChg == null) {
+                        if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
+                        if (srcEl) { srcEl.textContent = "--"; srcEl.className = "market-src s-none"; }
+                    } else {
+                        var qcls = qqqChg >= 0 ? "up" : "down";
+                        var qsign = qqqChg > 0 ? "+" : "";
+                        if (cEl) { cEl.textContent = qsign + qqqChg.toFixed(2) + "%"; cEl.className = "fund-hd-chg " + qcls; }
+                        if (srcEl) { srcEl.textContent = "QT"; srcEl.className = "market-src s-tencent"; }
+                    }
                 }
             });
         });
     }
-                                                    
+
     function openPredict() {
         buildPredictList();
         overlay.classList.add("open");
