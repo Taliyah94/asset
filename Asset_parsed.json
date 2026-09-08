@@ -610,6 +610,10 @@
     {
       "date": "2026-09-04",
       "value": 31495.20888122
+    },
+    {
+      "date": "2026-09-07",
+      "value": 31495.20888122
     }
   ],
   "cashDaily": [
@@ -1226,6 +1230,11 @@
     },
     {
       "date": "2026-09-04",
+      "value": 24256.89888122,
+      "accrued": 1.31
+    },
+    {
+      "date": "2026-09-07",
       "value": 24256.89888122,
       "accrued": 1.31
     }
@@ -2197,31 +2206,9 @@
       "price": 1.39,
       "realized": 0,
       "tradeId": "10029561503"
-    },
-    {
-      "date": "2026-08-07",
-      "symbol": "ORCL  260807P00140000",
-      "underlying": "ORCL",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1,
-      "price": 0.18,
-      "realized": 0,
-      "tradeId": "10020410764"
-    },
-    {
-      "date": "2026-08-07",
-      "symbol": "ORCL  260807P00140000",
-      "underlying": "ORCL",
-      "cat": "OPT",
-      "buySell": "BUY",
-      "quantity": 4,
-      "price": 0,
-      "realized": 482.89,
-      "tradeId": "10027314579"
     }
   ],
-  "lastSync": "2026-09-07",
+  "lastSync": "2026-09-08",
   "seed": {
     "pa_funds": [
       {
