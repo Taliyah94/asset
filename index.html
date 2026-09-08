@@ -14934,7 +14934,8 @@ function fillFundHoldingsQuotes(merged, tencentMap, alpacaMap) {
     merged.list.forEach(function(it) { map[it.symbol] = it; });
     var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB" };
     var srcClsMap = { bybit: "s-bybit", tencent: "s-tencent", alpaca: "s-alpaca", ibkr: "s-ibkr" };
-    // A股/港股普通(无 Bybit 合约)成分股：收集后批量用 qt.gtimg.cn 拉实时价，涨跌幅 = 实时价 ÷ 东方财富价 − 1
+    // A股/港股/日股/韩股普通成分股（无 Bybit 合约）：收集后批量用 qt.gtimg.cn 拉实时价，
+    // 涨跌幅 = 实时价 ÷ 腾讯昨收 − 1（市场行情页不做快照基准/新鲜度闸门）
     var qtRows = [];
     document.querySelectorAll('#unifiedList .fund-hd-item[data-fh-sym]').forEach(function(row) {
         var sym = row.getAttribute("data-fh-sym") || "";
@@ -14963,34 +14964,29 @@ return;
         var _fSrc = null;
         if (it._isStock) {
             if (isHkSpecial(sym)) {
-                // 港股special(智谱 ZHIPU)：优先 Bybit 实时价；涨跌幅 = (实时价 ÷ 东方财富价) − 1，与 A股/港股统一口径
+                // 港股special(智谱 ZHIPU)：现价 Bybit 实时美元价×HKD 汇率；
+                // 涨跌 = Bybit 实时港币价 ÷ 最近快照收盘 − 1（与 A/港/日/韩 同口径，基准取最新快照，不做目标日闸门；快照缺失才回落 Bybit 24h）
                 var hkdH = effHkd();
                 var phkdH = (!isNaN(p) && hkdH > 0) ? p * hkdH : NaN;
-                var emKey = mkt + code; // 如 hk02513
-                var emPrice = (window._holdEMPrice && window._holdEMPrice[emKey] != null) ? Number(window._holdEMPrice[emKey]) : NaN;
                 if (!isNaN(phkdH)) qEl.textContent = "HK$" + phkdH.toFixed(2);
-                if (!isNaN(phkdH) && emPrice > 0) {
-                    ch = (phkdH / emPrice - 1) * 100;
-                    _fSrc = "bybit"; // 现价来自 Bybit，涨跌基准为东方财富
-                } else {
-                    var ch24h2 = parseFloat(it._ch24);
-                    if (!isNaN(ch24h2)) { ch = ch24h2 * 100; _fSrc = "bybit"; }
-                }
+                var _snapH = (window._dailyQuotes && window._dailyQuotes[mkt + code]) || [];
+                var _lastH = _snapH.length ? _snapH[_snapH.length - 1] : null;
+                var emH = (_lastH && _lastH.close > 0) ? _lastH.close : NaN;
+                if (!isNaN(phkdH) && emH > 0) ch = (phkdH / emH - 1) * 100;
+                else { var ch24h2 = parseFloat(it._ch24); if (!isNaN(ch24h2)) ch = ch24h2 * 100; }
+                _fSrc = "bybit";
             } else if (isKrSpecial(sym)) {
-                // 韩股special(三星 SAMSUNG / 海力士 SKHYNIX)：Bybit 美元价 ×USD-KRW = 韩元价；
-                // 涨跌幅 = (韩元实时价 ÷ 快照/东财目标日收盘) − 1，与港/A/日/韩统一口径
+                // 韩股special(三星 SAMSUNG / 海力士 SKHYNIX)：现价 Bybit 美元价×USD-KRW = 韩元价；
+                // 涨跌 = Bybit 实时韩元价 ÷ 最近快照收盘 − 1（与 A/港/日/韩 同口径，基准取最新快照；快照缺失才回落 Bybit 24h）
                 var krwH = effKrw();
                 var pkrwH = (!isNaN(p) && krwH > 0) ? p * krwH : NaN;
-                var emKeyK = mkt + code; // 如 kr005930
-                var emPriceK = (window._holdEMPrice && window._holdEMPrice[emKeyK] != null) ? Number(window._holdEMPrice[emKeyK]) : NaN;
                 if (!isNaN(pkrwH)) qEl.textContent = "₩" + Math.round(pkrwH).toLocaleString("en-US");
-                if (!isNaN(pkrwH) && emPriceK > 0) {
-                    ch = (pkrwH / emPriceK - 1) * 100;
-                    _fSrc = "bybit";
-                } else {
-                    var ch24k2 = parseFloat(it._ch24);
-                    if (!isNaN(ch24k2)) { ch = ch24k2 * 100; _fSrc = "bybit"; }
-                }
+                var _snapK = (window._dailyQuotes && window._dailyQuotes[mkt + code]) || [];
+                var _lastK = _snapK.length ? _snapK[_snapK.length - 1] : null;
+                var emK = (_lastK && _lastK.close > 0) ? _lastK.close : NaN;
+                if (!isNaN(pkrwH) && emK > 0) ch = (pkrwH / emK - 1) * 100;
+                else { var ch24k2 = parseFloat(it._ch24); if (!isNaN(ch24k2)) ch = ch24k2 * 100; }
+                _fSrc = "bybit";
             } else {
             // 美股/ETF：
             //  盘中(!_useBybit)：纯腾讯——现价用腾讯 p[3]，涨跌幅用腾讯自带(现价-昨收)/昨收
@@ -15046,8 +15042,8 @@ return;
     }
 }
 
-// 批量拉 A股(sh/sz)/港股(hk)普通成分股实时价（qt.gtimg.cn，script 注入避免 CORS）；
-// 价格 = qt 实时价；涨跌幅 = (实时价 ÷ 东方财富价 window._holdEMPrice[mk+code]) − 1；缺失则保留 --。
+// 批量拉 A股(sh/sz)/港股(hk)/日股(jp)/韩股(kr) 普通成分股实时价（qt.gtimg.cn，script 注入避免 CORS）；
+// 价格 = qt 实时价；涨跌幅 = (实时价 ÷ 腾讯昨收) − 1；缺失则保留 --。
 function fetchFundHdQt(qtRows, done) {
     if (!qtRows || !qtRows.length) { if (done) done(); return; }
     // 去重收集查询代码（小写前缀：hk02513 / sh600519 / sz300408）
@@ -15118,30 +15114,16 @@ function fetchFundHdQt(qtRows, done) {
             var rec = out[r._q];
             var price = rec ? rec.price : null;
             var prevClose = rec ? rec.prevClose : 0;
-            var emKey = r.mkt + r.code; // 如 sz300408 / hk02513
-            var emPrice = (window._holdEMPrice && window._holdEMPrice[emKey] != null) ? Number(window._holdEMPrice[emKey]) : NaN;
             if (!price || !isFinite(price)) { if (r.srcEl) { r.srcEl.textContent = "--"; r.srcEl.className = "market-src s-none"; } return; }
             if (r.qEl) {
                 // 港股 HK$ / A股 ¥ / 韩股 ₩；日股与美股显示裸数字（日元符号 ¥ 易与人民币混淆）
                 var cur = (r.mkt === "hk") ? "HK$" : (r.mkt === "sz" || r.mkt === "sh") ? "¥" : (r.mkt === "kr") ? "₩" : "";
                 r.qEl.textContent = cur + price.toFixed(2);
             }
-            /* 涨跌基准：A股/港股/日股/韩股统一用目标日收盘价 emPrice（JSON 快照优先，东财兜底）。
-               基准新鲜度：基准价对应的 JSON/东财日期必须 ≥ 目标交易日（已钳回周五），
-               未覆盖（快照陈旧 / 目标日休市回退到更早 bar）→ 保持 null 画 --，
-               不参与加权聚合（aggregateFundSums 对非数字涨跌自动跳过）。
-               基准完全缺失时的回落：统一要求腾讯行情日期已刷到目标日（自然日口径）才用昨收算。 */
+            /* 市场行情页口径：不做目标日/新鲜度闸门，直接腾讯现价 vs 腾讯昨收
+               （昨收缺失时保持 --）。预测覆盖层的快照/画杠口径不在此处，互不影响。 */
             var ch = null;
-            if (emPrice > 0) {
-                var _bt = (window._holdEMDate && window._holdEMDate[emKey] != null) ? String(window._holdEMDate[emKey]) : "";
-                var _tt = (typeof emTradingTargetDate === "function") ? String(emTradingTargetDate() || "").replace(/-/g, "") : "";
-                if (!_bt || !_tt || _bt >= _tt) ch = (price / emPrice - 1) * 100;
-            }
-            else if (prevClose > 0) {
-                var _tg = (typeof emTargetDate === "function") ? String(emTargetDate() || "").replace(/-/g, "") : "";
-                var _qd = rec ? rec.date : null;
-                if (_qd && _tg && _qd >= _tg) ch = (price - prevClose) / prevClose * 100;
-            }
+            if (prevClose > 0) ch = (price - prevClose) / prevClose * 100;
             if (r.cEl && ch != null && isFinite(ch)) {
                 var cls = ch >= 0 ? "up" : "down";
                 var sign = ch > 0 ? "+" : "";
