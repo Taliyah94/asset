@@ -7864,6 +7864,16 @@ function computeCurrent() {
         u._dayPnl = dPnl;
         u._dayTime = dTime;
         u._dayPrevVal = dPrev;
+        // 数据源实际交易日（靠数据说话，不维护假日表）：
+        //   美股：腾讯行情时间戳 qtDate（休市日停在最近交易日，如 9-7 劳动节 → 0904）
+        //   期权：Alpaca trade time（UTC ISO）转 ymd；缺失则 null
+        var _dataDate = null;
+        if (!isOptionSymbol(u.symbol)) {
+            if (qqUp && qqUp.date) _dataDate = String(qqUp.date);
+        } else if (u._quoteTime && /\d{4}-\d{2}-\d{2}/.test(u._quoteTime)) {
+            _dataDate = u._quoteTime.slice(0, 10).replace(/-/g, "");
+        }
+        u._dayDataDate = _dataDate;
         u._stats = st;
         u._usd = usd;
         var _upr = computeUsPrediction(u, fx);
@@ -7896,16 +7906,25 @@ function computeCurrent() {
     const fundDayPrev = (fundLabelDate != null)
         ? funds.reduce((s, f) => (f._dayTime === fundLabelDate) ? s + (f._dayPrevVal || 0) : s, 0)
         : 0;
-    const usDayPnl = us.reduce((s, u) => s + (u._dayPnl || 0), 0);
+    const usDayPnl = us.reduce((s, u) => s + (u._dayPnl || 0), 0);  // 美股卡片：数据源交易日当天盈亏（标 0904）
+    // 美股数据源实际最新交易日（max）：休市日停在最近交易日
+    const usDayDate = us.reduce((m, u) => {
+        var d = u._dayDataDate;
+        return (d && (!m || d > m)) ? d : m;
+    }, null);
+    // 总资产「目标日当日」盈亏：仅当数据源日期 == 美东边界日(目标日)才计入，否则(休市/未更新)归零
+    const usDayPnlForTarget = us.reduce((s, u) =>
+        s + ((u._dayDataDate && fundDayRef && u._dayDataDate === fundDayRef) ? (u._dayPnl || 0) : 0), 0);
     const fundHasData = fundDayPrev > 0;
     let fTime = fundLabelDate || "—";
-    let uTime = fundDayRef || "实时";   // 美股 / 总资产标签 = 美东边界日
+    let uTime = usDayDate || fundDayRef || "实时";   // 美股卡片标签 = 数据源实际交易日（9-7 休市 → 0904），不标美东边界日
     // 当日卡片盈亏（总资产）：标签=美东边界日 fundDayRef(0904)。
     //   基金部分仅当「基金已达同一日期」(fundLabelDate===fundDayRef，即首个0904净值已出)才计入；
     //   否则(基金还停在0903)不计入，避免“0904卡片”混进0903基金盈亏——此时总资产当日=美股0904。
     //   美股/期权随时计入。
     const fundIncl = (fundLabelDate != null && fundLabelDate === fundDayRef);
-    const dayCardPnl = (fundIncl ? fundDayPnl : 0) + usDayPnl;
+    // 总资产当日卡片：基金(匹配目标日) + 美股(仅目标日有交易才计入；休市/未更新 → 0)
+    const dayCardPnl = (fundIncl ? fundDayPnl : 0) + (fundDayRef ? usDayPnlForTarget : usDayPnl);
     // 投资资产金额（成本口径）：仅计入已纳入当日盈亏的持仓成本，保证盈亏率口径一致
     if (usInvestAutoVal != null && !isNaN(usInvestAutoVal) && usInvestAutoVal > 0) usTotalBuyCost = usInvestAutoVal;
     else if (usInvestManual != null && !isNaN(usInvestManual) && usInvestManual > 0) usTotalBuyCost = usInvestManual;
@@ -8314,25 +8333,10 @@ function renderAllocLegend() {
             if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
             var rawBase = holdSh * nav;
             var base = rawBase - (f._dayPnl || 0);
-            if (!(typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code])) {
-                return { dash: true, nav: nav, holdSh: holdSh, base: base };
-            }
-            var ph = FUND_HOLDINGS[f.code], av = 0, sw = 0, srcTally = {};
-            var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
-            ph.items.forEach(function(it) {
-                if (typeof it.p !== "number") return;
-                var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
-                if (ch != null) {
-                    sw += it.p * ch; av += it.p;
-                    var s = holdingSrcOf(it, pd, ch);
-                    srcTally[s] = (srcTally[s] || 0) + 1;
-                }
-            });
-            var predPct = (av > 0) ? sw / av : 0;
-            var predNav = nav * (1 + predPct / 100);
-            var predMv = predNav * holdSh;
-            var predPnl = base * predPct / 100;
-            return { dash: false, nav: nav, holdSh: holdSh, base: base, rawBase: rawBase, predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl, deltaPnl: predMv - rawBase, src: majoritySrc(srcTally) };
+            // 预测覆盖层基金：锚基金净值最新日（与资产页基金口径一致），不做成分股推算涨跌。
+            // 基金净值 T+1/T+2、休市日不更新，用成分股(含休市美股)推算必然失真 → 一律画杠；
+            // 市值沿用主列表克隆的 data-mv（= 最新净值 × 份额），涨跌列显示 — 。快照(_daily_quotes)仅用于个股/自选，不在此路径。
+            return { dash: true, nav: nav, holdSh: holdSh, base: base };
         }
         function computeUsPrediction(u, fx) {
             if (typeof u !== "object" || !u) return { dash: true };
