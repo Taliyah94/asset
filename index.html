@@ -12090,7 +12090,9 @@ async function refreshUsOnly() {
 // 启动时从同目录拉取 fund_holdings.json，全量采用(新增+覆盖)为成分股数据源；
 // 默认读取同目录 fund_holdings.json（GitHub Pages / 静态托管同源，无跨域）；
 // 如需 raw 源可改为 https://raw.githubusercontent.com/<user>/<repo>/<branch>/fund_holdings.json
-// 内联 FUND_HOLDINGS 仅作 fetch 失败时的兜底；proxy 类基金(走代理源)保持内联不被覆盖。
+// 内联 FUND_HOLDINGS 仅作 fetch 失败时的兜底（proxy 类内联 p=100、无 alloc）。
+// proxy 类基金(016532/016533)同样采用 json：json 带真实股权暴露(items[0].p=100-债-现金)
+// 与资产配置 alloc(债/现金占净比)，前端据此渲染现金/债券行并体现现金拖累。
 const FUND_HOLDINGS_URL = "./fund_holdings.json";
 async function loadFundHoldingsFromGithub() {
     try {
@@ -12106,9 +12108,7 @@ async function loadFundHoldingsFromGithub() {
         Object.keys(obj).forEach(function(code) {
             var v = obj[code];
             if (!v || !v.items || !v.items.length) return;
-            // proxy 类(走代理源的净值基金,如 016532/016533)保持内联兜底,不被覆盖
-            if (FUND_HOLDINGS[code] && FUND_HOLDINGS[code].proxy) return;
-            // 其余一律采用 json: 新增键(如新加的建信基金)或覆盖已有键
+            // 一律采用 json: 新增键(如新加的建信基金)或覆盖已有键（含 proxy 类）
             FUND_HOLDINGS[code] = {
                 report: v.report || (FUND_HOLDINGS[code] && FUND_HOLDINGS[code].report) || "",
                 items: v.items,
@@ -15204,7 +15204,7 @@ function renderMarketPrediction() {
             var tri = dayPnl > 0 ? "▲" : "▼";
             var cls = dayPnl > 0 ? "up" : "down";
             // 市场行情总资产 vs 总资产页hero：前面涨跌色，括号hero总资产黑色
-            pEl.innerHTML = '<span class="' + cls + '">' + tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + '%)</span><span class="amt">（' + fmt(baseTotal) + '）</span>';
+            pEl.innerHTML = '<span class="' + cls + '">' + tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + '%)</span><span class="amt">（' + fmt(baseTotal) + '）-已更新</span>';
             pEl.className = "mp-pnl";
         }
     }
@@ -15218,7 +15218,7 @@ function renderMarketPrediction() {
             var clsP = dP > 0 ? "up" : (dP < 0 ? "down" : "");
             var triP = dP > 0 ? "▲" : (dP < 0 ? "▼" : "·");
             var sgnP = dP > 0 ? "+" : (dP < 0 ? "-" : "");
-            predCmp.innerHTML = '<span class="' + clsP + '">' + triP + " " + sgnP + fmt(Math.abs(dP)) + " (" + (dP > 0 ? "+" : "") + pP.toFixed(2) + '%)</span><span class="amt">（' + fmt(predTotal) + '）</span>';
+            predCmp.innerHTML = '<span class="' + clsP + '">' + triP + " " + sgnP + fmt(Math.abs(dP)) + " (" + (dP > 0 ? "+" : "") + pP.toFixed(2) + '%)</span><span class="amt">（' + fmt(predTotal) + '）-预测</span>';
         } else {
             predCmp.textContent = "";
         }
