@@ -8673,7 +8673,7 @@ function renderAllocLegend() {
 
             // 组件清单：前十大 + 债券 + 现金 + QQQ(未知块)
             var comps = [];
-            topItems.forEach(function(it){ comps.push({ kind: "holding", it: it }); });
+            topItems.forEach(function(it){ comps.push({ kind: "holding", it: it, name: it.n || it.c || "", code: it.c || "", pct: it.p || 0 }); });
             comps.push({ kind: "alloc", name: "债券", code: "债券", pct: alloc.bond || 0 });
             comps.push({ kind: "alloc", name: "现金", code: "现金", pct: alloc.cash || 0 });
             comps.push({ kind: "qqq", name: "QQQ·未知块", code: "QQQ", pct: tail });
@@ -14752,6 +14752,39 @@ return;
                     + '</div>'
                 + '</div>';
             });
+            // 追加 债/现金/QQQ(未知块) 三行（与预测覆盖层 13 行明细对齐；QQQ 行涨跌按市场行情口径另填）
+            var allocM = (ph && ph.alloc) ? ph.alloc : { stock: 100, bond: 0, cash: 0 };
+            var topWM = 0;
+            items.slice(0, 10).forEach(function(it){ topWM += (Number(it.p) || 0); });
+            var tailM = Math.max(0, 100 - topWM - (allocM.bond || 0) - (allocM.cash || 0));
+            [["债券", allocM.bond || 0], ["现金", allocM.cash || 0]].forEach(function(a, j) {
+                body += '<div class="fund-hd-item">'
+                    + '<div class="fund-hd-top">'
+                        + '<span class="fund-hd-idx">' + (11 + j) + '</span>'
+                        + '<span class="fund-hd-name">' + a[0] + '</span>'
+                        + '<span class="market-src s-none">配置</span>'
+                    + '</div>'
+                    + '<div class="fund-hd-bottom">'
+                        + '<span class="fund-hd-code">' + a[0] + '</span>'
+                        + '<span class="fund-hd-pct">' + (Number(a[1]) || 0).toFixed(2) + '%</span>'
+                        + '<span class="fund-hd-quote">--</span>'
+                        + '<span class="fund-hd-chg">--</span>'
+                    + '</div>'
+                + '</div>';
+            });
+            body += '<div class="fund-hd-item" data-fh-qqq="1">'
+                + '<div class="fund-hd-top">'
+                    + '<span class="fund-hd-idx">13</span>'
+                    + '<span class="fund-hd-name">QQQ·未知块</span>'
+                    + '<span class="market-src s-none">--</span>'
+                + '</div>'
+                + '<div class="fund-hd-bottom">'
+                    + '<span class="fund-hd-code">QQQ</span>'
+                    + '<span class="fund-hd-pct">' + tailM.toFixed(2) + '%</span>'
+                    + '<span class="fund-hd-quote">--</span>'
+                    + '<span class="fund-hd-chg">--</span>'
+                + '</div>'
+            + '</div>';
         } else {
             body = '<div class="fund-acc-nodata">暂无季报持仓数据（report: ' + (ph ? (ph.report || "未知") : "未加载") + '）</div>';
         }
@@ -14808,6 +14841,7 @@ return;
         Array.prototype.slice.call(tmp.children).forEach(function(el) { listEl.appendChild(el); });
     }
     renderUnifiedList();
+    fillFundQqqRows(); // QQQ(未知块) 行：_holdQ 已就绪时立即填（行情到达后 fillFundHoldingsQuotes 会再刷一次）
     // 无条件聚合基金（含无季报/无实时持仓的基金），写入 data-chg/data-mv/data-pnl 并填充市值盈亏
     aggregateFundSums();
     // 批量拉美股持仓实时价与盈亏率（复用市场逻辑），完成后会再次聚合刷新
@@ -14886,8 +14920,29 @@ function fetchFundHoldingsRealtime(usCodes) {
     });
 }
 
+// 基金明细 QQQ(未知块) 行：按市场行情口径填充——最新腾讯实时报价（现价、(现价-昨收)/昨收），
+// 与预测覆盖层不同：无目标日闸门，行情页展示的就是最新实时涨跌；无报价则保持 --。
+function fillFundQqqRows() {
+    var q = window._holdQ && window._holdQ["usQQQ"];
+    if (!q) return;
+    document.querySelectorAll('#unifiedList .fund-hd-item[data-fh-qqq]').forEach(function(row) {
+        var qEl = row.querySelector(".fund-hd-quote");
+        var cEl = row.querySelector(".fund-hd-chg");
+        var srcEl = row.querySelector(".market-src");
+        if (!(q.price > 0 && q.prevClose > 0)) return;
+        if (qEl) qEl.textContent = q.price >= 1 ? q.price.toFixed(2) : q.price.toFixed(4);
+        var ch = (q.price - q.prevClose) / q.prevClose * 100;
+        if (cEl) {
+            cEl.textContent = (ch > 0 ? "+" : "") + ch.toFixed(2) + "%";
+            cEl.className = "fund-hd-chg " + (ch >= 0 ? "up" : "down");
+        }
+        if (srcEl) { srcEl.textContent = "QT"; srcEl.className = "market-src s-tencent"; }
+    });
+}
+
 // 把实时数据填充到基金持仓行（按市场逻辑算盈亏率 + 数据源标注）
 function fillFundHoldingsQuotes(merged, tencentMap, alpacaMap) {
+    fillFundQqqRows(); // QQQ(未知块) 行先按最新实时填好，聚合时即可并入加权
     var map = {};
     merged.list.forEach(function(it) { map[it.symbol] = it; });
     var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB" };
