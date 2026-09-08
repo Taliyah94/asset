@@ -759,6 +759,103 @@ def scrape(codes, proxy, quiet=False):
     return result
 
 
+def trim_nav(result, asset_path, buffer_days=60, quiet=False):
+    """就地裁剪各基金 nav：保留 [最早买入交易日 - buffer_days, ...] 之后的部分。
+
+    nav 时间戳为 ms（东财按北京时间零点取整）。最早交易日取 Asset_parsed.json
+    seed.pa_funds[].trades 里最早一笔的 date（YYYY-MM-DD）。基金无记录/文件缺失
+    则该基金保持原样。返回裁剪统计 {code: (before, after)}。
+    """
+    trade_date = {}
+    try:
+        with open(asset_path, encoding="utf-8") as f:
+            ap = json.load(f)
+        for pf in (ap.get("seed") or {}).get("pa_funds", []):
+            code = str(pf.get("code") or "")
+            ds = [t.get("date") for t in (pf.get("trades") or [])
+                  if isinstance(t, dict) and t.get("date")]
+            if code and ds:
+                trade_date[code] = min(ds)
+    except Exception as e:  # noqa: BLE001 - 找不到/损坏则整体不裁剪
+        if not quiet:
+            sys.stderr.write("  [nav裁剪] 读 %s 失败，跳过裁剪：%s\n" % (asset_path, e))
+        return {}
+
+    day_ms = 86400 * 1000
+    stats = {}
+    for code, entry in result.items():
+        if not isinstance(entry, dict):
+            continue
+        nav = entry.get("nav")
+        if not isinstance(nav, list) or not nav:
+            continue
+        d = trade_date.get(str(code))
+        if not d:
+            continue
+        y, m, dd = (int(x) for x in d.split("-"))
+        cutoff = _dt.datetime(y, m, dd, tzinfo=_dt.timezone.utc).timestamp() * 1000 \
+            - buffer_days * day_ms
+        kept = [row for row in nav
+                if isinstance(row, (list, tuple)) and row and row[0] >= cutoff]
+        if len(kept) < len(nav):
+            entry["nav"] = kept
+            stats[code] = (len(nav), len(kept))
+            if not quiet:
+                sys.stderr.write("  [nav裁剪] %s：%d -> %d 条（最早交易日 %s - %d 天）\n"
+                                 % (code, len(nav), len(kept), d, buffer_days))
+    return stats
+
+
+def merge_nav(old_nav, new_nav):
+    """新旧 nav 按时间戳取并集：同日以新值为准，按时间升序返回。"""
+    rows = {}
+    for r in (old_nav or []) + (new_nav or []):
+        if isinstance(r, (list, tuple)) and r and isinstance(r[0], (int, float)):
+            rows[r[0]] = r
+    return [rows[k] for k in sorted(rows)]
+
+
+def merge_with_existing(result, path, codes, quiet=False):
+    """与已存盘 JSON 增量合并（就地改 result）：
+
+    - nav：旧 nav ∪ 本次抓到的 nav（同日新覆盖旧）——东财每次返回全史，
+      合并的意义在抓取中断/部分失败时不丢历史；
+    - 单项失败兜底：本次某基金没抓到持仓（items 缺失）→ 整条沿用旧条目；
+      本次抓到持仓但 nav 缺失 → 只沿用旧 nav；
+    - 只处理本次 codes 列表内的基金（从配置移除的基金不会残留在结果里）；
+    - _daily_quotes / qqq_daily 已由各自增量逻辑处理，此处跳过。
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            old = json.load(f)
+    except Exception:  # noqa: BLE001 - 首次运行/文件损坏则无旧数据可并
+        return
+    if not isinstance(old, dict):
+        return
+    for code in codes:
+        code = str(code).strip()
+        old_entry = old.get(code)
+        if not isinstance(old_entry, dict):
+            continue
+        new_entry = result.get(code)
+        if not isinstance(new_entry, dict) or not new_entry.get("items"):
+            # 整只失败：沿用旧条目（nav/report/alloc 全保留）
+            if old_entry.get("items"):
+                result[code] = old_entry
+                if not quiet:
+                    sys.stderr.write("  [增量] %s 本次未抓到，沿用旧数据\n" % code)
+            continue
+        old_nav = old_entry.get("nav")
+        if isinstance(old_nav, list) and old_nav and not new_entry.get("nav"):
+            new_entry["nav"] = old_nav
+            if not quiet:
+                sys.stderr.write("  [增量] %s 本次未取到 nav，沿用旧 %d 条\n" % (code, len(old_nav)))
+        elif isinstance(old_nav, list) and old_nav and new_entry.get("nav"):
+            merged = merge_nav(old_nav, new_entry["nav"])
+            if len(merged) > len(new_entry["nav"]):
+                new_entry["nav"] = merged
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="抓取基金季报十大持仓 -> fund_holdings.json"
@@ -775,6 +872,10 @@ def main(argv=None):
                     help="减少 stderr 输出")
     ap.add_argument("--retries", type=int, default=3,
                     help="单只基金抓取失败重试次数（默认 3）")
+    ap.add_argument("--no-trim-nav", action="store_true",
+                    help="跳过 nav 裁剪（默认按最早交易日-60天缓冲截掉更早历史）")
+    ap.add_argument("--no-merge", action="store_true",
+                    help="跳过与存盘文件的增量合并（默认并集+失败沿用旧数据）")
     ap.add_argument("--no-snapshots", action="store_true",
                     help="跳过日股/韩股行情快照抓取")
     ap.add_argument("--no-qqq", action="store_true",
@@ -829,6 +930,18 @@ def main(argv=None):
                     len(qqq_merged), qqq_merged[0]["d"], qqq_merged[-1]["d"], _n_new))
         elif not args.quiet:
             sys.stderr.write("  [QQQ] 未取得日线，跳过\n")
+
+    # 增量合并：与存盘文件取并集（同日新覆盖旧），抓取失败的部分沿用旧数据
+    if not args.no_merge:
+        merge_with_existing(result, args.output, codes, quiet=args.quiet)
+
+    # nav 裁剪：按各基金最早买入交易日-60天缓冲截掉更早的历史（前端 buildSeries 只从
+    # 最早交易日起取数，更早的 nav 属无用冗余；东财 pingzhongdata 每次返回全史，
+    # 不裁剪则文件每天膨胀回 600KB+）。最早交易日读同目录 Asset_parsed.json 的
+    # seed.pa_funds[].trades；找不到该文件或某基金无交易日记录则该基金不裁剪。
+    if not args.no_trim_nav:
+        trim_nav(result, os.path.join(os.path.dirname(os.path.abspath(args.output)) or ".",
+                                      "Asset_parsed.json"), quiet=args.quiet)
 
     js = json.dumps(result, ensure_ascii=False, indent=2)
 
