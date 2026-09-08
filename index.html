@@ -8392,6 +8392,13 @@ function renderAllocLegend() {
             if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
             if (typeof getFundTradeStats === "function") { try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {} }
             if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
+            // [预测覆盖层] 净值已更新到目标日：当日实际净值已公布，无需预测 → 画杠锁定(—)
+            // 优先用浏览器直读东财得到的最新净值日期 f._emNavDate（不受本地 JSON 缓存截断影响）。
+            var _navDate = (f && f._emNavDate) ? f._emNavDate : ((typeof fundNavDateStr === "function") ? fundNavDateStr(f) : null);
+            var _td = discDay || (typeof computeFundDayRef === "function" ? computeFundDayRef() : null);
+            if (_td && _navDate && String(_navDate) >= String(_td)) {
+                return { dash: true, nav: nav, holdSh: holdSh, base: holdSh * nav, locked: true };
+            }
             // 覆盖层基金预测：与新公式同源（前十大加权 + 未知块 x QQQ当日涨跌）。
             // 美股休市/周末（QQQ 当日无交易记录）→ 画杠；交易日正常显示预测涨跌。
             var r0 = fundPredictEstimate(f, discDay);
@@ -8742,8 +8749,8 @@ function renderAllocLegend() {
                              : (_qq && _qq.price > 0 ? _qq.price : null);
                     var chg = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
                     var hasChg = (chg != null && isFinite(chg));
-                    // 无有效目标日数据（如美股休市/周末）→ 该行画杠，不显示 stale 涨跌
-                    if (!hasChg) {
+                    // 基金整体已画杠锁定（净值已到目标日 / 无有效数据）→ 组件行同步画杠，不显示预测涨跌
+                    if (!hasChg || (fpred && fpred.dash)) {
                         if (qEl) qEl.textContent = "--";
                         if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
                         if (srcEl) { srcEl.textContent = "--"; srcEl.className = "market-src s-none"; }
@@ -11626,6 +11633,15 @@ async function refresh() {
                 f._lastDate = ymd(_last.t);
                 if (ymd(_last.t) === ymd(todayTs())) f._est = _last.nav
             }
+            // 浏览器直读东财：额外取最新净值日期，供预测页「净值已更新到目标日→画杠」判定。
+            // 仅取日期、不覆盖 _list（_list 仍用本地缓存保证预测算式稳定）。东财挂了则留空、回退 fundNavDateStr。
+            try {
+                const _r = await fetchFundSeries(f.code);
+                if (_r && _r.list && _r.list.length) {
+                    const _L = _r.list[_r.list.length - 1];
+                    if (_L && _L.t != null) f._emNavDate = ymd(_L.t);
+                }
+            } catch (e) {}
             return f
         }
         // 兜底：无本地历史则回退原串行实时抓取（含 proxy 类基金）
@@ -11640,6 +11656,7 @@ async function refresh() {
             if (_last && _last.t != null && _last.nav != null) {
                 f._lastNav = _last.nav;
                 f._lastDate = ymd(_last.t);
+                f._emNavDate = ymd(_last.t);
                 if (ymd(_last.t) === ymd(todayTs())) f._est = _last.nav
             } else {
                 const est = await fetchFundEstimate(f.code);
@@ -11650,6 +11667,7 @@ async function refresh() {
                     }];
                     f._lastNav = est.nav;
                     f._lastDate = est.date;
+                    f._emNavDate = est.date;
                     if (est.date === ymd(todayTs())) f._est = est.nav
                 }
             }
