@@ -3335,10 +3335,10 @@ tbody tr:hover {
 }
 .market-predict .mp-top {
     display: flex; flex-direction: column; align-items: center;
-    gap: 2px; margin-top: 2px;
+    gap: 6px; margin-top: 2px;
 }
-.market-predict .mp-total { font-size: 28px; font-weight: 700; line-height: 1.2; }
-.market-predict .mp-pnl { font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.market-predict .mp-total { font-size: 28px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; font-family: var(--font-num); color: var(--text); }
+.market-predict .mp-pnl { font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: var(--font-num); }
 .market-predict .mp-pnl.up { color: #2e7d32; }
 .market-predict .mp-pnl.down { color: #c62828; }
 /* 市场行情总资产下方两行对比小字：hero 对比(括号总资产黑色、前面涨跌色) + 预测对比(全黑) */
@@ -10434,7 +10434,7 @@ function drawChartInternal() {
             if (!rows.length) { tip.classList.remove("show"); return; }
             var html = '<span class="ct-date">' + date + '</span>';
             rows.forEach(function (r) {
-                html += '<span class="ct-row"><i style="background:' + (r.color || "#1f2733") + '"></i>' + r.label + ' <b>' + r.val + '</b></span>';
+                html += '<span class="ct-row"><i style="background:' + (r.color || "#1f2733") + '"></i> <b>' + r.val + '</b></span>';
             });
             tip.innerHTML = html;
             tip.classList.add("show");
@@ -10550,32 +10550,43 @@ function drawChartInternal() {
     });
     if (!cv._xh) {
         cv._xh = true;
-        cv.addEventListener("mousemove", e => {
-            const r = cv.getBoundingClientRect();
-            const mx = e.clientX - r.left;
+        var _dragging = false;
+        function snapIndex(mx) {
             const meta = chart.getDatasetMeta(0);
-            let idx = null,
-                best = 1e9;
+            let idx = null, best = 1e9;
             meta.data.forEach((p, i) => {
                 const d = Math.abs(p.x - mx);
-                if (d < best) {
-                    best = d;
-                    idx = i
-                }
+                if (d < best) { best = d; idx = i; }
             });
-            chart.$cross = {
-                index: idx
-            };
-            chart.draw()
+            return idx;
+        }
+        function setCross(idx) {
+            chart.$cross = { index: idx };
+            chart.draw();
+        }
+        cv.addEventListener("mousemove", e => {
+            const r = cv.getBoundingClientRect();
+            setCross(snapIndex(e.clientX - r.left));
         });
-        cv.addEventListener("mouseleave", () => {
-            if (chart) {
-                chart.$cross = {
-                    index: null
-                };
-                chart.draw()
-            }
-        })
+        cv.addEventListener("mouseleave", () => { _dragging = false; setCross(null); });
+        cv.addEventListener("mousedown", e => { _dragging = true; setCross(snapIndex(e.clientX - cv.getBoundingClientRect().left)); });
+        cv.addEventListener("mouseup", () => { _dragging = false; });
+        // touch: press+drag to slide crosshair
+        cv.addEventListener("touchstart", e => {
+            _dragging = true;
+            const t = e.touches[0];
+            const r = cv.getBoundingClientRect();
+            setCross(snapIndex(t.clientX - r.left));
+        }, { passive: true });
+        cv.addEventListener("touchmove", e => {
+            if (!_dragging) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            const r = cv.getBoundingClientRect();
+            setCross(snapIndex(t.clientX - r.left));
+        }, { passive: false });
+        cv.addEventListener("touchend", () => { _dragging = false; });
+        cv.addEventListener("touchcancel", () => { _dragging = false; });
     }
     // 图例下方统计条：当前可见周期内 总资产涨跌额 / TWR 涨跌幅 / QQQ 涨跌幅
     (function () {

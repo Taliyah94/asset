@@ -715,10 +715,26 @@ def scrape(codes, proxy, quiet=False):
         if not code:
             continue
         if proxy.get(code):
-            result[code] = dict(QQQ_PROXY)
-            result[code]["alloc"] = dict(PROXY_ALLOC)  # 代理基金视作 100% 权益
+            # 代理基金(纳斯达克100ETF联接)：不直接持股，资产配置以东财真实占净比为准
+            entry = {
+                "report": QQQ_PROXY["report"],
+                "proxy": True,
+                "items": [dict(it) for it in QQQ_PROXY["items"]],
+            }
+            _nav, alloc = fetch_nav(code)
+            if not alloc:
+                alloc = dict(PROXY_ALLOC)
+            bond = float(alloc.get("bond", 0.0) or 0.0)
+            cash = float(alloc.get("cash", 0.0) or 0.0)
+            # 股权暴露(=100-债-现金)：ETF联接基金只持有 ETF，其权重即股权暴露，
+            # 剩余为现金/债券缓冲。这样 13 行明细合计 = 股权暴露 + 债 + 现金 = 100%，
+            # 盘中预测也顺带体现现金拖累(predPct = 股权暴露% × QQQ)。
+            equity = round(max(0.0, 100.0 - bond - cash), 2)
+            entry["items"][0]["p"] = equity
+            entry["alloc"] = alloc
+            result[code] = entry
             if not quiet:
-                sys.stderr.write("  [代理] %s 使用 QQQ 代理\n" % code)
+                sys.stderr.write("  [代理] %s 使用 QQQ 代理(股权暴露 %.2f%%, 现金 %.2f%%)\n" % (code, equity, cash))
             continue
         if not quiet:
             sys.stderr.write("  [抓取] %s ...\n" % code)
