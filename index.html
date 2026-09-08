@@ -8384,9 +8384,11 @@ function renderAllocLegend() {
                     setPredictRowSrc(row, "none"); // 画杠：无有效数据源
                     if (navEl) { navEl.textContent = "\u2014"; navEl.className = "fund-acc-nav"; }
                     if (chgEl) { chgEl.textContent = "\u2014"; chgEl.className = "fas-chg fund-chg-pill"; }
-                    if (valEl) { var curMv = parseFloat(row.getAttribute("data-mv")) || 0; valEl.textContent = "\u00a5" + Math.round(curMv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
+                    // 市值用「最新净值 × 份额」（锚净值最新日，非实时预测值），当日盈亏归零
+                    var _mv = (r.nav != null && isFinite(r.nav) && r.holdSh > 0) ? Math.round(r.nav * r.holdSh) : (parseFloat(row.getAttribute("data-mv")) || 0);
+                    if (valEl) { valEl.textContent = "\u00a5" + Math.round(_mv).toLocaleString("zh-CN", { maximumFractionDigits: 0 }); valEl.className = "mvp-val fas-val " + (mode === "mv" ? "mvp-main" : "mvp-sub"); }
                     if (amtEl) { var ac = amtEl.className.replace(/ ?(up|down)/g, "").trim(); amtEl.textContent = "\u2014"; amtEl.className = ac + " " + (mode === "pnl" ? "mvp-main" : "mvp-sub"); }
-                    row.setAttribute("data-mv", Math.round(parseFloat(row.getAttribute("data-mv")) || 0));
+                    row.setAttribute("data-mv", Math.round(_mv));
                     row.setAttribute("data-pnl", 0);
                     return;
                 }
@@ -8606,6 +8608,24 @@ function renderAllocLegend() {
             if (!f.code) return;
             var row = container.querySelector('.fund-row[data-fund-code="' + f.code + '"]');
             if (!row) return;
+            // 基金行已画杠（无当日有效预测）→ 成分股不显示实时 QT，统一画杠（--）
+            var fpred = computeFundPrediction(f, discDay);
+            if (fpred.dash) {
+                var ph0 = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
+                var items0 = (ph0 && ph0.items) ? ph0.items.slice(0, 10) : [];
+                var hdItems0 = row.querySelectorAll(".fund-hd-item");
+                items0.forEach(function(it, i){
+                    var el = hdItems0[i];
+                    if (!el) return;
+                    var qEl = el.querySelector(".fund-hd-quote");
+                    var cEl = el.querySelector(".fund-hd-chg");
+                    var srcEl = el.querySelector(".market-src");
+                    if (qEl) qEl.textContent = "--";
+                    if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
+                    if (srcEl) { srcEl.textContent = "--"; srcEl.className = "market-src s-none"; }
+                });
+                return;
+            }
             var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
             if (!ph || !ph.items || !ph.items.length) return;
             var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
