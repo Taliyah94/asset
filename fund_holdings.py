@@ -13,7 +13,8 @@ topline=11（前十大；半年报虽有更全明细但不取，见下），
       "000043": {
         "report": "2026-06-30",
         "items": [{"c": "AAPL", "n": "苹果", "p": 8.29, "m": "us"}, ...],
-        "nav": [[时间戳(ms), 单位净值], ...]   // 净值历史（紧凑二维数组，升序）；proxy 类基金无此字段
+        "nav": [[时间戳(ms), 单位净值], ...],   // 净值历史（紧凑二维数组，升序）；proxy 类基金无此字段
+        "alloc": {"stock": 91.66, "bond": 0.0, "cash": 5.88}  // 资产配置(占净比%)：股票/债券/现金，供盘中估值未知块近似
       },
       "016532": {"report": "跟踪纳斯达克100", "proxy": true, "items": [...]},
 
@@ -91,6 +92,12 @@ QQQ_PROXY = {
     "proxy": True,
     "items": [{"c": "QQQ", "m": "us", "n": "纳斯达克100ETF", "p": 100}],
 }
+
+# 基金资产配置（股/债/现金占净比 %）：用于「未知持仓块」用 QQQ 涨跌近似的盘中估值。
+# 代理基金(跟踪纳斯达克100)视为 100% 权益，硬编码。
+PROXY_ALLOC = {"stock": 100.0, "bond": 0.0, "cash": 0.0}
+# Data_assetAllocation 的 series.name -> 输出键
+ALLOC_NAMES = {"股票占净比": "stock", "债券占净比": "bond", "现金占净比": "cash"}
 
 USER_AGENT = "Mozilla/5.0"
 REFERER = "https://fundf10.eastmoney.com/"
@@ -236,6 +243,33 @@ def fetch_content(code, retries=3, timeout=30):
     return None, None
 
 
+def parse_asset_allocation(raw):
+    """从 pingzhongdata/{code}.js 的 Data_assetAllocation 解析最新一期 股票/债券/现金 占净比(%)。
+
+    结构：Data_assetAllocation = {"series":[{"name":"股票占净比","data":[...]}, ...], "categories":[...]}
+    每个 series 的 data 数组与 categories 对齐，取末位(最新一期)。任一缺失返回 None。
+    """
+    m = re.search(r"Data_assetAllocation\s*=\s*(\{.*?\})\s*;", raw, re.S)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(1))
+    except Exception:  # noqa: BLE001 - 解析失败当无配置
+        return None
+    series = obj.get("series") if isinstance(obj, dict) else None
+    if not isinstance(series, list):
+        return None
+    out = {}
+    for s in series:
+        nm = s.get("name") if isinstance(s, dict) else None
+        if nm in ALLOC_NAMES and isinstance(s.get("data"), list) and s["data"]:
+            try:
+                out[ALLOC_NAMES[nm]] = round(float(s["data"][-1]), 2)
+            except (TypeError, ValueError):
+                pass
+    return out or None
+
+
 def fetch_nav(code, retries=3, timeout=30):
     """抓取基金净值历史 Data_netWorthTrend，返回 [[t_ms, nav], ...]（紧凑、升序）或 None。
 
@@ -265,13 +299,14 @@ def fetch_nav(code, retries=3, timeout=30):
                 if nav <= 0:
                     continue
                 out.append([int(t), round(float(nav), 4)])
-            return out if out else None
+            alloc = parse_asset_allocation(raw)
+            return (out if out else None), alloc
         except Exception as e:  # noqa: BLE001 - 网络异常统一重试
             last_err = e
             if attempt < retries:
                 time.sleep(2 * attempt)
     sys.stderr.write("  [nav异常] %s: %s\n" % (code, last_err))
-    return None
+    return None, None
 
 
 def collect_snapshot_symbols(result):
@@ -630,6 +665,7 @@ def scrape(codes, proxy, quiet=False):
             continue
         if proxy.get(code):
             result[code] = dict(QQQ_PROXY)
+            result[code]["alloc"] = dict(PROXY_ALLOC)  # 代理基金视作 100% 权益
             if not quiet:
                 sys.stderr.write("  [代理] %s 使用 QQQ 代理\n" % code)
             continue
@@ -640,10 +676,12 @@ def scrape(codes, proxy, quiet=False):
             if content:
                 items = parse(content)
                 if items:
-                    nav = fetch_nav(code)
+                    nav, alloc = fetch_nav(code)
                     entry = {"report": report, "items": items}
                     if nav:
                         entry["nav"] = nav
+                    if alloc:
+                        entry["alloc"] = alloc
                     result[code] = entry
                 else:
                     sys.stderr.write("  [空] %s 未解析到持仓\n" % code)

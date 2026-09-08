@@ -5631,18 +5631,13 @@ function computeFundPrediction(f, discDay) {
                 if (!(typeof fundNeedsPredict === "function" && fundNeedsPredict(f, discDay) && window._holdQ && FUND_HOLDINGS && FUND_HOLDINGS[f.code])) {
                     return { dash: true, nav: nav, holdSh: holdSh, base: base };
                 }
-    var ph = FUND_HOLDINGS[f.code], av = 0, sw = 0;
-    var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
-    ph.items.forEach(function(it) {
-        if (typeof it.p !== "number") return;
-        var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
-        if (ch != null) { sw += it.p * ch; av += it.p; }
-    });
-    var predPct = (av > 0) ? sw / av : 0;
-    var predNav = nav * (1 + predPct / 100);
-    var predMv = predNav * holdSh;
-    var predPnl = base * predPct / 100;
-    return { dash: false, nav: nav, holdSh: holdSh, base: base, predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl };
+    // 新公式：前十大加权 + 未知块(= 100 - 前十大权重 - 债 - 现金) x QQQ当日涨跌
+    var r = fundPredictEstimate(f, discDay);
+    if (r && !r.dash) {
+        r.src = r.src || "fund";
+        return r;
+    }
+    return { dash: true, nav: nav, holdSh: holdSh, base: base };
 }
 function computeUsPrediction(u, fx) {
     if (typeof u !== "object" || !u) return { dash: true };
@@ -7534,6 +7529,57 @@ function computeFundDayRef() {
 }
 window.computeFundDayRef = computeFundDayRef;
 
+/* 基金盘中估值：前十大权重加权 + 未知块(=1-前十大权重-债-现金) x QQQ当日涨跌。
+   基准涨跌直接取腾讯(QT)实时行情中 QQQ 的当日涨跌（window._holdQ["usQQQ"]），
+   与美股持仓行情同源；不再依赖 __QQQ_DAILY__ 历史序列。
+   腾讯无 QQQ 报价、或报价日期未刷到目标日（美股休市/周末/数据未更新）→ 返回 null → 画杠。 */
+function getQqqChangeForDay(d) {
+    var q = window._holdQ && window._holdQ["usQQQ"];
+    if (!q || !(q.price > 0) || !(q.prevClose > 0)) return null; // 腾讯无 QQQ 实时报价 → 画杠
+    // 报价日期未刷到目标日（休市/周末/数据未更新）→ 无有效当日基准 → 画杠
+    var qd = q.date ? String(q.date).replace(/-/g, "") : "";
+    var td = d ? String(d).replace(/-/g, "") : "";
+    if (td && qd && qd !== td) return null;
+    return (q.price - q.prevClose) / q.prevClose * 100;
+}
+
+function fundPredictEstimate(f, discDay) {
+    if (typeof f !== "object" || !f || !f.code) return { dash: true };
+    var nav = null, holdSh = 0;
+    if (f._list && f._list.length) { try { nav = valOnOrBefore(f._list, todayTs(), "nav"); } catch (e) {} }
+    if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
+    if (typeof getFundTradeStats === "function") { try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {} }
+    if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
+    var targetDay = (typeof computeFundDayRef === "function") ? computeFundDayRef() : (discDay || null);
+    if (!targetDay) return { dash: true, nav: nav, holdSh: holdSh };
+    var qqqChg = getQqqChangeForDay(targetDay);
+    if (qqqChg == null) return { dash: true, nav: nav, holdSh: holdSh }; // 美股休市/周末 → 无有效基准 → 画杠
+    var ph = (typeof FUND_HOLDINGS !== "undefined") ? FUND_HOLDINGS[f.code] : null;
+    var pd = (typeof predictDayForFund === "function") ? predictDayForFund(f, discDay) : null;
+    var sw = 0, topW = 0;
+    if (ph && Array.isArray(ph.items)) {
+        ph.items.forEach(function(it) {
+            if (typeof it.p !== "number") return;
+            var ch = (typeof holdingChg === "function") ? holdingChg(it, pd) : null;
+            if (ch == null) ch = 0;
+            sw += it.p * ch;
+            topW += it.p;
+        });
+    }
+    var alloc = (ph && ph.alloc) ? ph.alloc : { stock: 100, bond: 0, cash: 0 };
+    var tail = Math.max(0, 100 - topW - (alloc.bond || 0) - (alloc.cash || 0)) / 100;
+    var predPct = sw / 100 + tail * qqqChg;
+    var rawBase = holdSh * nav;
+    var base = rawBase - (f._dayPnl || 0);
+    var predNav = nav * (1 + predPct / 100);
+    var predMv = predNav * holdSh;
+    var predPnl = base * predPct / 100;
+    return { dash: false, nav: nav, holdSh: holdSh, base: base, rawBase: rawBase,
+             predPct: predPct, predNav: predNav, predMv: predMv, predPnl: predPnl, src: "fund" };
+}
+window.fundPredictEstimate = fundPredictEstimate;
+window.getQqqChangeForDay = getQqqChangeForDay;
+
 // (optBase A/B 选择逻辑已移除：期权现价与昨收统一来自 Alpaca 历史 bar)
 
 function fetchUsQuotesAlpaca(symList, cfg) {
@@ -8337,12 +8383,11 @@ function renderAllocLegend() {
             if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
             if (typeof getFundTradeStats === "function") { try { holdSh = getFundTradeStats(f).holdShares || 0; } catch (e) {} }
             if (holdSh <= 0 || nav == null || !isFinite(nav)) return { dash: true, nav: nav, holdSh: holdSh };
-            var rawBase = holdSh * nav;
-            var base = rawBase - (f._dayPnl || 0);
-            // 预测覆盖层基金：锚基金净值最新日（与资产页基金口径一致），不做成分股推算涨跌。
-            // 基金净值 T+1/T+2、休市日不更新，用成分股(含休市美股)推算必然失真 → 一律画杠；
-            // 市值沿用主列表克隆的 data-mv（= 最新净值 × 份额），涨跌列显示 — 。快照(_daily_quotes)仅用于个股/自选，不在此路径。
-            return { dash: true, nav: nav, holdSh: holdSh, base: base };
+            // 覆盖层基金预测：与新公式同源（前十大加权 + 未知块 x QQQ当日涨跌）。
+            // 美股休市/周末（QQQ 当日无交易记录）→ 画杠；交易日正常显示预测涨跌。
+            var r0 = fundPredictEstimate(f, discDay);
+            if (r0 && !r0.dash) return r0;
+            return { dash: true, nav: nav, holdSh: holdSh, base: (holdSh * nav) - (f._dayPnl || 0) };
         }
         function computeUsPrediction(u, fx) {
             if (typeof u !== "object" || !u) return { dash: true };
