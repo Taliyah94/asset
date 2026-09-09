@@ -8627,7 +8627,9 @@ function renderAllocLegend() {
                     if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
                     if (srcEl) { srcEl.textContent = "配置"; srcEl.className = "market-src s-none"; }
                 } else if (c.kind === "qqq") {
-                    if (qqqChg == null) {
+                    // QQQ·未知块：更新净值后画杠——基金画杠(净值已更到目标日)或 QQQ 报价无效 → --；
+                    // 基金预测中(净值偏旧)且 QQQ 报价有效 → 显示 QT 实时涨跌（它正是未知块的预测基准）
+                    if ((fpred && fpred.dash) || qqqChg == null) {
                         if (cEl) { cEl.textContent = "--"; cEl.className = "fund-hd-chg"; }
                         if (srcEl) { srcEl.textContent = "--"; srcEl.className = "market-src s-none"; }
                     } else {
@@ -8639,7 +8641,7 @@ function renderAllocLegend() {
                     }
                 }
             });
-            // 基金行数据源徽标 = 成分股(含QQQ未知块)里占多数的数据源（QT/快照/东方/预测…）；画杠行保持 --
+            // 基金行数据源徽标 = 成分股里占多数的数据源（QT/快照/东方/预测…；画杠行不计入）；画杠行保持 --
             setPredictRowSrc(row, (fpred && fpred.dash) ? "none" : majoritySrc(srcTally));
         });
     }
