@@ -14152,20 +14152,19 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
                 if (!isHkSpecial(sym) && !isKrSpecial(sym)) {
                 // 美股/ETF：
                 //  盘中(!_useBybit)：纯腾讯——现价用腾讯 p[3]，涨跌幅用腾讯自带(现价-昨收)/昨收，不碰 Bybit
-                //  盘外(_useBybit)：Bybit 实时价 vs 腾讯现价(周五收盘)基准
+                //  盘外(_useBybit)：Bybit 实时价(现价只留 BYB/ALP) vs 腾讯实时价基准(=周五收盘)
                 var tqSym = tencentQueryOf(sym);
                 var tq = tencentMap ? tencentMap[tqSym] : null;
                 if (tq && tq.price > 0) {
                     if (!item._useBybit) {
                         // 盘中：完全用腾讯现价 + 腾讯自带涨跌幅
                         var tp4 = tq.prevClose;
-                        if (tp4 > 0 && !isNaN(p)) { /* p 仍为 Bybit，下面用腾讯覆盖 */ }
                         p = tq.price;
                         price = p >= 1 ? p.toFixed(2) : p.toFixed(4);
                         if (tp4 > 0) pct = (p - tp4) / tp4 * 100;
                         _srcTag = "tencent"; // 现价来自腾讯
                     } else {
-                        // 盘外：Bybit 实时价 vs 腾讯现价(周五收盘)基准
+                        // 盘外：Bybit 实时价 vs 腾讯实时价基准(=周五收盘)
                         if (!isNaN(p)) pct = (p - tq.price) / tq.price * 100;
                         _srcTag = "bybit"; // 现价来自 Bybit
                     }
@@ -14191,7 +14190,7 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
             var _optParsed = parseOptionSymbol(g.optionSyms[0]);
             var _optRoot = g.root;
             name = _optRoot;
-            // 期权正股优先走 Bybit 实时价，其次 Alpaca 实时价，最后腾讯兜底；都没有则画杠
+            // 期权正股：盘中 腾讯→Alpaca→Bybit；盘外 Bybit→Alpaca（腾讯兜底已移除，盘外只留 BYB/ALP）；都没有则画杠
             var _optKey = bybitCodeOf(_optRoot) + "USDT";
             var _optItem = map[_optKey]; // Bybit 实时（若已请求并拿到）
             var _optApPrice = alpacaPriceMap ? alpacaPriceMap[_optRoot] : null; // Alpaca 实时价
@@ -14227,16 +14226,14 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
                 } else if (_optApPrice != null && !isNaN(_optApPrice) && _optApPrice > 0) {
                     price = _optApPrice >= 1 ? _optApPrice.toFixed(2) : _optApPrice.toFixed(4);
                     _priceRaw = _optApPrice; _optPxSrc = "alpaca";
-                } else if (_optTq && _optTq.price > 0) {
-                    price = _optTq.price >= 1 ? _optTq.price.toFixed(2) : _optTq.price.toFixed(4);
-                    _priceRaw = _optTq.price; _optPxSrc = "tencent";
                 }
             }
             // 期权行涨跌基准：与美股/ETF 正股行口径统一 —— (正股现价 − 腾讯昨收) ÷ 腾讯昨收，
             //   分母统一用腾讯昨收（不再用腾讯实时价 / Bybit 24h），盘中与正股行数字完全一致。
             //   腾讯昨收拿不到时回退：Alpaca 前收 → Bybit 永续 24h（盘外不至于画杠）。
             if (!isNaN(_priceRaw) && _priceRaw > 0) {
-                // 涨跌基准与正股行口径统一：盘中→腾讯昨收(prevClose)，盘外→腾讯实时价(=周五收盘，等同正股行 tq.price 基准)
+                // 涨跌基准与正股行口径统一：盘中→腾讯昨收(prevClose)，盘外→腾讯实时价(=周五收盘)；
+                // 现价盘外只留 BYB/ALP（腾讯兜底已删），基准仍用腾讯
                 if (_optTq && (_optTq.price > 0 || _optTq.prevClose > 0)) {
                     var _base = _inSession
                         ? (_optTq.prevClose > 0 ? _optTq.prevClose : _optTq.price)
@@ -14801,7 +14798,7 @@ function fetchFundHoldingsRealtime(usCodes) {
                                 // 数据源标识：bybit / tencent(腾讯财经) / alpaca，与行情逻辑一致
                                 it._src = isStock ? (stockUseBybit ? "bybit" : ((typeof isUsRegularSession === "function" && isUsRegularSession()) ? "tencent" : "alpaca")) : "bybit";
                                 merged.list.push(it);
-                                // 美股(含周末间隙走 Bybit 的)都要拉腾讯昨收，作为周末缺口盈亏率的基准
+                                // 美股(含周末间隙走 Bybit 的)都要拉腾讯昨收/实时价，作涨跌基准
                                 if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
                             });
                         }
@@ -14894,13 +14891,12 @@ return;
                 if (!it._useBybit) {
                     // 盘中：腾讯现价 + 腾讯自带涨跌幅
                     var tp4 = tq.prevClose;
-                    if (tp4 > 0 && !isNaN(p)) { /* 下面用腾讯覆盖 */ }
                     p = tq.price;
                     if (!isNaN(p)) qEl.textContent = p >= 1 ? p.toFixed(2) : p.toFixed(4);
                     if (tp4 > 0) ch = (p - tp4) / tp4 * 100;
                     _fSrc = "tencent"; // 现价来自腾讯
                 } else {
-                    // 盘外：Bybit 实时价 vs 腾讯现价(周五收盘)基准
+                    // 盘外：Bybit 实时价(现价只留 BYB/ALP) vs 腾讯实时价基准(=周五收盘)
                     if (!isNaN(p) && tq.price > 0) ch = (p - tq.price) / tq.price * 100;
                     _fSrc = "bybit"; // 现价来自 Bybit
                 }
@@ -15301,7 +15297,7 @@ function fetchMarketData() {
     // 这里加总超时：到点无论 pending 是否归零，都强制渲染已拿到的数据。
     var _ac = alpacaCfg();
     var _useAlpaca = !!(_ac && _ac.keyId && _ac.secret);
-    // 最终兜底：腾讯/Bybit 都拿不到时，用 Alpaca 前收做涨跌基准
+    // 最终兜底：腾讯/Bybit 都拿不到时，用 Alpaca 前收做涨跌基准（盘外现价兜底已删腾讯，只留 BYB/ALP）
     var _fetchAlpacaPrev = function() {
         if (!_useAlpaca || !stockSyms.length) return Promise.resolve({});
         return fetchUsQuotesAlpaca(stockSyms, _ac).then(function(m) {
@@ -15319,6 +15315,9 @@ function fetchMarketData() {
         if (settled && !force) return;
         settled = true;
         if (loadingEl) loadingEl.style.display = "none";
+        // 腾讯 close 全量拉取：作美股/期权盘外涨跌基准(腾讯实时价=周五收盘)；
+        // 盘外补行/现价不用腾讯（美股/期权现价只留 BYB/ALP，_inSessR 见下）
+        var _inSessR = (typeof isUsRegularSession === "function") ? isUsRegularSession() : true;
         var tP = (stockSyms.length > 0) ? fetchTencentClose(stockSyms) : Promise.resolve({});
         // Alpaca 全量(价格+前收)：既保留原有前收基准兜底，又用于 Bybit 失败时的价格兜底
         var aP = (_useAlpaca && stockSyms.length) ? fetchUsQuotesAlpaca(stockSyms, _ac) : Promise.resolve({});
@@ -15329,8 +15328,8 @@ function fetchMarketData() {
         Promise.race([Promise.all([tP, aP]), _hardTO]).then(function(r) {
             var tencentMap = r[0] || {};
             var alpacaFull = r[1] || {};
-            // Bybit 读不到的股票：Alpaca 实时价优先补行；若 Alpaca 也无价但腾讯有价，用腾讯价补行。
-            // 这样只要腾讯/Alpaca 任一有数据，该行就不会画杠（渲染层再按 tencentMap/alpacaMap 细化现价与涨跌）。
+            // Bybit 读不到的股票：Alpaca 实时价优先补行；盘外不再用腾讯补行（美股/期权只留 BYB/ALP）。
+            // 渲染层再按 tencentMap/alpacaMap 细化现价与涨跌。
             if (_failedStockSyms.length) {
                 _failedStockSyms.forEach(function(sym) {
                     if (isOptionSymbol(sym)) return;
@@ -15345,7 +15344,7 @@ function fetchMarketData() {
                             lastPrice: String(al.price), indexPrice: String(al.price),
                             _isStock: true, _useBybit: false, _src: "alpaca"
                         });
-                    } else if (tq && tq.price > 0) {
+                    } else if (_inSessR && tq && tq.price > 0) {
                         merged.list.push({
                             symbol: k, baseCoin: sym,
                             lastPrice: String(tq.price), indexPrice: String(tq.price),
@@ -15356,7 +15355,7 @@ function fetchMarketData() {
             }
             // 构造前收数字 map 供 renderMarketList 涨跌基准逻辑(alpacaMap[sym] 视为前收)
             var alpacaPrevMap = {};
-            // 构造 Alpaca 实时价 map，供期权正股兜底（Bybit→Alpaca实时→腾讯）
+            // 构造 Alpaca 实时价 map，供期权正股兜底（盘外 Bybit→Alpaca；盘中 腾讯→Alpaca→Bybit）
             var alpacaPriceMap = {};
             Object.keys(alpacaFull).forEach(function(s) {
                 var v = alpacaFull[s];
