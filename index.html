@@ -7866,6 +7866,11 @@ function computeCurrent() {
         } else if (u._quoteTime && /\d{4}-\d{2}-\d{2}/.test(u._quoteTime)) {
             _dataDate = u._quoteTime.slice(0, 10).replace(/-/g, "");
         }
+        // 期权兜底：time 解析不到日期时，用合约标记日(u._markDate，盘中=今天)归到目标日，
+        // 确保当日卡片/总资产卡片稳定计入期权当日盈亏（不再依赖 Alpaca time 字段格式）
+        if (!_dataDate && isOptionSymbol(u.symbol) && u._markDate) {
+            _dataDate = String(u._markDate).replace(/-/g, "");
+        }
         // 归一化为 YYYY-MM-DD，与 fundDayRef 同源比较（修复 usDayPnlForTarget 因 8 位格式不一致恒为 0 的 bug）
         if (_dataDate && /^\d{8}$/.test(_dataDate)) {
             _dataDate = _dataDate.slice(0, 4) + "-" + _dataDate.slice(4, 6) + "-" + _dataDate.slice(6, 8);
@@ -13879,6 +13884,8 @@ var MIN_FS = 7;
 var STEP = 1;
 var sel = ".tbl-scroll .cell-main, .tbl-scroll .cell-sub, .pending-tbl td.cls-date";
 Array.prototype.slice.call(document.querySelectorAll(sel)).forEach(function(el) {
+    // 跳过隐藏元素：所属 pane 未激活(display:none)时 clientWidth=0，测量会失真、误缩到最小字号
+    if (!el.offsetParent) return;
     // 先清空上一次写入的 inline 字号，回退到 CSS 规则原始值作为基准，
     // 否则二次渲染(异步刷新)会以已缩小的字号为 base，越缩越小
     el.style.fontSize = "";
@@ -13888,7 +13895,9 @@ Array.prototype.slice.call(document.querySelectorAll(sel)).forEach(function(el) 
     el.style.whiteSpace = "nowrap";
     el.style.fontSize = fs + "px";
     void el.offsetHeight; // 强制 reflow（关键：否则 scrollWidth 仍是改字号前的旧值）
-    var avail = el.clientWidth;
+    // 用列(td)宽而非 cell div 宽：cell 设了 nowrap，内容超长时 div 的 clientWidth 会被撑成内容宽，
+    // 导致 scrollWidth≈clientWidth、永远"不溢出"而不触发缩小；td 在 fixed 布局下宽度固定，更准确
+    var avail = (el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : el.clientWidth;
     var iter = 0;
     while (el.scrollWidth > avail + 0.5 && fs > MIN_FS && iter++ < 24) {
         fs = Math.max(MIN_FS, fs - STEP);
