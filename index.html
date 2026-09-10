@@ -2436,9 +2436,9 @@ tbody tr:hover {
 #pane-fund[data-ops="off"] col:nth-child(5){ width:0 !important; }
                                                 #pane-us[data-ops="off"] col:nth-child(1){ width:30% !important; }
                                                 #pane-us[data-ops="off"] col:nth-child(2){ width:21% !important; }
-                                                #pane-us[data-ops="off"] col:nth-child(3){ width:17% !important; }
-                                                #pane-us[data-ops="off"] col:nth-child(4){ width:15% !important; }
-                                                #pane-us[data-ops="off"] col:nth-child(5){ width:17% !important; }
+                                                #pane-us[data-ops="off"] col:nth-child(3){ width:17% !important; }  /* 浮动 */
+                                                #pane-us[data-ops="off"] col:nth-child(4){ width:17% !important; }  /* 当日：与浮动等宽 */
+                                                #pane-us[data-ops="off"] col:nth-child(5){ width:15% !important; }  /* 单价：从 17% 扣 2% 给当日 */
                                                 #pane-us[data-ops="off"] col:nth-child(6){ width:0 !important; }
 /* 操作视图：仅显示操作列（100%），数据列隐藏 */
 #pane-fund[data-ops="on"] thead th:nth-child(2), #pane-fund[data-ops="on"] thead th:nth-child(3), #pane-fund[data-ops="on"] thead th:nth-child(4), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(4) { display: none; }
@@ -7779,6 +7779,7 @@ function computeCurrent() {
     let usTotalRealizedPnl = 0,
         usTotalBuyCost = 0,
         usPredictPnl = 0;
+    var _fdr = computeFundDayRef();   // 美东边界日(如 0909)，供下方 _dayDataDate 对齐，避免腾讯北京日 qqUp.date 误显 0910
     us.forEach(u => {
         var st = getTradeStats(u);
         var holdSh = st.holdShares;
@@ -7862,7 +7863,10 @@ function computeCurrent() {
         //   期权：Alpaca trade time（UTC ISO）转 ymd；缺失则 null
         var _dataDate = null;
         if (!isOptionSymbol(u.symbol)) {
-            if (qqUp && qqUp.date) _dataDate = String(qqUp.date);
+            // 美股：对齐美东边界日 fundDayRef（收盘后数据必属最近美东交易日），
+            // 不依赖腾讯 qqUp.date（可能按北京日标记，导致卡片误显 0910）
+            if (_fdr) _dataDate = _fdr;
+            else if (qqUp && qqUp.date) _dataDate = String(qqUp.date);
         } else if (u._quoteTime && /\d{4}-\d{2}-\d{2}/.test(u._quoteTime)) {
             _dataDate = u._quoteTime.slice(0, 10).replace(/-/g, "");
         }
@@ -11571,7 +11575,7 @@ async function refresh() {
             if (!u.name) u.name = q.name || "";
             u._ok = true;
             if (isOptionSymbol(u.symbol)) {
-                if (optionAlpacaMode(u) !== "ibkr") u._markDate = ymd(todayTs());
+                if (optionAlpacaMode(u) !== "ibkr") u._markDate = computeFundDayRef() || ymd(todayTs());
                 // 盘中期权现价=bars 实时延迟价，写入 _alpacaPrice 使其优先于 IBKR mark（满足"盘中取bar作为现价"）
                 if (q.price != null) u._alpacaPrice = q.price;   // 期权现价走 _alpacaPrice（盘中=bars 实时延迟 / 盘外=Alpaca 收盘价），最终采用与否由 optionAlpacaMode 决定
                 // ibkr 模式：以盈透 mark 为官方收盘价（Alpaca 仅作实时兜底）
@@ -12045,7 +12049,7 @@ async function refreshUsOnly() {
             if (!u.name) u.name = q.name || "";
             u._ok = true;
             if (isOptionSymbol(u.symbol)) {
-                if (optionAlpacaMode(u) !== "ibkr") u._markDate = ymd(todayTs());
+                if (optionAlpacaMode(u) !== "ibkr") u._markDate = computeFundDayRef() || ymd(todayTs());
                 // 盘中期权现价=bars 实时延迟价，写入 _alpacaPrice 使其优先于 IBKR mark（满足"盘中取bar作为现价"）
                 if (q.price != null) u._alpacaPrice = q.price;   // 期权现价走 _alpacaPrice（盘中=bars 实时延迟 / 盘外=Alpaca 收盘价），最终采用与否由 optionAlpacaMode 决定
                 // ibkr 模式：以盈透 mark 为官方收盘价（Alpaca 仅作实时兜底）
