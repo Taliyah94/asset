@@ -527,7 +527,7 @@ button.danger:hover {
     background: #fff;
     border: 1px solid #eef1f6;
     border-radius: 10px;
-    font-size: clamp(10px, 1.4vw, 13px);
+    font-size: clamp(13px, 2vw, 16px);
     color: #1f2733;
     flex-wrap: nowrap;
     gap: 0 10px;
@@ -1755,7 +1755,6 @@ tbody tr:hover {
 .tbl-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
     border: 1px solid var(--line);
     border-radius: 10px;
 }
@@ -10205,6 +10204,15 @@ function drawChartInternal() {
         if (!Q || !Q.length) return null;
         var map = {};
         Q.forEach(function (x) { map[x.d] = x.c; });
+        // QT 实时价只覆盖报价日期那一天（曲线里其余日期仍读 json 快照）：
+        // _holdQ.usQQQ 的 date 为美东交易日，price 为实时/最新价
+        var rtQ = window._holdQ && window._holdQ["usQQQ"];
+        if (rtQ && rtQ.price > 0 && rtQ.date) {
+            var rd8 = String(rtQ.date).replace(/\D/g, "");
+            labels.forEach(function (lb) {
+                if (String(lb).replace(/\D/g, "") === rd8) map[lb] = rtQ.price;
+            });
+        }
         var closes = [], last = null;
         labels.forEach(function (lb) {
             var c = map[lb];
@@ -10262,6 +10270,29 @@ function drawChartInternal() {
             yAxisID: "y1"
         });
     }
+    // 预测点：曲线末尾追加「预测」点（市场行情顶部实时值），与最后实际点用虚线相连
+    var predTotal = (typeof window.__marketPredTotal === "number" && window.__marketPredTotal > 0) ? window.__marketPredTotal : null;
+    var predLast = -1;
+    for (var pi = d.total.length - 1; pi >= 0; pi--) { if (d.total[pi] != null) { predLast = pi; break; } }
+    if (predTotal != null && predLast >= 0) {
+        d.labels.push("预测");
+        var predData = [];
+        for (var pj = 0; pj < d.labels.length; pj++) predData.push(pj === predLast ? d.total[predLast] : null);
+        predData[predData.length - 1] = predTotal;
+        ds.push({
+            label: "预测",
+            data: predData,
+            type: "line",
+            borderColor: "#7c3aed",
+            borderWidth: 2,
+            borderDash: [6, 4],
+            fill: false,
+            pointRadius: 2,
+            pointBackgroundColor: "#7c3aed",
+            tension: 0,
+            yAxisID: "y"
+        });
+    }
     const crosshair = {
         id: "crosshair",
         afterDatasetsDraw(c) {
@@ -10269,9 +10300,22 @@ function drawChartInternal() {
             if (!st || st.index == null) return;
             const ca = c.chartArea,
                 ctx = c.ctx;
-            const pt = c.getDatasetMeta(0).data[st.index];
+            var _lm = c.getDatasetMeta(0), _ll = _lm.data ? _lm.data.length : 0;
+            for (var _di = 1; _di < c.data.datasets.length; _di++) {
+                var _m2 = c.getDatasetMeta(_di);
+                if (_m2.data && _m2.data.length > _ll) { _lm = _m2; _ll = _m2.data.length; }
+            }
+            const pt = _lm.data[st.index];
             if (!pt) return;
             const x = pt.x;
+            // 横线 y 取该 index 上第一个有效值点（跳过预测集的 null 点，避免横线掉到底部）
+            var ptY = null;
+            for (var _dj = 0; _dj < c.data.datasets.length; _dj++) {
+                var _mj = c.getDatasetMeta(_dj);
+                if (_mj.hidden) continue;
+                var _pj = _mj.data[st.index];
+                if (_pj && typeof _pj.y === "number" && isFinite(_pj.y)) { ptY = _pj.y; break; }
+            }
             ctx.save();
             ctx.setLineDash([4, 4]);
             ctx.lineWidth = 1;
@@ -10280,10 +10324,12 @@ function drawChartInternal() {
             ctx.moveTo(x, ca.top);
             ctx.lineTo(x, ca.bottom);
             ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(ca.left, pt.y);
-            ctx.lineTo(ca.right, pt.y);
-            ctx.stroke();
+            if (ptY != null) {
+                ctx.beginPath();
+                ctx.moveTo(ca.left, ptY);
+                ctx.lineTo(ca.right, ptY);
+                ctx.stroke();
+            }
             ctx.setLineDash([]);
             ctx.restore();
             // 数值明细改写到图例下方的 DOM 提示条（chartTip），不再画在 canvas 左下角
@@ -10295,6 +10341,8 @@ function drawChartInternal() {
             var rows = [];
             c.data.datasets.forEach(function (ds0, di) {
                 if (c.getDatasetMeta(di).hidden) return;
+                // 「预测」行只在光标停最后一个点(预测点)时显示，倒数第二个点(最后实际点)只显示实际值
+                if (ds0.label === "预测" && st.index !== ds0.data.length - 1) return;
                 var v = ds0.data[st.index];
                 if (v == null) return;
                 var txt = ds0.yAxisID === "y1"
@@ -10423,7 +10471,11 @@ function drawChartInternal() {
         cv._xh = true;
         var _dragging = false;
         function snapIndex(mx) {
-            const meta = chart.getDatasetMeta(0);
+            let meta = chart.getDatasetMeta(0), mxLen = meta.data ? meta.data.length : 0;
+            for (var di2 = 1; di2 < chart.data.datasets.length; di2++) {
+                var m2 = chart.getDatasetMeta(di2);
+                if (m2.data && m2.data.length > mxLen) { meta = m2; mxLen = m2.data.length; }
+            }
             let idx = null, best = 1e9;
             meta.data.forEach((p, i) => {
                 const d = Math.abs(p.x - mx);
@@ -11699,10 +11751,15 @@ async function refresh() {
     try {
         var _mpEl = document.getElementById("pageMarket");
         if (_mpEl && _mpEl.classList.contains("active")) {
-            try { renderFundHoldings(); } catch (e) {}
             try { if (typeof buildPredictList === "function") buildPredictList(); } catch (e) {}
-            try { if (typeof renderMarketPrediction === "function") renderMarketPrediction(); } catch (e) {}
         }
+        // 不再限市场行情页激活：曲线图「预测」点依赖 __marketPredTotal，
+        // 停在图表页时也要重算，否则预测点一直是进场时的旧值（不受手动刷新影响）
+        try { renderFundHoldings(); } catch (e) {}
+        // 美股行 data-mv 只有 fetchMarketData→renderMarketList 会写入 DOM，手动刷新也拉一遍，
+        // 否则预测合计里的美股市值一直是旧值
+        try { if (typeof fetchMarketData === "function") fetchMarketData(); } catch (e) {}
+        try { if (typeof renderMarketPrediction === "function") renderMarketPrediction(); } catch (e) {}
     } catch (e) {}
 }
 
@@ -13486,6 +13543,10 @@ window.refreshNasdaqLive = refreshNasdaqLive;
 
                                             <script data-page-node-id="AbpL8ELR2DUu8ITBC1iwVe" data-pnid-children="y3RYhSRDcHvGKiQQBRsExm">
 (function() {
+/* 暴露给全局：refresh()（另一 script 块）需调用这三个函数刷新曲线图「预测」点数据源 __marketPredTotal */
+window.renderMarketPrediction = renderMarketPrediction;
+window.fetchMarketData = fetchMarketData;
+window.renderFundHoldings = renderFundHoldings;
 var bar = document.getElementById("floatingBar");
 var chart = document.getElementById("pageChart");
 var settings = document.getElementById("pageSettings");
@@ -15203,6 +15264,12 @@ function renderMarketPrediction() {
         }
     } catch (e) {}
     var total = fundMv + mktMv + cashVal;
+    // 曲线图「预测」点数据源：把市场行情顶部实时值（实时预测合计）存全局，供 drawChartInternal 读取
+    var _pt = (isFinite(total) && total > 0) ? total : null;
+    if (window.__marketPredTotal !== _pt) {
+        window.__marketPredTotal = _pt;
+        if ((typeof viewMode === "undefined" || viewMode === "curve") && typeof drawChart === "function") { try { drawChart(); } catch (e) {} }
+    }
     // 市场行情：本页市值统统加起来；盈亏=本页市值总和 − 资产页当前总资产；盈亏率同除以资产页总资产
     var _cur = (typeof computeCurrent === "function") ? computeCurrent() : null;
     var baseTotal = (_cur && _cur.total > 0) ? _cur.total : 0;
