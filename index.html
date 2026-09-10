@@ -6624,7 +6624,7 @@ function fetchOptionCloseCached(symList, cfg) {
                 out[raw] = {
                     price: c.p,
                     prevClose: c.pc != null ? c.pc : null,
-                    time: "",
+                    time: c.d + "T20:00:00Z",
                     _close: true
                 };
                 return
