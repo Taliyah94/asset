@@ -7867,8 +7867,11 @@ function computeCurrent() {
             // 不依赖腾讯 qqUp.date（可能按北京日标记，导致卡片误显 0910）
             if (_fdr) _dataDate = _fdr;
             else if (qqUp && qqUp.date) _dataDate = String(qqUp.date);
-        } else if (u._quoteTime && /\d{4}-\d{2}-\d{2}/.test(u._quoteTime)) {
-            _dataDate = u._quoteTime.slice(0, 10).replace(/-/g, "");
+        } else {
+            // 期权：优先对齐美东边界日 _fdr（Alpaca 返回 UTC 时间，美东 09-09 23:xx = UTC 09-10 03:xx，
+            // 直接取日期会超前成 0910，经 usDayDate=max 拖垮美股卡片误显 0910）
+            if (_fdr) _dataDate = _fdr;
+            else if (u._quoteTime && /\d{4}-\d{2}-\d{2}/.test(u._quoteTime)) _dataDate = u._quoteTime.slice(0, 10).replace(/-/g, "");
         }
         // 期权兜底：time 解析不到日期时，用合约标记日(u._markDate，盘中=今天)归到目标日，
         // 确保当日卡片/总资产卡片稳定计入期权当日盈亏（不再依赖 Alpaca time 字段格式）
