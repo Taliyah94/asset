@@ -6706,6 +6706,7 @@ function fetchUsQuotes(symList) {
                 if (!bars[k]) bars[k] = { price: null, prevClose: null, time: "" };
                 if (snap[k] && snap[k].prevClose != null) bars[k].prevClose = snap[k].prevClose;
                 if (bars[k].price == null && snap[k] && snap[k].price != null) bars[k].price = snap[k].price;
+                if (snap[k] && snap[k].time) bars[k].time = snap[k].time;
             });
             Object.keys(bars).forEach(function(k) {
                 if (bars[k] && (bars[k].price != null || bars[k].prevClose != null)) {
@@ -6726,6 +6727,7 @@ function fetchUsQuotes(symList) {
                 if (!bars[k]) bars[k] = { price: null, prevClose: null, time: "" };
                 if (snap[k] && snap[k].prevClose != null) bars[k].prevClose = snap[k].prevClose;
                 if (bars[k].price == null && snap[k] && snap[k].price != null) bars[k].price = snap[k].price;
+                if (snap[k] && snap[k].time) bars[k].time = snap[k].time;
             });
             Object.keys(bars).forEach(function(k) {
                 if (bars[k] && (bars[k].price != null || bars[k].prevClose != null)) {
