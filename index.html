@@ -7649,7 +7649,48 @@ window.getQqqChangeForDay = getQqqChangeForDay;
 
 // (optBase A/B 选择逻辑已移除：期权现价与昨收统一来自 Alpaca 历史 bar)
 
+/* [2026-09-11] Alpaca 股票快照去重：fetchUsQuotesAlpacaRaw 之上按符号加 in-flight 合并 + 30s TTL。
+   原先一轮自动刷新里市场页链(现价兜底+前收)与基金链(_alpacaPrevForFund)对同一批正股各拉一遍，
+   每符号 2 snapshot(iex+overnight)+盘外 1 bars，10 只正股一轮 ~60 条；共享后减半 ~30 条。
+   失败/无价的符号不写缓存，下一轮照常重试。 */
+var _alpQCache = {}, _alpQInflight = {};
 function fetchUsQuotesAlpaca(symList, cfg) {
+    var TTL = 30000, now = Date.now();
+    var out = {}, need = [], waiters = [], seen = {};
+    (symList || []).forEach(function(s) {
+        // [修复] stockSyms 里同一正股会出现两次(期权正股root收集 + Bybit ticker isStock push)，
+        // 不去重会导致 raw 对同一符号发两遍 iex+ovn
+        if (seen[s]) return;
+        seen[s] = true;
+        var c = _alpQCache[s];
+        if (c && now - c.ts < TTL) { out[s] = c.q; return; }
+        if (_alpQInflight[s]) {
+            waiters.push(_alpQInflight[s].then(function(q) { if (q) out[s] = q; }));
+        } else {
+            need.push(s);
+        }
+    });
+    if (need.length) {
+        var p = fetchUsQuotesAlpacaRaw(need, cfg).then(function(m) {
+            var t = Date.now();
+            need.forEach(function(s) {
+                var q = m[s];
+                if (q) { _alpQCache[s] = { q: q, ts: t }; out[s] = q; }
+                delete _alpQInflight[s];
+            });
+            return m;
+        }).catch(function() {
+            need.forEach(function(s) { delete _alpQInflight[s]; });
+        });
+        need.forEach(function(s) {
+            _alpQInflight[s] = p.then(function(m) { return (m && m[s]) || null; });
+        });
+        waiters.push(p.catch(function() {}));
+    }
+    return Promise.all(waiters).then(function() { return out; });
+}
+
+function fetchUsQuotesAlpacaRaw(symList, cfg) {
     return new Promise(function(resolve) {
         var out = {};
         if (!symList || !symList.length) {
@@ -12224,7 +12265,7 @@ function saveModal() {
 }
 var _autoUsOn = false,
     _autoUsTimer = null;
-const AUTO_US_MS = 2 * 60 * 1e3;
+const AUTO_US_MS = 1 * 60 * 1e3;
 async function refreshUsOnly() {
     if (!us.length) {
         setStatus("idle", "还没有美股，无法单独刷新");
@@ -13799,6 +13840,22 @@ var MARKET_API_BASE = "https://api.bybit.kz/v5/market";
 var _marketTimer = null;
 var _marketSymbols = [];
 
+/* Bybit instruments-info 的 symbolType 缓存：该值只用于区分股票/币且几乎不变，
+   localStorage 命中则完全跳过这条请求（省一整波 ~760ms RTT），成功响应后写回 */
+function bybitSymTypeGet(sym) {
+    try { return (JSON.parse(localStorage.getItem("bbSymType") || "{}"))[sym] || ""; }
+    catch (e) { return ""; }
+}
+function bybitSymTypeSet(sym, t) {
+    if (!t) return;
+    try {
+        var c = {};
+        try { c = JSON.parse(localStorage.getItem("bbSymType") || "{}"); } catch (e) {}
+        c[sym] = t;
+        localStorage.setItem("bbSymType", JSON.stringify(c));
+    } catch (e) {}
+}
+
 function getMarketSymbols() {
     try { return JSON.parse(localStorage.getItem(MARKET_STORAGE_KEY) || "[]"); }
     catch(e) { return []; }
@@ -15001,7 +15058,7 @@ function renderFundHoldings() {
 // [2026-09-11] 缓存/in-flight：showPage 每次切市场页都重跑整条 Bybit instruments→tickers→
 // 腾讯Close→AlpacaPrev 链（实测 4~7s），期间基金行一直 "--"。30s 内切回直接复用上次结果
 // 即时填充；链进行中调用合并；12s 硬超时兜底（任一 fetch 永久挂起也强制用已拿到部分填充）。
-// 数据新鲜度由 2 分钟自动刷新(refreshAuto→fetchMarketData)与切页 fetchMarketData 保持。
+// 数据新鲜度由 1 分钟自动刷新(refreshAuto→fetchMarketData)与切页 fetchMarketData 保持。
 var _fhrCache = null, _fhrInflight = false;
 function fetchFundHoldingsRealtime(usCodes) {
     var key = (usCodes || []).slice().sort().join(",");
@@ -15040,55 +15097,51 @@ function fetchFundHoldingsRealtime(usCodes) {
     };
     symbols.forEach(function(sym) {
         var tUrl = MARKET_API_BASE + "/tickers?category=linear&symbol=" + sym;
-        var iUrl = MARKET_API_BASE + "/instruments-info?category=linear&symbol=" + sym;
-        var symbolType = "";
-        // race 兜 5s，防止 instruments-info 永久 pending 拖垮基金美股实时拉取
-        var iUrlP = Promise.race([
-            fetch(iUrl).then(function(r) { return r.json(); }),
+        // symbolType 缓存命中跳过 instruments-info；未命中与 ticker 并行(不再串行)，race 兜 5s
+        var symbolType = bybitSymTypeGet(sym);
+        var iUrlP = symbolType ? Promise.resolve() : Promise.race([
+            fetch(MARKET_API_BASE + "/instruments-info?category=linear&symbol=" + sym).then(function(r) { return r.json(); }),
             new Promise(function(_, rej) { setTimeout(function() { rej(new Error("iUrl timeout")); }, 5000); })
-        ]);
-        iUrlP
-            .then(function(json) {
-                var l = json && json.result && json.result.list;
-                if (l && l[0]) symbolType = l[0].symbolType || "";
-            })
-            .catch(function() {})
-            .finally(function() {
-                var isStock = (symbolType === "stock" || symbolType === "ETF");
-                var stockUseBybit = isStock && marketStockUseBybit();
-                fetch(tUrl)
-                    .then(function(r) { return r.json(); })
-                    .then(function(json) {
-                        if (json.retCode === 0 && json.result && json.result.list) {
-                            json.result.list.forEach(function(it) {
-                                it._isStock = isStock;
-                                it._useBybit = stockUseBybit;
-                                it._ch24 = parseFloat(it.price24hPcnt);
-                                // 数据源标识：bybit / tencent(腾讯财经) / alpaca，与行情逻辑一致
-                                it._src = isStock ? (stockUseBybit ? "bybit" : ((typeof isUsRegularSession === "function" && isUsRegularSession()) ? "tencent" : "alpaca")) : "bybit";
-                                merged.list.push(it);
-                                // 美股(含周末间隙走 Bybit 的)都要拉腾讯昨收/实时价，作涨跌基准
-                                if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
-                            });
-                        }
-                    })
-                    .catch(function() {})
-                    .finally(function() {
-                        pending--;
-                        if (pending === 0) {
-                            if (stockSyms.length > 0) {
-                                // 腾讯 Close 用 script 注入，为防止某些环境（CSP/网络）卡住不回调，加 8s 强制兜底
-                                var tCloseP = fetchTencentClose(stockSyms);
-                                var tCloseTimeout = new Promise(function(_, rej) { setTimeout(function() { rej(new Error("tencent close timeout")); }, 8000); });
-                                Promise.race([tCloseP, tCloseTimeout])
-                                    .then(function(map) { _alpacaPrevForFund().then(function(am) { _fill(merged, map || {}, am); }); })
-                                    .catch(function(e) { _alpacaPrevForFund().then(function(am) { _fill(merged, {}, am); }); });
-                            } else {
-                                _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, {}, am); });
-                            }
-                        }
-                    });
-            });
+        ]).then(function(json) {
+            var l = json && json.result && json.result.list;
+            if (l && l[0]) {
+                symbolType = l[0].symbolType || "";
+                bybitSymTypeSet(sym, symbolType);
+            }
+        }).catch(function() {});
+        var tP = fetch(tUrl)
+            .then(function(r) { return r.json(); })
+            .catch(function() { return null; });
+        Promise.all([iUrlP, tP]).then(function(r) {
+            var json = r[1];
+            var isStock = (symbolType === "stock" || symbolType === "ETF");
+            var stockUseBybit = isStock && marketStockUseBybit();
+            if (json && json.retCode === 0 && json.result && json.result.list) {
+                json.result.list.forEach(function(it) {
+                    it._isStock = isStock;
+                    it._useBybit = stockUseBybit;
+                    it._ch24 = parseFloat(it.price24hPcnt);
+                    // 数据源标识：bybit / tencent(腾讯财经) / alpaca，与行情逻辑一致
+                    it._src = isStock ? (stockUseBybit ? "bybit" : ((typeof isUsRegularSession === "function" && isUsRegularSession()) ? "tencent" : "alpaca")) : "bybit";
+                    merged.list.push(it);
+                    // 美股(含周末间隙走 Bybit 的)都要拉腾讯昨收/实时价，作涨跌基准
+                    if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
+                });
+            }
+            pending--;
+            if (pending === 0) {
+                if (stockSyms.length > 0) {
+                    // 腾讯 Close 用 script 注入，为防止某些环境（CSP/网络）卡住不回调，加 8s 强制兜底
+                    var tCloseP = fetchTencentClose(stockSyms);
+                    var tCloseTimeout = new Promise(function(_, rej) { setTimeout(function() { rej(new Error("tencent close timeout")); }, 8000); });
+                    Promise.race([tCloseP, tCloseTimeout])
+                        .then(function(map) { _alpacaPrevForFund().then(function(am) { _fill(merged, map || {}, am); }); })
+                        .catch(function(e) { _alpacaPrevForFund().then(function(am) { _fill(merged, {}, am); }); });
+                } else {
+                    _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, {}, am); });
+                }
+            }
+        });
     });
 }
 
@@ -15665,73 +15718,64 @@ function fetchMarketDataRaw() {
     }, 8000);
 
     symbols.forEach(function(sym) {
-        // 1) 拉 ticker
         var tUrl = MARKET_API_BASE + "/tickers?category=linear&symbol=" + sym;
-        // 2) 拉 instruments-info 拿 symbolType 区分股票/虚拟货币
-        var iUrl = MARKET_API_BASE + "/instruments-info?category=linear&symbol=" + sym;
-        var symbolType = "";
-        // instruments-info 仅用于区分股票/虚拟货币，失败不影响 ticker 主链路。
-        // 用 race 兜 5s，防止该请求永久 pending 拖垮整页（导致 pending 不归零、美股不渲染）。
-        var iUrlP = Promise.race([
-            fetch(iUrl).then(function(r) { return r.json(); }),
+        // symbolType 缓存命中则完全跳过 instruments-info；未命中时与 ticker **并行**
+        // （原实现串行：等 instruments 结束才发 ticker，关键路径翻倍 ~1.9s → 现并行 ~max 两条）
+        var symbolType = bybitSymTypeGet(sym);
+        var iUrlP = symbolType ? Promise.resolve() : Promise.race([
+            fetch(MARKET_API_BASE + "/instruments-info?category=linear&symbol=" + sym).then(function(r) { return r.json(); }),
             new Promise(function(_, rej) { setTimeout(function() { rej(new Error("iUrl timeout")); }, 5000); })
-        ]);
-        iUrlP
-            .then(function(json) {
-                var l = json && json.result && json.result.list;
-                if (l && l[0]) symbolType = l[0].symbolType || "";
-            })
-            .catch(function() {})
-            .finally(function() {
-                var isStock = (symbolType === "stock" || symbolType === "ETF");
-                // 盘前/盘后/夜盘/周末间隙(非美东常规时段)美股走 Bybit；盘中走腾讯
-                var stockUseBybit = isStock && marketStockUseBybit();
-                var useTencent = isStock && !stockUseBybit;
-                // 数据源标识：bybit / tencent(腾讯财经)；Alpaca 仅作最终兜底(渲染层回退时标注)
-                var src = "bybit";
-                if (isStock) {
-                    src = stockUseBybit ? "bybit" : "tencent";
-                }
-                fetch(tUrl)
-                    .then(function(r) { return r.json(); })
-                    .then(function(json) {
-                        if (json.retCode === 0 && json.result && json.result.list) {
-                            json.result.list.forEach(function(it) {
-                                it._isStock = isStock;
-                                it._useBybit = stockUseBybit; // 股票走 Bybit 的标志
-                                it._src = src;                // 数据源标识
-                                it._ch24 = parseFloat(it.price24hPcnt); // 已是小数，渲染*100
-                                merged.list.push(it);
-                                // 所有美股/ETF 都拉腾讯昨收作为涨跌基准(盘中盘外统一)，不再仅限盘中
-                                if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
-                            });
-                        } else {
-                            // Bybit 读不到该符号（含股票/非美股，Bybit 多返回空列表而非报错）：
-                            // 记录失败并加入腾讯/Alpaca 拉取集合，确保走兜底而非画杠
-                            _recordFail(isStock, sym);
-                            var _plainFail = sym.replace(/USDT$/, "");
-                            if (_plainFail && stockSyms.indexOf(_plainFail) < 0) stockSyms.push(_plainFail);
-                        }
-                    })
-                    .catch(function(err) {
-                        hasError = true;
-                        _recordFail(isStock, sym);
-                        // [修复] 这里原先也 pending-- 并触发渲染，与下面 .finally 叠加成「一次失败减两次」：
-                        // pending 提前归零 → 其余请求还没回来就渲染 → 未返回的符号进不了 stockSyms/渲染集合 → 整行丢失。
-                        // 计数与渲染统一交给 .finally，.catch 只负责记录失败。
-                    })
-                    .finally(function() {
-                        pending--;
-                        if (pending <= 0) {
-                            clearTimeout(_safetyTimer);
-                            if (hasError && errEl) { errEl.style.display = ""; errEl.textContent = "部分行情获取失败，已显示已获取的部分"; }
-                            _renderDone(false);
-                        }
-                    });
+        ]).then(function(json) {
+            var l = json && json.result && json.result.list;
+            if (l && l[0]) {
+                symbolType = l[0].symbolType || "";
+                bybitSymTypeSet(sym, symbolType);
+            }
+        }).catch(function() {});
+        var tP = fetch(tUrl)
+            .then(function(r) { return r.json(); })
+            .catch(function(err) {
+                hasError = true;
+                return null;
             });
+        Promise.all([iUrlP, tP]).then(function(r) {
+            var json = r[1];
+            var isStock = (symbolType === "stock" || symbolType === "ETF");
+            // 盘前/盘后/夜盘/周末间隙(非美东常规时段)美股走 Bybit；盘中走腾讯
+            var stockUseBybit = isStock && marketStockUseBybit();
+            var useTencent = isStock && !stockUseBybit;
+            // 数据源标识：bybit / tencent(腾讯财经)；Alpaca 仅作最终兜底(渲染层回退时标注)
+            var src = "bybit";
+            if (isStock) {
+                src = stockUseBybit ? "bybit" : "tencent";
+            }
+            if (json && json.retCode === 0 && json.result && json.result.list) {
+                json.result.list.forEach(function(it) {
+                    it._isStock = isStock;
+                    it._useBybit = stockUseBybit; // 股票走 Bybit 的标志
+                    it._src = src;                // 数据源标识
+                    it._ch24 = parseFloat(it.price24hPcnt); // 已是小数，渲染*100
+                    merged.list.push(it);
+                    // 所有美股/ETF 都拉腾讯昨收作为涨跌基准(盘中盘外统一)，不再仅限盘中
+                    if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
+                });
+            } else {
+                // Bybit 读不到该符号（含股票/非美股，Bybit 多返回空列表而非报错）：
+                // 记录失败并加入腾讯/Alpaca 拉取集合，确保走兜底而非画杠
+                if (!json) _recordFail(isStock, sym);
+                var _plainFail = sym.replace(/USDT$/, "");
+                if (_plainFail && stockSyms.indexOf(_plainFail) < 0) stockSyms.push(_plainFail);
+            }
+            pending--;
+            if (pending <= 0) {
+                clearTimeout(_safetyTimer);
+                if (hasError && errEl) { errEl.style.display = ""; errEl.textContent = "部分行情获取失败，已显示已获取的部分"; }
+                _renderDone(false);
+            }
+        });
     });
 }
-window.fetchMarketData = fetchMarketData; // [修复] 暴露为全局：2 分钟自动刷新 refreshAuto(全局) 需调用它
+window.fetchMarketData = fetchMarketData; // [修复] 暴露为全局：1 分钟自动刷新 refreshAuto(全局) 需调用它
 
 // 市场页面显示时自动加载
 var _marketLoaded = false;
