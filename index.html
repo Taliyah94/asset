@@ -32,6 +32,145 @@ try {
 window.__B = window.__B || __B;
     </script>
 
+    <script data-page-node-id="netdbg">
+/* ===== 首屏网络调试：包裹 fetch / XHR / script(JSONP)，记录每次请求的耗时与状态 ===== */
+(function() {
+    if (window.__netDbg) return;
+    window.__netDbg = true;
+    window.__netLog = [];
+    var SLOW = 3000; // ms 以上标红
+
+    function hostOf(url) {
+        try { return new URL(url, location.href).host; } catch (e) { return ""; }
+    }
+    // 把 URL 归成可读标签，直接对应上一轮整理的「抓取源」
+    function tag(url) {
+        var u = url || "";
+        if (u.indexOf("Asset_parsed.json") >= 0) return "主文件 Asset_parsed.json";
+        if (u.indexOf("fund_holdings.json") >= 0) return "fund_holdings.json";
+        if (u.indexOf("open.er-api.com") >= 0) return "汇率 er-api";
+        if (u.indexOf("alpaca.markets") >= 0) {
+            var k = u.indexOf("/bars") >= 0 ? "bars"
+                : u.indexOf("snapshot") >= 0 ? "snapshot"
+                : u.indexOf("options") >= 0 ? "options" : "stocks";
+            return "美股 Alpaca·" + k;
+        }
+        if (u.indexOf("push2his.eastmoney") >= 0) return "东财K线(成分股)";
+        if (u.indexOf("pingzhongdata") >= 0) return "东财净值(基金)";
+        if (u.indexOf("qt.gtimg.cn") >= 0) return "腾讯行情(成分股/美股)";
+        if (u.indexOf("historyofmarket.com") >= 0) return u.indexOf("vxn") >= 0 ? "纳指 VXN" : "纳指 PE";
+        if (u.indexOf("127.0.0.1") >= 0) return "本机代理 nasdaq";
+        var h = hostOf(u);
+        return h ? h : (u.length > 40 ? u.slice(0, 40) + "…" : u);
+    }
+    function push(item) { window.__netLog.push(item); render(); return item; }
+
+    // ---- fetch ----
+    var _fetch = window.fetch ? window.fetch.bind(window) : null;
+    if (_fetch) {
+        window.fetch = function(input, init) {
+            var url = (typeof input === "string") ? input : (input && input.url) || "";
+            var it = push({ kind: "fetch", label: tag(url), url: url, start: performance.now(), ms: null, state: "pending" });
+            return _fetch(input, init).then(function(r) {
+                it.ms = Math.round(performance.now() - it.start);
+                it.state = r.ok ? "ok " + r.status : "http " + r.status;
+                render();
+                return r;
+            }, function(err) {
+                it.ms = Math.round(performance.now() - it.start);
+                it.state = "fail";
+                render();
+                throw err;
+            });
+        };
+    }
+    // ---- XMLHttpRequest ----
+    var _xhrOpen = XMLHttpRequest.prototype.open,
+        _xhrSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function(m, u) {
+        this.__u = u;
+        return _xhrOpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function() {
+        var url = this.__u || "", self = this,
+            it = push({ kind: "xhr", label: tag(url), url: url, start: performance.now(), ms: null, state: "pending" });
+        var fin = function() {
+            it.ms = Math.round(performance.now() - it.start);
+            it.state = (self.status === 200) ? "ok 200" : "http " + self.status;
+            render();
+        };
+        this.addEventListener("loadend", fin);
+        this.addEventListener("error", function() { it.state = "fail"; render(); });
+        return _xhrSend.apply(this, arguments);
+    };
+    // ---- JSONP：document.createElement("script") 注入 ----
+    var _ce = document.createElement.bind(document);
+    document.createElement = function(tag) {
+        var el = _ce(tag);
+        if (String(tag).toLowerCase() === "script") {
+            var startJsonp = function(u) {
+                if (el.__netItem) return;
+                el.__netItem = push({ kind: "jsonp", label: tag(u), url: u, start: performance.now(), ms: null, state: "pending" });
+            };
+            var endJsonp = function(st) {
+                if (!el.__netItem) return;
+                el.__netItem.ms = Math.round(performance.now() - el.__netItem.start);
+                el.__netItem.state = st;
+                render();
+            };
+            var _setAttr = el.setAttribute;
+            el.setAttribute = function(k, v) {
+                if ((k === "src" || k === "SRC") && v) startJsonp(v);
+                return _setAttr.apply(el, arguments);
+            };
+            try {
+                var _src = "", proto = Object.getPrototypeOf(el);
+                Object.defineProperty(el, "src", {
+                    configurable: true,
+                    get: function() { return _src; },
+                    set: function(v) { _src = v; if (v) startJsonp(v); try { Object.getOwnPropertyDescriptor(proto, "src").set.call(el, v); } catch (e) {} }
+                });
+            } catch (e) {}
+            el.addEventListener("load", function() { endJsonp("ok"); });
+            el.addEventListener("error", function() { endJsonp("fail"); });
+        }
+        return el;
+    };
+
+    // ---- 渲染 ----
+    function render() {
+        var panel = document.getElementById("netDebugPanel");
+        if (!panel || !panel.classList.contains("on")) return;
+        var log = window.__netLog;
+        var total = log.length, pending = 0, fail = 0, maxMs = 0, sum = 0, done = 0;
+        log.forEach(function(it) {
+            if (it.ms == null) pending++;
+            else { done++; sum += it.ms; if (it.ms > maxMs) maxMs = it.ms; }
+            if (it.state === "fail") fail++;
+        });
+        var avg = done ? Math.round(sum / done) : 0;
+        var html = '<div class="nd-sum"><span>共 <b>' + total + '</b> 次 · 进行 <b>' + pending +
+            '</b> · 失败 <b>' + fail + '</b></span><span>耗时 均 <b>' + avg + 'ms</b> 峰 <b>' + maxMs + 'ms</b></span></div>';
+        var rows = log.slice().sort(function(a, b) { return a.start - b.start; });
+        rows.forEach(function(it, i) {
+            var stCls = it.state === "fail" ? "st-fail" : (it.state === "pending" ? "st-pending" : "st-ok");
+            var msTxt = it.ms == null ? "…" : it.ms + "ms";
+            var slow = (it.ms != null && it.ms >= SLOW) ? " slow" : "";
+            html += '<div class="nd-row' + slow + '"><span class="nd-lab" title="' + (it.url || "") + '">' +
+                (i + 1) + '. ' + it.label + '</span><span class="nd-ms">' + msTxt +
+                '</span><span class="nd-st ' + stCls + '">' + it.state + '</span></div>';
+        });
+        var firstDone = (total > 0 && pending === 0);
+        html += '<div class="nd-foot"><span>' + (firstDone ? "首屏请求完成 ✓" : "首屏请求进行中…") +
+            '</span><button class="nd-btn" id="ndClear">清空</button></div>';
+        panel.innerHTML = html;
+        var cb = document.getElementById("ndClear");
+        if (cb) cb.onclick = function() { window.__netLog = []; render(); };
+    }
+    window.__netRender = render;
+})();
+    </script>
+
     <meta data-page-node-id="vNse5zzSxw3KNpqQoW9E7r" charset="UTF-8">
     <meta data-page-node-id="MUgzP7KPi8N2DX6KNqppvS" content="width=device-width, initial-scale=1.0" name="viewport">
     <title data-page-node-id="wTZg2yB6F0mcwWhP8zbMCz" data-pnid-children="fdzR4ayxfEqxr7aoBITDit">个人资产看板 · 基金 / 美股 / 现金</title>
@@ -179,6 +318,14 @@ button.danger {
 button.danger:hover {
     background: #fff5f5;
 }
+
+/* 内联 style 按钮统一为共享类（与 .primary/.ghost/.sm 同模板体系，外观保持不变） */
+button.blue { background:#1a73e8; border-color:transparent; color:#fff; padding:6px 14px; font-size:13px; }
+button.line { border:1px solid #ddd; background:#fff; font-size:13px; padding:6px 12px; }
+button.line-lg { border:1px solid #ddd; background:#fff; font-size:15px; line-height:1; padding:6px 10px; }
+button.x { border:none; background:transparent; font-size:22px; line-height:1; color:#999; padding:2px 6px; }
+button.accent { width:100%; padding:10px; border:none; border-radius:10px; background:var(--accent,#1aa84b); color:#fff; font-size:15px; font-weight:600; }
+.mr4 { margin-right:4px; }
 
 .hero {
     position: relative;
@@ -4119,6 +4266,79 @@ background: #ffffff;
     font-size: 11px;
     font-weight: 700;
 }
+/* ===== 首屏网络调试面板（设置页内嵌） ===== */
+#netDebugPanel {
+    display: none;
+    margin-top: 8px;
+    width: 100%;
+    max-height: 60vh;
+    overflow: auto;
+    background: #11151f;
+    color: #e6edf6;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 8px 9px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+}
+#netDebugPanel.on {
+    display: block;
+}
+#netDebugPanel .nd-sum {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    color: #9fb3d1;
+}
+#netDebugPanel .nd-sum b {
+    color: #fff;
+}
+#netDebugPanel .nd-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 0;
+    white-space: nowrap;
+}
+#netDebugPanel .nd-row .nd-lab {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#netDebugPanel .nd-row .nd-ms {
+    width: 52px;
+    text-align: right;
+    color: #cfe3ff;
+}
+#netDebugPanel .nd-st {
+    width: 64px;
+    text-align: right;
+}
+#netDebugPanel .st-ok { color: #6ee7a8; }
+#netDebugPanel .st-fail { color: #ff8a8a; }
+#netDebugPanel .st-pending { color: #ffd479; }
+#netDebugPanel .nd-row.slow .nd-ms { color: #ff8a8a; font-weight: 700; }
+#netDebugPanel .nd-foot {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    color: #9fb3d1;
+}
+#netDebugPanel .nd-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e6edf6;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 1px 7px;
+}
     </style>
     <link data-page-node-id="o9NWRN16E8VRjHyaJ80KK9" href="manifest.webmanifest" rel="manifest">
 </head>
@@ -4151,10 +4371,10 @@ background: #ffffff;
                 <div data-page-node-id="j3hpIkYrLv2sw8RhPK2VEs" class="market-toolbar" style="display:flex; gap:8px; align-items:center; font-size:13px; font-weight:400; color:#888">
                     <input data-page-node-id="gAQdZ2F0EBK3RWleAXCqqJ" id="marketAddInput" placeholder="如 NVDA" style="width:96px; padding:6px 10px; border:1px solid #ddd; border-radius:8px; font-size:16px; outline:none">
                     <datalist data-page-node-id="EZy8KX53tBYtOj7ZmOnoyJ" id="marketSymbolList"></datalist>
-                    <button data-page-node-id="K3sZbAPA41ix1YJE6MMwus" id="marketAddBtn" type="button" style="padding:6px 14px; border:none; border-radius:8px; background:#1a73e8; color:#fff; font-size:13px; cursor:pointer"><!--pnid:MlAHsJBHfkzhhlFU5ZMUqy-->添加</button>
-                    <button data-page-node-id="ZUbp57MIullbeRyhpYT5l0" id="mvpnlToggleBtn" title="切换市值/盈亏主次显示" type="button" style="padding:6px 12px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:13px; cursor:pointer"><!--pnid:euujckgMUYG7ZzmvTxNumS-->市值 ▾</button>
-                    <button data-page-node-id="5Pt6B15EE3ECNcyjnTAbhM" id="marketPredictToggle" title="进入基金预测页" type="button" style="padding:6px 12px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:13px; cursor:pointer"><!--pnid:ROeIh89D7SLJ85rSyoxCAi-->📈 预测</button>
-                    <button data-page-node-id="rX8sJpmtzg4AYXALWLouQk" id="marketManageBtn" title="管理行（排序/置顶/删除）" type="button" style="padding:6px 10px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:15px; cursor:pointer; line-height:1"><!--pnid:ot7F3HpehkAN3GACDIAbkX-->☰</button>
+                    <button data-page-node-id="K3sZbAPA41ix1YJE6MMwus" id="marketAddBtn" type="button" class="blue"><!--pnid:MlAHsJBHfkzhhlFU5ZMUqy-->添加</button>
+                    <button data-page-node-id="ZUbp57MIullbeRyhpYT5l0" id="mvpnlToggleBtn" title="切换市值/盈亏主次显示" type="button" class="line"><!--pnid:euujckgMUYG7ZzmvTxNumS-->市值 ▾</button>
+                    <button data-page-node-id="5Pt6B15EE3ECNcyjnTAbhM" id="marketPredictToggle" title="进入基金预测页" type="button" class="line"><!--pnid:ROeIh89D7SLJ85rSyoxCAi-->📈 预测</button>
+                    <button data-page-node-id="rX8sJpmtzg4AYXALWLouQk" id="marketManageBtn" title="管理行（排序/置顶/删除）" type="button" class="line-lg"><!--pnid:ot7F3HpehkAN3GACDIAbkX-->☰</button>
                 </div>
             </h2>
             <div data-page-node-id="z7idoHF51adjkxQ7OlzONG" id="marketError" style="text-align:center; color:#e53935; padding:16px 0; font-size:13px; display:none"></div>
@@ -4186,7 +4406,7 @@ background: #ffffff;
                     <div data-page-node-id="uOvxHXDh3zne2yhE7VMu6T" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px">
                         <div data-page-node-id="gIhAI7VpoeGwJ8tYgG4vN2" style="font-size:15px; font-weight:600; color:#222"><!--pnid:4m7QGpXj2ZEpslasjB5iTw-->行管理 · 拖动排序 · 置顶/置底 · 删除</div>
                         <div data-page-node-id="mE1j0I6MqUU2PLi8eGvpnq" style="display:flex; align-items:center; gap:6px">
-                            <button data-page-node-id="uixgCqBhJhAW4W3qdnWAwb" id="marketManageClose" type="button" style="border:none; background:transparent; font-size:22px; line-height:1; color:#999; cursor:pointer; padding:2px 6px"><!--pnid:YL66LxUJzIpThECRcpkNlh-->×</button>
+                            <button data-page-node-id="uixgCqBhJhAW4W3qdnWAwb" id="marketManageClose" type="button" class="x"><!--pnid:YL66LxUJzIpThECRcpkNlh-->×</button>
                         </div>
                     </div>
                     <div data-page-node-id="ewK0kWpKS1VYTanCnGOmwE" id="marketManageList" style="display:flex; flex-direction:column; gap:6px; overflow:auto; padding-right:2px"></div>
@@ -5116,13 +5336,22 @@ background: #ffffff;
         </div>
 
         <div data-page-node-id="qgVmUiRw5h8L1Z53KmWyqh" style="text-align:center; color:#bbb; font-size:11px; padding:14px 0 100px"><!--pnid:qnTSKUzlnEUBzt7WGDEQih-->资产看板 v2.0 · 2026</div>
+
+        <div class="setting-card">
+            <h3>调试</h3>
+            <div class="setting-row" id="ndRow" style="cursor:default">
+                <div class="label"><span class="li-ic">🛰️</span>首屏请求监控</div>
+                <label class="value" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px"><input type="checkbox" id="ndChk"> 显示</label>
+            </div>
+            <div id="netDebugPanel"></div>
+        </div>
     </section><!--pnid:di9fuXetqEIiTOBZarPSof--><!-- 图标浏览模态 -->
     <div data-page-node-id="aT4zN4Ar6I5TpCXmzDKXCW" class="icon-browser-bg" id="iconBrowserBg" style="display:none">
         <div data-page-node-id="GA44g1NiW8igKSt6OheuzW" class="icon-browser-modal">
             <div data-page-node-id="qoNkUiMhXo6fVnDxkFDDhl" class="icon-browser-head">
                 <span data-page-node-id="VDEMbcj9GJ24Av6qtw99Wl" class="icon-browser-title" id="iconBrowserTitle"><!--pnid:tQdhRI37ts6Quh1yG3IsGq-->选择图标</span>
                 <input data-page-node-id="dpcRvlKwGJSIqfl2VVhSu8" id="iconSearch" placeholder="搜索品牌名（中/英）…" type="text">
-                <button data-page-node-id="M2jF59MHMWSxPREDtTJrsb" class="sm ghost" id="iconBrowserClear" style="margin-right:4px"><!--pnid:upxObihzgAPRogVJZPU0DW-->清除</button>
+                <button data-page-node-id="M2jF59MHMWSxPREDtTJrsb" class="sm ghost mr4" id="iconBrowserClear"><!--pnid:upxObihzgAPRogVJZPU0DW-->清除</button>
                 <button data-page-node-id="1YynnsIS2BqWtUJBZywUWZ" class="icon-browser-close" id="iconBrowserClose" title="关闭"><!--pnid:cvOGG658RJDTMOo4hSR9QV-->×</button>
             </div>
             <div data-page-node-id="NXTxLRXqlZKz0v9a2J3qCf" class="icon-browser-tabs" id="iconTabs"><button data-page-node-id="G4aqQumLBFfBTnEf8oZXML" class data-cat="brokerage"><!--pnid:R2xsH6aST5KHj0QnZNTDtH-->券商 <span data-page-node-id="W66RnoCVUTAMzJlBx0Qnlw" style="opacity:.6; font-size:10px"><!--pnid:QjULwNcZ4B8M42Ilvi5S4c-->10</span></button><button data-page-node-id="oyqkEiLIALN9GZQnNRLBXp" class="active" data-cat="mainland"><!--pnid:NlDwMWJhn5ctscqjUi8JWL-->中国大陆 <span data-page-node-id="zsDcJAPwVbePoMlNZl5sLl" style="opacity:.6; font-size:10px"><!--pnid:xA9THd4GlSI64B609FoB6C-->11</span></button><button data-page-node-id="MExmQbSeweu2A6ImMGTgTO" class data-cat="western"><!--pnid:W07yHIlbjUPHU7LFpNAa3W-->欧美 <span data-page-node-id="twoMhzZQu5Sm82EhfO9DHJ" style="opacity:.6; font-size:10px"><!--pnid:Jl1kGcyWK0xLqaodGs34U9-->23</span></button></div>
@@ -5200,7 +5429,7 @@ background: #ffffff;
                     <input data-page-node-id="ce5PI4DAz8KZBwe9qu3HDp" id="ghMsg" placeholder="PWA 同步数据" type="text" style="width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--line,#ddd); border-radius:8px; font-size:14px; background:var(--card,#fff); color:var(--text,#222)">
                 </div>
                 <div data-page-node-id="hiQ4AA6e3UGCaqwAD9omhU" id="ghSyncStatus" style="font-size:13px; color:var(--muted,#888); margin-bottom:12px; min-height:18px"></div>
-                <button data-page-node-id="e8cnnxMD7dQggxSg31fCpn" id="ghSyncDo" style="width:100%; padding:10px; border:none; border-radius:10px; background:var(--accent,#1aa84b); color:#fff; font-size:15px; font-weight:600; cursor:pointer"><!--pnid:swpNxEFsvT5SPdfDP5a7fb-->开始同步</button>
+                <button data-page-node-id="e8cnnxMD7dQggxSg31fCpn" id="ghSyncDo" class="accent"><!--pnid:swpNxEFsvT5SPdfDP5a7fb-->开始同步</button>
             </div>
         </div>
     </div><!--pnid:WINYg1X1YAwhfB0ctSgiGb--><!-- 底部悬浮导航栏 -->
@@ -5253,10 +5482,10 @@ background: #ffffff;
                                                     <header data-page-node-id="0pXEjh5A7YyoZGbr5Vj5z7" class="top">
                                                         <div data-page-node-id="N9jGOrMa81sYiUsCur0wXN" class="actions">
                                                             <span data-page-node-id="HSBhupBamaBqbcN20EyPbU" class="status live" id="status"><span data-page-node-id="0cvuCHdvBAHFxM3aBIrZpH" class="status-tags" id="statusTags"><span data-page-node-id="PBRxEDqOo9jkOcJM5n5aA6" class="fx-tag fx-live"><span data-page-node-id="wdvWhRHvPLpYlZ8HsLBH0I" class="fdot"></span><!--pnid:C5DywugjJrylO9ByRi46fZ-->基金</span><span data-page-node-id="6Vd6HsMuftne30BlUscnxM" class="fx-tag fx-live"><span data-page-node-id="yX6creY4llq4jJqPZq7MYG" class="fdot"></span><!--pnid:VLXZUI38zBIqWa525kEeOU-->盘外</span><span data-page-node-id="4yhHVm85SLf0LksIbjTTbB" class="fx-tag fx-live"><span data-page-node-id="SOhXtVCYS49rgUi6Dj9FRu" class="fdot"></span><!--pnid:2qgDv3uXrdnvtqOtQTyZJc-->市场温度</span></span><span data-page-node-id="8KJ5U3D8JhXA19WiSezIFr" class="fx-tag fx-live" id="fxStatus"><span data-page-node-id="uBspP8YcXtB3zObUQQjNRY" class="fdot"></span><!--pnid:GPVo3UVHjm41fAl8pRtjtN-->汇率</span><span data-page-node-id="V2fKHSuvBHFp4CFDE4pezN" class="status-msg" id="statusMsg" style="display:none"></span></span>
-                                                            <button data-page-node-id="C0BIt8Ozaxs32mNwNf0rG5" class="ghost sm" id="btnExport" style="display:none"><!--pnid:tzKSeqCBii7uelZYcF5tMm-->导出</button>
-                                                            <button data-page-node-id="nBv4CiOFnEpjLRdYz4xFbL" class="ghost sm" id="btnExportData" style="display:none"><!--pnid:tWXQ0mFkV04fLwJY72SbJ5-->导出带数据</button>
-                                                            <button data-page-node-id="vsTpbCIauTvVHgadVBD39r" class="primary" id="btnRefresh" style="display:none"><!--pnid:AQ9OES7aCkopCGrjKUA32W-->↻ 刷新实时行情</button>
-                                                            <button data-page-node-id="5KxVlGSYWFBnSoASFkDLjo" class="ghost sm" id="btnAutoUs" style="display:none"><!--pnid:y39WSOZgNEzr2ywPFECyi4-->⏱ 自动刷新行情</button>
+                                                            <button data-page-node-id="C0BIt8Ozaxs32mNwNf0rG5" class="ghost sm hidden" id="btnExport"><!--pnid:tzKSeqCBii7uelZYcF5tMm-->导出</button>
+                                                            <button data-page-node-id="nBv4CiOFnEpjLRdYz4xFbL" class="ghost sm hidden" id="btnExportData"><!--pnid:tWXQ0mFkV04fLwJY72SbJ5-->导出带数据</button>
+                                                            <button data-page-node-id="vsTpbCIauTvVHgadVBD39r" class="primary hidden" id="btnRefresh"><!--pnid:AQ9OES7aCkopCGrjKUA32W-->↻ 刷新实时行情</button>
+                                                            <button data-page-node-id="5KxVlGSYWFBnSoASFkDLjo" class="ghost sm hidden" id="btnAutoUs"><!--pnid:y39WSOZgNEzr2ywPFECyi4-->⏱ 自动刷新行情</button>
                                                         </div>
                                                     </header>
 
@@ -6210,48 +6439,6 @@ function fetchFundSeries(code) {
             done = true;
             resolve(d)
         };
-        // fallback：用 <script> 加载腾讯 jj 接口（变量名 v_jj{code} 带 code，天然隔离，无竞态）。
-        // 注意：浏览器里 fetch 跨域到 qt.gtimg.cn 会被 CORS 拦截，故必须用 script 注入而非 fetch。
-        const fundFallback = () => {
-            try {
-                const s2 = document.createElement("script");
-                const to2 = setTimeout(() => {
-                    try { s2.remove() } catch (e) {}
-                    finish(null)
-                }, 8e3);
-                s2.onload = () => {
-                    clearTimeout(to2);
-                    try {
-                        const raw = window["v_jj" + code];
-                        if (typeof raw === "string") {
-                            const p = raw.split("~");
-                            const nav = parseFloat(p[5]);
-                            const dt = (p[8] || "").trim();
-                            const t = parseDate(dt) || todayTs();
-                            if (!isNaN(nav)) {
-                                try { s2.remove() } catch (e) {}
-                                finish({
-                                    name: (p[1] || "").trim(),
-                                    list: [{ t: t, nav: nav }]
-                                });
-                                return
-                            }
-                        }
-                    } catch (e) {}
-                    try { s2.remove() } catch (e) {}
-                    finish(null)
-                };
-                s2.onerror = () => {
-                    clearTimeout(to2);
-                    try { s2.remove() } catch (e) {}
-                    finish(null)
-                };
-                s2.src = "https://qt.gtimg.cn/q=jj" + code + "&_=" + Date.now();
-                document.head.appendChild(s2)
-            } catch (e) {
-                finish(null)
-            }
-        };
         // 主路径：<script> JSONP 加载东财净值脚本（写入全局变量 window.Data_netWorthTrend）。
         // 该全局变量会被并发脚本互相覆盖，因此调用方必须用串行（concurrency=1）抓取，
         // 保证任意时刻只有一个脚本在 head，全局变量不会被覆盖。
@@ -6260,7 +6447,7 @@ function fetchFundSeries(code) {
             try { s.remove() } catch (e) {}
             window.Data_netWorthTrend = undefined;
             window.fS_name = undefined;
-            fundFallback()
+            finish(null)
         }, 8e3);
         const s = document.createElement("script");
         window.Data_netWorthTrend = undefined;
@@ -6287,13 +6474,13 @@ function fetchFundSeries(code) {
                 }
             } catch (e) {}
             clearTimeout(to);
-            fundFallback()
+            finish(null)
         };
         s.onerror = () => {
             clearTimeout(to);
             try { s.remove() } catch (e) {}
             window.Data_netWorthTrend = undefined;
-            fundFallback()
+            finish(null)
         };
         s.src = url;
         document.head.appendChild(s)
@@ -7053,35 +7240,7 @@ function ymdAddDays(s, n) {
 
                                                 
 
-function fetchKline(sym) {
-    return new Promise(function(resolve) {
-        var url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + sym + ",day,,,60,qfq";
-        fetch(url).then(function(r) {
-            return r.json()
-        }).then(function(d) {
-            try {
-                var node = d.data[sym];
-                var arr = node && (node.qfqday || node.day) || [];
-                var out = arr.filter(function(b) {
-                    return Array.isArray(b) && b.length >= 3
-                }).map(function(b) {
-                    return {
-                        date: b[0],
-                        open: parseFloat(b[1]),
-                        close: parseFloat(b[2]),
-                        high: parseFloat(b[3]),
-                        low: parseFloat(b[4])
-                    }
-                });
-                resolve(out)
-            } catch (e) {
-                resolve([])
-            }
-        }).catch(function() {
-            resolve([])
-        })
-    })
-}
+/* [已删除] 腾讯 fqkline 兜底（web.ifzq.gtimg.cn/appstock/app/fqkline）—— 港股/A股/日股/韩股统一走东方财富历史K线，不再请求腾讯 */
 
 /* 东方财富（push2his）K 线：港股+A股+日股+韩股成分股专用数据源
    secid 前缀（实测）：港股=116 / 深A=0 / 沪A=1 / 日股=176 / 韩股=177
@@ -7149,51 +7308,9 @@ function pickDailyQuote(rows, targetDate) {
     return null
 }
 
-function klineChangeOn(bars, targetDate) {
-    for (var i = 0; i < bars.length; i++) {
-        if (bars[i].date === targetDate) {
-            if (i === 0) return (bars[0].close - bars[0].open) / bars[0].open * 100;
-            var prev = bars[i - 1].close;
-            if (prev > 0) return (bars[i].close - prev) / prev * 100;
-            return null
-        }
-    }
-    return null
-}
+/* [已删除] klineChangeOn：仅被腾讯 fqkline 兜底使用，随 fetchKline 一并移除 */
 async function collectHoldingKline(funds) {
-    if (!window._holdKline) window._holdKline = {};
-    if (!window._holdKlineCache) window._holdKlineCache = {};
-    var need = {};
-    var discDay = fundDisclosureDay();
-    (funds || []).forEach(function(f) {
-        if (!fundNeedsPredict(f, discDay)) return;
-        var pd = predictDayForFund(f, discDay);
-        if (!pd) return;
-        var ph = FUND_HOLDINGS[f.code];
-        if (!ph || !ph.items) return;
-        ph.items.forEach(function(it) {
-            var mk = it.m || "us";
-            // us 走腾讯实时行情（holdingChg 直读 _holdQ），无需再抓日K
-            // 注：jp/kr 已改走东方财富历史K线（按目标日取），不再依赖腾讯实时
-            if (mk === "us") return;
-            var sym = mk + it.c;
-            if (!need[sym]) need[sym] = {};
-            need[sym][pd] = 1
-        })
-    });
-    var syms = Object.keys(need);
-    // 限并发抓取 K 线（最多 4 个同时进行），并复用 session 缓存避免重复请求
-    await mapPool(syms, async function(sym) {
-        var bars = window._holdKlineCache[sym];
-        if (!bars) {
-            bars = await fetchKline(sym);
-            window._holdKlineCache[sym] = bars
-        }
-        Object.keys(need[sym]).forEach(function(td) {
-            var c = klineChangeOn(bars, td);
-            if (c != null && isFinite(c)) window._holdKline[sym + "|" + td] = c
-        })
-    }, 4)
+    /* [已删除] 腾讯 fqkline 兜底（fetchKline / klineChangeOn）：港股/A股/日股/韩股统一走下方东方财富历史K线（按美东窗口目标日取），不再请求腾讯 */
 
     /* 东方财富：港股(hk)+A股(sz/sh)+日股(jp)+韩股(kr)成分股，按美东窗口目标日抓取 */
     if (!window._holdEMPrice) window._holdEMPrice = {};
@@ -7299,52 +7416,10 @@ function holdingChg(it, predictDay) {
         if (_td && _qd && _qd !== _td) return null;
         return (_qq.price - _qq.prevClose) / _qq.prevClose * 100;
     }
-    if (predictDay != null && window._holdKline) {
-        var kk = window._holdKline[(it.m || "") + it.c + "|" + predictDay];
-        if (kk != null && isFinite(kk)) return kk
-    }
     return null
 }
 
-function sinaDailyK(sym) {
-    return new Promise(resolve => {
-        const cb = "__sinaK_" + String(sym).replace(/[^A-Za-z0-9]/g, "") + "_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
-        const sc = document.createElement("script");
-        let done = false;
-        const cleanup = () => {
-            try {
-                delete window[cb]
-            } catch (e) {
-                window[cb] = undefined
-            }
-            if (sc.parentNode) sc.parentNode.removeChild(sc);
-            clearTimeout(tid)
-        };
-        const tid = setTimeout(() => {
-            if (!done) {
-                done = true;
-                cleanup();
-                resolve([])
-            }
-        }, 2e4);
-        window[cb] = data => {
-            if (done) return;
-            done = true;
-            const arr = Array.isArray(data) ? data : [];
-            cleanup();
-            resolve(arr)
-        };
-        sc.onerror = () => {
-            if (!done) {
-                done = true;
-                cleanup();
-                resolve([])
-            }
-        };
-        sc.src = "https://stock.finance.sina.com.cn/usstock/api/jsonp.php/" + cb + "/US_MinKService.getDailyK?symbol=" + encodeURIComponent(sym) + "&___qn=3&_=" + Date.now();
-        document.head.appendChild(sc)
-    })
-}
+/* [已删除] 新浪美股日线 JSONP（stock.finance.sina.com.cn/US_MinKService.getDailyK）—— 已由 Alpaca /v2/stocks/bars 代替 */
 var ALPACA_KEY_ID = "PKEUEXIJARHLHWZYLWR6UAOGBS";
 var ALPACA_SECRET = "8QmudbfguaxQnFRq13YU1B5GY94F5AEx3Tz7m66LUFyc";
 
@@ -7643,25 +7718,45 @@ function fetchUsQuotesAlpaca(symList, cfg) {
         })
     })
 }
+/* 美股每日历史 K 线：改用 Alpaca /v2/stocks/bars（批量多 symbol，timeframe=1Day，复权 adjustment=all）。
+   原 sinaDailyK（新浪 JSONP）已下线。输出 { sym: [{ t: 时间戳ms, price: 收盘价 }] }，与消费端 _hist 同构。 */
 async function fetchUsHistory(symList) {
+    const cfg = (typeof alpacaCfg === "function") ? alpacaCfg() : null;
+    if (!cfg || !cfg.keyId || !cfg.secret) return {};
+    const syms = (symList || []).map(function(s) {
+        return String(s).replace(/\s+/g, "").toUpperCase()
+    }).filter(Boolean);
+    if (!syms.length) return {};
+    const hd = {
+        "APCA-API-KEY-ID": cfg.keyId,
+        "APCA-API-SECRET-KEY": cfg.secret,
+        "Accept": "application/json"
+    };
     const out = {};
-    await Promise.all(symList.map(async sym => {
-        try {
-            const arr = await sinaDailyK(sym);
-            if (!Array.isArray(arr) || !arr.length) return;
-            const hist = arr.map(x => {
-                const t = parseDate(x.d);
-                const price = parseFloat(x.c);
-                return t == null || isNaN(price) ? null : {
-                    t: t,
-                    price: price
-                }
-            }).filter(Boolean).sort((a, b) => a.t - b.t);
+    try {
+        const url = "https://data.alpaca.markets/v2/stocks/bars?symbols=" +
+            syms.map(encodeURIComponent).join(",") +
+            "&timeframe=1Day&limit=500&adjustment=all&sort=asc";
+        const r = await Promise.race([
+            fetch(url, { headers: hd }),
+            new Promise(function(_, rej) { setTimeout(function() { rej(new Error("to")); }, 8000); })
+        ]);
+        if (!r || !r.ok) return out;
+        const j = await r.json();
+        const bars = (j && j.bars) || {};
+        syms.forEach(function(sym, idx) {
+            const arr = bars[sym] || [];
+            if (!arr.length) return;
+            const hist = arr.map(function(b) {
+                const t = b.t ? new Date(b.t).getTime() : null;
+                const price = (b.c != null) ? parseFloat(b.c) : null;
+                return (t != null && !isNaN(t) && price != null && !isNaN(price)) ? { t: t, price: price } : null
+            }).filter(Boolean).sort(function(a, b) { return a.t - b.t; });
             const _today = ymd(todayTs());
             if (hist.length && ymd(hist[hist.length - 1].t) === _today) hist.pop();
-            if (hist.length) out[sym] = hist
-        } catch (e) {}
-    }));
+            if (hist.length) out[symList[idx]] = hist
+        })
+    } catch (e) {}
     return out
 }
 /* Bybit NAS100 永续合约行情：周末间隙的 QQQ/TQQQ 当日预测数据源（7x24 交易）
@@ -8614,7 +8709,6 @@ function renderAllocLegend() {
                     var _emSource = (isEM && window._emSrc) ? window._emSrc[mk + it.c] : null;
                     if (isEM) src = _emSource || ((emPrice != null && isFinite(emPrice)) ? "em" : ((_qq && _qq.price > 0) ? "tencent" : "none"));
                     else if (mk === "us") src = "tencent";
-                    else if (chg != null && window._holdKline && window._holdKline[(it.m || "") + it.c + "|" + pd] != null) src = "predict";
                     else if (_qq && _qq.price > 0) src = "tencent";
                     if (src && src !== "none") srcTally[src] = (srcTally[src] || 0) + 1;
                     if (qEl) {
@@ -11747,19 +11841,18 @@ async function refresh() {
         const bad = okF < funds.length || okU < realU || nx && !nx.full;
         setStatus(bad ? "fail" : "live", "")
     }
-    // 若当前在市场行情页，刷新后同步刷新顶部「总资产 / hero对比 / 预测对比」横幅（含重算预测覆盖页总资产）
+    // 进入 index 即刷新「市场行情 + 预测」：即便当前不在市场页也拉一遍，
+    // 切到市场页 / 打开预测覆盖层时看到的都是本次刷新后的最新数据
     try {
-        var _mpEl = document.getElementById("pageMarket");
-        if (_mpEl && _mpEl.classList.contains("active")) {
-            try { if (typeof buildPredictList === "function") buildPredictList(); } catch (e) {}
-        }
         // 不再限市场行情页激活：曲线图「预测」点依赖 __marketPredTotal，
         // 停在图表页时也要重算，否则预测点一直是进场时的旧值（不受手动刷新影响）
-        try { renderFundHoldings(); } catch (e) {}
+        try { if (typeof renderFundHoldings === "function") renderFundHoldings(); } catch (e) {}
         // 美股行 data-mv 只有 fetchMarketData→renderMarketList 会写入 DOM，手动刷新也拉一遍，
         // 否则预测合计里的美股市值一直是旧值
         try { if (typeof fetchMarketData === "function") fetchMarketData(); } catch (e) {}
         try { if (typeof renderMarketPrediction === "function") renderMarketPrediction(); } catch (e) {}
+        // 预测覆盖层列表：不再限市场页激活，进入 index 即重建，打开即为最新
+        try { if (typeof buildPredictList === "function") buildPredictList(); } catch (e) {}
     } catch (e) {}
 }
 
@@ -15287,7 +15380,7 @@ function renderMarketPrediction() {
             var tri = dayPnl > 0 ? "▲" : "▼";
             var cls = dayPnl > 0 ? "up" : "down";
             // 市场行情总资产 vs 总资产页hero：前面涨跌色，括号hero总资产黑色
-            pEl.innerHTML = '<span class="' + cls + '">' + tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + '%)</span><span class="amt">（' + fmt(baseTotal) + '）-已更新</span>';
+            pEl.innerHTML = '<span class="' + cls + '">' + tri + " " + sign + fmt(Math.abs(dayPnl)) + " (" + (dayPnl > 0 ? "+" : "") + pct.toFixed(2) + '%)</span><span class="amt">（' + fmt(baseTotal) + '）vA</span>';
             pEl.className = "mp-pnl";
         }
     }
@@ -15301,7 +15394,7 @@ function renderMarketPrediction() {
             var clsP = dP > 0 ? "up" : (dP < 0 ? "down" : "");
             var triP = dP > 0 ? "▲" : (dP < 0 ? "▼" : "·");
             var sgnP = dP > 0 ? "+" : (dP < 0 ? "-" : "");
-            predCmp.innerHTML = '<span class="' + clsP + '">' + triP + " " + sgnP + fmt(Math.abs(dP)) + " (" + (dP > 0 ? "+" : "") + pP.toFixed(2) + '%)</span><span class="amt">（' + fmt(predTotal) + '）-预测</span>';
+            predCmp.innerHTML = '<span class="' + clsP + '">' + triP + " " + sgnP + fmt(Math.abs(dP)) + " (" + (dP > 0 ? "+" : "") + pP.toFixed(2) + '%)</span><span class="amt">（' + fmt(predTotal) + '）vP</span>';
         } else {
             predCmp.textContent = "";
         }
@@ -16074,9 +16167,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     <script data-page-node-id="6rtq6nwaZPiMMTz2rjUWgF" data-pnid-children="plMIg9tpXkmj9apiCeNY99">
 /* ==================== 7×24 快讯（华尔街见闻） ====================
    接口：https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=<ch>&client=pc&limit=N
-   CORS 完全开放，静态页面可直接 fetch；无第三方兜底。
-   高亮关键词自动从 FUND_HOLDINGS（基金持仓中文名）+ us（美股持仓名）生成，
-   无需手工维护。 */
+   CORS 完全开放，静态页面可直接 fetch；无第三方兜底。 */
 (function () {
     var CHANNELS = [
         { key: 'global-channel',   name: '全部' },
@@ -16173,7 +16264,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
             });
     }
 
-    /* 首次切到快讯页时初始化关键词并拉数据；之后每次进入都刷新一次 */
+    /* 首次切到快讯页时拉取数据；之后每次进入都刷新一次 */
     function onEnter() {
         if (!loaded) { loaded = true; load(); }
         else load(true);
@@ -16261,6 +16352,18 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 })();
+    </script>
+
+    <script>
+    (function() {
+        var chk = document.getElementById("ndChk"),
+            panel = document.getElementById("netDebugPanel");
+        if (!chk || !panel) return;
+        chk.addEventListener("change", function() {
+            panel.classList.toggle("on", chk.checked);
+            if (chk.checked) window.__netRender && window.__netRender();
+        });
+    })();
     </script>
 </body>
 
