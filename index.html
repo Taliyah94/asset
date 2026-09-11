@@ -41,7 +41,11 @@ window.__B = window.__B || __B;
     <meta data-page-node-id="ePQinh8jRtP73iYVcSFr3p" content="black-translucent" name="apple-mobile-web-app-status-bar-style">
     <meta data-page-node-id="6WvJML8R1dP22MrNEwBzKu" content="#f5f7fa" name="theme-color">
     <link data-page-node-id="ZT3trK3kZlzRu0twUSpj8S" href="apple-touch-icon.png" rel="apple-touch-icon">
-    <script data-page-node-id="87eOsVIZgzfPakhpXbDncJ" onerror="window.dispatchEvent(new Event('chartFail'))" onload="window.dispatchEvent(new Event('chartReady'))" src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <!-- [2026-09-11] Chart.js 提前建连(preconnect 省 DNS/TCP/TLS) + defer 异步加载：
+         原同步脚本阻塞 HTML 解析，实测 CDN 拉取 ~2.0s，首屏所有内容(骨架/表格/逻辑)都被推迟。
+         defer 后就绪前 drawChart 走 chartReady 监听补画，加载失败才显示占位提示 -->
+    <link data-page-node-id="ZT3trK3kZlzRu0twUSpj8S2" href="https://cdn.bootcdn.net" rel="preconnect" crossorigin>
+    <script data-page-node-id="87eOsVIZgzfPakhpXbDncJ" defer onerror="window.dispatchEvent(new Event('chartFail'))" onload="window.dispatchEvent(new Event('chartReady'))" src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
 
     <style data-page-node-id="4Ce0QjstC6FHr9ncxcp4z0" data-pnid-children="1gYbJhEa8I03p81Jbak3en">
@@ -4144,10 +4148,6 @@ background: #ffffff;
     <section data-page-node-id="2ZOMEmhn2GRimjFXSJgOF1" class="page-section page-market" id="pageMarket">
         <section data-page-node-id="ToWo3yRdSrs0NsAnmnn97h" class="panel" style="max-width:680px; margin:0 auto">
             <h2 data-page-node-id="GYuu3maNf5A8pHoNTP7U9t" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px">
-                <div data-page-node-id="KkwpX4wIhXaa2hC8DjSuBr" style="display:flex; align-items:center; gap:8px">
-                    <span data-page-node-id="ULhHu462WtxF9B0otaraW6"><!--pnid:o4qjwU3xgxS78TA0ecHvR9-->市场行情</span>
-                    <span data-page-node-id="0fqUd2kNtK4cEfT4S1UjrM" id="marketLoading" style="color:#888; font-size:13px; font-weight:400; display:none; animation:none"><!--pnid:jaShxnSDS0CevuvKP8pIw9-->正在加载行情数据…</span>
-                </div>
                 <div data-page-node-id="j3hpIkYrLv2sw8RhPK2VEs" class="market-toolbar" style="display:flex; gap:8px; align-items:center; font-size:13px; font-weight:400; color:#888">
                     <input data-page-node-id="gAQdZ2F0EBK3RWleAXCqqJ" id="marketAddInput" placeholder="如 NVDA" style="width:96px; padding:6px 10px; border:1px solid #ddd; border-radius:8px; font-size:16px; outline:none">
                     <datalist data-page-node-id="EZy8KX53tBYtOj7ZmOnoyJ" id="marketSymbolList"></datalist>
@@ -4158,6 +4158,8 @@ background: #ffffff;
                 </div>
             </h2>
             <div data-page-node-id="z7idoHF51adjkxQ7OlzONG" id="marketError" style="text-align:center; color:#e53935; padding:16px 0; font-size:13px; display:none"></div>
+
+            <div data-page-node-id="0fqUd2kNtK4cEfT4S1UjrM" id="marketLoading" style="text-align:center; color:#888; font-size:13px; font-weight:400; display:none; animation:none; padding:4px 0"><!--pnid:jaShxnSDS0CevuvKP8pIw9-->正在加载行情数据…</div>
 
             <!--pnid:DPPn8YxwJWe8l3MI0nORhz--><!-- 实时预测：基金 + 美股(含大宗/加密持仓) + 现金 的市场实时预测市值合计，及当日预测盈亏额/百分比 -->
             <div data-page-node-id="3cViD9fI5bxsPZH3VUawit" class="market-predict" id="marketPredict">
@@ -6202,6 +6204,70 @@ function parseHist(text) {
     return arr
 }
 
+/* [2026-09-11晚] 基金最新净值主源：东财移动 API（fundmobapi，CORS:* 可直接 fetch+JSON，官方与 json nav 同源）。
+   实测字段：Datas.DWJZ=单位净值、LJJZ=累计净值、RZDF=日涨跌幅%、FSRQ=净值日期(YYYY-MM-DD)。
+   6 只并行 fetch 无竞态、无 script 注入/GBK 编码问题。jj(script 注入)降为二级兜底。 */
+async function fetchFundLatest(code) {
+    // [2026-09-11晚修复] fetch 无超时会挂死 worker：用户环境 fundmobapi 可能连接黑洞（不返回不报错），
+    // await 永远不落 → refresh() 永不完成 → 资产页停留骨架"—"。AbortController 5s 强制中断后回落 jj → EM。
+    try {
+        const ac = new AbortController();
+        const _to = setTimeout(function() { try { ac.abort() } catch (e) {} }, 5e3);
+        let r, j;
+        try {
+            r = await fetch("https://fundmobapi.eastmoney.com/FundMNewApi/FundMNNBasicInformation?FCODE=" + code + "&deviceid=Wap&plat=Wap&product=EFund&version=6.2.5", { cache: "no-store", signal: ac.signal });
+            if (r.ok) j = await r.json();
+        } finally {
+            clearTimeout(_to);
+        }
+        if (j && j.Datas) {
+            const d = j.Datas;
+            const nav = parseFloat(d.DWJZ);
+            const dt = d.FSRQ;
+            if (!isNaN(nav) && nav > 0 && dt) {
+                const chg = parseFloat(d.RZDF);
+                return { name: (d.SHORTNAME || "").trim(), nav: nav, date: dt, chg: isNaN(chg) ? null : chg };
+            }
+        }
+    } catch (e) {}
+    return fetchFundJj(code);
+}
+
+/* [2026-09-11] 腾讯 jj 单基金最新净值：v_jj{code} 变量名自带 code，多只并行注入互不覆盖（天然隔离）。
+   返回 { name, nav, date(YYYY-MM-DD) } 或 null。二级兜底（主源为上方 fetchFundLatest 东财移动 API）。 */
+function fetchFundJj(code) {
+    return new Promise(resolve => {
+        let done = false;
+        const finish = d => { if (done) return; done = true; resolve(d) };
+        try {
+            const s2 = document.createElement("script");
+            const to2 = setTimeout(() => { try { s2.remove() } catch (e) {} finish(null) }, 8e3);
+            s2.onload = () => {
+                clearTimeout(to2);
+                try {
+                    const raw = window["v_jj" + code];
+                    if (typeof raw === "string") {
+                        const p = raw.split("~");
+                        const nav = parseFloat(p[5]);
+                        let dt = (p[8] || "").trim();
+                        if (/^\d{8}$/.test(dt)) dt = dt.slice(0, 4) + "-" + dt.slice(4, 6) + "-" + dt.slice(6, 8);
+                        if (!isNaN(nav) && nav > 0 && dt) {
+                            try { s2.remove() } catch (e) {}
+                            finish({ name: (p[1] || "").trim(), nav: nav, date: dt });
+                            return
+                        }
+                    }
+                } catch (e) {}
+                try { s2.remove() } catch (e) {}
+                finish(null)
+            };
+            s2.onerror = () => { clearTimeout(to2); try { s2.remove() } catch (e) {} finish(null) };
+            s2.src = "https://qt.gtimg.cn/q=jj" + code + "&_=" + Date.now();
+            document.head.appendChild(s2)
+        } catch (e) { finish(null) }
+    })
+}
+
 function fetchFundSeries(code) {
     return new Promise(resolve => {
         let done = false;
@@ -6666,24 +6732,27 @@ function fetchUsQuotes(symList) {
         stockSyms = _o;
     })();
     var tasks = [];
-    if (_ac.src === "alpaca" && _ac.keyId && _ac.secret) {
-        tasks.push(fetchUsQuotesAlpaca(stockSyms, _ac))
-    } else {
-        tasks.push(fetchUsQuotesGtimg(stockSyms))
-    }
+    // [2026-09-11] 正股统一一次腾讯 gtimg：主源(usRes[sym])与 __cn_ 涨跌基准同源复用。
+    // 盘外不再主动拉 Alpaca 股票快照（原本主源+__alp_ 重复拉两遍、每次 1.2~2.1s，是启动并行批次最慢项）：
+    // 显示价链本就是 _holdQ→_usdCn(均腾讯)→Alpaca 兜底，曲线当日点填充也随主源改用腾讯价；
+    // 仅当腾讯缺失的正股(接口失败/无返回)才补拉 Alpaca 兜底。期权任务不变（期权盘外仍走 Alpaca）。
     if (stockSyms.length) {
         tasks.push(fetchUsQuotesGtimg(stockSyms).then(function(m) {
             var o = {};
-            for (var k in m) o["__cn_" + k] = m[k];
-            return o
-        }))
-    }
-    if (!isUsRegularSession() && stockSyms.length && _ac.keyId && _ac.secret) {
-        tasks.push(fetchUsQuotesAlpaca(stockSyms, _ac).then(function(m) {
-            var o = {};
-            for (var k in m) o["__alp_" + k] = m[k];
-            return o
-        }))
+            for (var k in m) { o[k] = m[k]; o["__cn_" + k] = m[k]; }
+            var _miss = stockSyms.filter(function(s) {
+                var q = m[s];
+                return !(q && q.price != null);
+            });
+            if (!_miss.length || !(_ac.keyId && _ac.secret)) return o;
+            return fetchUsQuotesAlpaca(_miss, _ac).then(function(am) {
+                for (var k2 in am) {
+                    o[k2] = am[k2];
+                    o["__alp_" + k2] = am[k2];
+                }
+                return o;
+            });
+        }));
     }
     if (optSyms.length && _ac.keyId && _ac.secret) {
         var liveOpts = optSyms.filter(function(x) {
@@ -6934,8 +7003,28 @@ function fetchMktQuotesChunk(syms) {
     })
 }
 
-// 分批抓取市场行情：把长列表切成每批 MKT_QUOTE_CHUNK 个，逐批串行合并
+// [2026-09-11] in-flight + 15s TTL 去重层：启动时 loadFundHoldingsFromGithub 与 refresh 前后脚
+// 各发一次相同 collectHoldingSymbols() 的腾讯行情批量请求（间隔仅几秒），第二次直接复用缓存结果，
+// 省一轮 ~1-2s 的脚本注入往返；并发调用合并共享同一 Promise（结果深拷贝返回，避免调用方互相污染）。
+var _mktQCache = { key: "", ts: 0, data: null };
+var _mktQInflight = {};
 function fetchMktQuotes(fullList) {
+    var key = (fullList || []).slice().sort().join(",");
+    if (_mktQCache.key === key && _mktQCache.data && Date.now() - _mktQCache.ts < 15000) {
+        return Promise.resolve(JSON.parse(JSON.stringify(_mktQCache.data)));
+    }
+    if (_mktQInflight[key]) return _mktQInflight[key];
+    var p = fetchMktQuotesRaw(fullList).then(function(r) {
+        _mktQCache = { key: key, ts: Date.now(), data: r };
+        delete _mktQInflight[key];
+        return JSON.parse(JSON.stringify(r));
+    });
+    _mktQInflight[key] = p;
+    return p;
+}
+
+// 分批抓取市场行情：把长列表切成每批 MKT_QUOTE_CHUNK 个，逐批串行合并
+function fetchMktQuotesRaw(fullList) {
     return new Promise(function(resolve) {
         var result = {};
         if (!fullList || !fullList.length) {
@@ -6981,7 +7070,10 @@ function mapPool(items, worker, concurrency) {
                 return
             }
             while (idx < items.length && active < concurrency) {
-                var cur = idx++;
+                // [2026-09-11 21:45 修复] var cur 是 pump 函数级作用域：concurrency>1 时一次 pump
+                // 创建的多个 worker 闭包共享同一个 cur（终值=最后一项），所有 worker 全处理最后一只
+                // （实测 6 只基金 6 个请求全打给 539002，其余 5 只永远无数据画杠）。改 let 每轮独立绑定。
+                let cur = idx++;
                 active++;
                 var p = Promise.resolve().then(function() {
                     return worker(items[cur], cur)
@@ -7160,7 +7252,20 @@ function klineChangeOn(bars, targetDate) {
     }
     return null
 }
-async function collectHoldingKline(funds) {
+// [2026-09-11] in-flight 去重：启动时 loadFundHoldingsFromGithub 与 refresh 前后脚各调一次，
+// 内部 _holdKlineCache 要等每只 K 线抓完才写入，紧跟的第二次调用仍会重复发新浪 K 请求
+// （实测 TQQQ dailyK/期权K 各双份）→ 并发期间合并共享同一 Promise。
+var _holdKlineInflight = null;
+function collectHoldingKline(funds) {
+    if (_holdKlineInflight) return _holdKlineInflight;
+    _holdKlineInflight = Promise.resolve().then(function() {
+        return collectHoldingKlineRaw(funds);
+    }).catch(function() {}).then(function() {
+        _holdKlineInflight = null;
+    });
+    return _holdKlineInflight;
+}
+async function collectHoldingKlineRaw(funds) {
     if (!window._holdKline) window._holdKline = {};
     if (!window._holdKlineCache) window._holdKlineCache = {};
     var need = {};
@@ -7414,21 +7519,6 @@ function isUsRegularSession() {
     var etDow = (((n.getUTCDay() + (etRaw < 0 ? -1 : 0)) % 7) + 7) % 7;
     if (etDow === 0 || etDow === 6) return false;
     return etMin >= 9 * 60 + 30 && etMin < 16 * 60;
-}
-
-/* 基金净值是否走 JSON 缓存：仅在「美股收盘后 → 次日 UTC 07:00」窗口内返回 true。
-   其余时间（盘前/盘中/盘后早期）一律实时浏览器读取，保证当日净值最新。
-   边界：美股收盘 = 美东 16:00；次日 07:00 UTC 折算美东 = 夏令时 03:00 / 冬令时 02:00。
-   取不到美东时间时保守返回 true（用缓存），避免实时抓取异常导致空白。 */
-function fundUseJsonCache() {
-    var p = etNowCached();
-    if (!p) return true;
-    var etMin = p.h * 60 + p.m;
-    var afterClose = etMin >= 16 * 60;                 // 美东 16:00 收盘后
-    var dst = usEtIsDst(new Date());
-    var cutoffEtHour = dst ? 3 : 2;                     // 次日 07:00 UTC 折算为美东
-    var beforeCutoff = (p.h < cutoffEtHour) || (p.h === cutoffEtHour && p.m === 0);
-    return afterClose || beforeCutoff;
 }
 
 /* 美股周末间隙：美东 周五盘后收盘(20:00 ET) 之后 → 周日夜盘开盘(20:00 ET) 之前，此窗口内美股休市。
@@ -7850,7 +7940,7 @@ function computeCurrent() {
             if (qqUp && qqUp.price > 0) dSrc = "QT";                    // 腾讯 _holdQ 实时价（首选）
             else if (u._usdCn != null) dSrc = "QT";                     // __cn_ 同样来自 gtimg
             else if (u._alpacaPrice != null && Number(u._alpacaPrice) > 0) dSrc = "ALP";
-            else if (u._quoteTime && u._quoteTime !== "") dSrc = (alpacaCfg().src === "alpaca") ? "ALP" : "QT"; // 主行情源兜底
+            else if (u._quoteTime && u._quoteTime !== "") dSrc = "QT"; // 主行情源兜底（[2026-09-11] 正股主源已统一为腾讯 gtimg）
         }
         u._daySrc = dSrc;
         u._dayRet = dRet;
@@ -11165,16 +11255,8 @@ function drawChart() {
         return
     }
     if (window.Chart) return drawChartInternal();
-    const box = document.querySelector(".chart-box");
-    if (box && !document.getElementById("chart")) box.innerHTML = '<canvas id="chart"></canvas>';
-    const cv = $("chart");
-    if (!cv) return;
-    if (!box.querySelector(".empty")) {
-        const d = document.createElement("div");
-        d.className = "empty";
-        d.textContent = "图表库加载失败（需联网加载 Chart.js）。数据仍可正常计算与导出。";
-        cv.replaceWith(d)
-    }
+    // [2026-09-11] Chart.js 改为 defer 异步加载：就绪前不再把 canvas 换成「加载失败」占位
+    // （否则首屏会闪现错误文案），等 chartReady 事件补画；只有加载失败(chartFail/6s 超时)才提示
     if (!window._chartReadyListenerAdded) {
         window._chartReadyListenerAdded = true;
         window.addEventListener("chartReady", function onReady() {
@@ -11182,6 +11264,17 @@ function drawChart() {
             const box2 = document.querySelector(".chart-box");
             if (box2 && !document.getElementById("chart")) box2.innerHTML = '<canvas id="chart"></canvas>';
             drawChartInternal()
+        });
+        window.addEventListener("chartFail", function onFail() {
+            window.removeEventListener("chartFail", onFail);
+            const box2 = document.querySelector(".chart-box");
+            const cv = box2 ? document.getElementById("chart") : null;
+            if (cv && box2 && !box2.querySelector(".empty")) {
+                const d = document.createElement("div");
+                d.className = "empty";
+                d.textContent = "图表库加载失败（需联网加载 Chart.js）。数据仍可正常计算与导出。";
+                cv.replaceWith(d)
+            }
         });
         setTimeout(function() {
             if (!window.Chart) window.dispatchEvent(new Event("chartFail"))
@@ -11515,7 +11608,19 @@ function loadAssetJson(force) {
         })
     return _assetJsonPromise;
 }
+// [2026-09-11] 并发防抖：refresh 全量请求耗时数秒，期间再点刷新/自动刷新叠加会导致
+// 同一批请求双跑（基金/美股/汇率/K线全部重复）。进行中直接忽略新的 refresh 调用。
+var _refreshBusy = false;
 async function refresh() {
+    if (_refreshBusy) return;
+    _refreshBusy = true;
+    try {
+        await refreshRaw();
+    } finally {
+        _refreshBusy = false;
+    }
+}
+async function refreshRaw() {
     setStatus("loading", "");
     us.forEach(u => {
         u._hist = parseHist(u.histText)
@@ -11528,15 +11633,15 @@ async function refresh() {
     const _pUsHistory = fetchUsHistory(symList);
     const _pFx        = fetchFx();
     const _pHoldQ     = fetchMktQuotes(collectHoldingSymbols());
-    // 基金净值必须串行抓取（concurrency=1）：东财 pingzhongdata 脚本把净值写入
-    // 同一个全局变量 window.Data_netWorthTrend，浏览器里该 var 声明无法被拦截/隔离，
-    // 并发多只时后加载的脚本会覆盖先到的值，导致部分基金稳定读不到。串行可彻底消除竞态。
+    // [2026-09-11] 基金净值并行化：历史基座一律用 fund_holdings.json 的 nav（Action 每日更新），
+    // 最新净值/日期改走腾讯 jj（v_jj{code} 变量名自带 code，多只并行注入互不覆盖），
+    // 取代原「串行东财 pingzhongdata」（共享 window.Data_netWorthTrend 全局变量只能一只等一只，且每次 490KB）。
+    // jj 失败的基金才进东财兜底——EM 共享全局变量不能并发，统一挂 _emChain 串行链。
+    var _emChain = Promise.resolve();
     await mapPool(funds, async (f) => {
         f._ok = undefined;
-        // 优先用 fund_holdings.json 预存的净值历史 nav；但仅「美股收盘后→次日 UTC 07:00」窗口内才用它（快且当日净值已由每日 Action 刷新），
-        // 其余时间（含盘中）一律实时浏览器读取，保证当日净值最新（满足"基金的当日净值都要读取"）。
         const _stored = (typeof FUND_HOLDINGS !== "undefined" && FUND_HOLDINGS[f.code] && Array.isArray(FUND_HOLDINGS[f.code].nav) && FUND_HOLDINGS[f.code].nav.length) ? FUND_HOLDINGS[f.code].nav : null;
-        if (_stored && fundUseJsonCache()) {
+        if (_stored && _stored.length) {
             f._list = _stored.map(p => ({ t: p[0], nav: p[1] }));
             f._ok = true;
             okF++;
@@ -11546,18 +11651,54 @@ async function refresh() {
                 f._lastDate = ymd(_last.t);
                 if (ymd(_last.t) === ymd(todayTs())) f._est = _last.nav
             }
-            // 浏览器直读东财：额外取最新净值日期，供预测页「净值已更新到目标日→画杠」判定。
-            // 仅取日期、不覆盖 _list（_list 仍用本地缓存保证预测算式稳定）。东财挂了则留空、回退 fundNavDateStr。
+            // 并行轻量取最新净值+日期（腾讯 jj 独立变量名）：净值日期比 json 新则追加到 _list 尾部；
+            // _emNavDate 供预测页「净值已更新到目标日→画杠」判定
             try {
-                const _r = await fetchFundSeries(f.code);
-                if (_r && _r.list && _r.list.length) {
-                    const _L = _r.list[_r.list.length - 1];
-                    if (_L && _L.t != null) f._emNavDate = ymd(_L.t);
+                const j = await fetchFundLatest(f.code);
+                if (!j || j.nav == null || !j.date) throw new Error("jj empty");
+                f._emNavDate = j.date;
+                const _jt = parseDate(j.date);
+                if (_jt != null && (!f._list.length || ymd(_jt) > f._lastDate)) {
+                    f._list.push({ t: _jt, nav: j.nav });
+                    f._lastNav = j.nav;
+                    f._lastDate = j.date;
                 }
-            } catch (e) {}
+                if (j.date === ymd(todayTs())) f._est = j.nav;
+                if (j.name && !f.name) f.name = j.name;
+            } catch (e) {
+                // 回退：东财全量串行链（共享全局变量，不能并发）
+                _emChain = _emChain.then(async function() {
+                    try {
+                        const r = await fetchFundSeries(f.code);
+                        if (r && r.list && r.list.length) {
+                            f._list = r.list;
+                            if (r.name) f.name = r.name;
+                            f._name = r.name;
+                            const _L = r.list[r.list.length - 1];
+                            if (_L && _L.t != null && _L.nav != null) {
+                                f._lastNav = _L.nav;
+                                f._lastDate = ymd(_L.t);
+                                f._emNavDate = ymd(_L.t);
+                                if (ymd(_L.t) === ymd(todayTs())) f._est = _L.nav
+                            }
+                        } else {
+                            const est = await fetchFundEstimate(f.code);
+                            if (est && est.nav) {
+                                f._list = [{ t: parseDate(est.date), nav: est.nav }];
+                                f._lastNav = est.nav;
+                                f._lastDate = est.date;
+                                f._emNavDate = est.date;
+                                if (est.date === ymd(todayTs())) f._est = est.nav
+                            }
+                        }
+                    } catch (e2) {}
+                });
+                await _emChain;
+            }
             return f
         }
-        // 兜底：无本地历史则回退原串行实时抓取（含 proxy 类基金）
+        // 兜底：无本地历史（含 proxy 类基金）——EM 共享全局变量，同样挂 _emChain 串行链
+        await (_emChain = _emChain.then(async function() {
         const r = await fetchFundSeries(f.code);
         if (r && r.list && r.list.length) {
             f._list = r.list;
@@ -11599,8 +11740,9 @@ async function refresh() {
             f._ok = false;
             failF++
         }
+        }));
         return f
-    }, 1);
+    }, 6);
     const usRes = await _pUsQuotes;
     const usHist = await _pUsHistory;
     let okU = 0,
@@ -11749,11 +11891,9 @@ async function refresh() {
     }
     // 若当前在市场行情页，刷新后同步刷新顶部「总资产 / hero对比 / 预测对比」横幅（含重算预测覆盖页总资产）
     try {
-        var _mpEl = document.getElementById("pageMarket");
-        if (_mpEl && _mpEl.classList.contains("active")) {
-            try { if (typeof buildPredictList === "function") buildPredictList(); } catch (e) {}
-        }
-        // 不再限市场行情页激活：曲线图「预测」点依赖 __marketPredTotal，
+        // 不再限市场行情页激活：任何页面手动刷新都重算预测覆盖层(含 __predBannerTotal)
+        try { if (typeof buildPredictList === "function") buildPredictList(); } catch (e) {}
+        // 曲线图「预测」点依赖 __marketPredTotal，
         // 停在图表页时也要重算，否则预测点一直是进场时的旧值（不受手动刷新影响）
         try { renderFundHoldings(); } catch (e) {}
         // 美股行 data-mv 只有 fetchMarketData→renderMarketList 会写入 DOM，手动刷新也拉一遍，
@@ -12220,9 +12360,9 @@ async function refreshAuto() {
     if (typeof fetchMarketData === "function") {
         try { await fetchMarketData(); } catch (e) {}
     }
-    // 若「当日预测」覆盖层正打开，跟随市场刷新重绘预测页
-    var ov = document.getElementById("predictOverlay");
-    if (ov && ov.classList.contains("open") && typeof buildPredictList === "function") {
+    // 预测覆盖层跟随市场刷新重算（不再要求覆盖层打开：
+    // __predBannerTotal 供市场页对比行使用，任意页面都要保持最新）
+    if (typeof buildPredictList === "function") {
         try { buildPredictList(); } catch (e) {}
     }
 }
@@ -13007,9 +13147,13 @@ document.addEventListener("keydown", e => {
     // 先加载 fund_holdings.json（含净值历史 nav），再刷新市场，
     // 避免首日仍走串行实时抓取东财 pingzhongdata。
     loadFundHoldingsFromGithub().then(function() {
+        // [2026-09-11] 首屏预取市场行情(Bybit .kz ~1.8s/只)：与 refresh 的腾讯/基金请求并行，
+        // 切到市场行情页时直接有数据，不用再等行情往返
+        try { if (typeof window.fetchMarketData === "function") window.fetchMarketData(); } catch (e) {}
         if (funds.length || us.length) refresh();
         else setStatus("idle", "");
     }).catch(function() {
+        try { if (typeof window.fetchMarketData === "function") window.fetchMarketData(); } catch (e) {}
         if (funds.length || us.length) refresh();
         else setStatus("idle", "");
     });
@@ -14456,15 +14600,9 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
     }
     renderUnifiedList();
     renderMarketPrediction();
-    // 市场行情页激活或预测覆盖层打开时，跟随行情刷新重算「预测覆盖页总资产」(window.__predBannerTotal)，
-    // 使市场页第三行(市场vs预测)实时刷新；其余页面跳过，避免无用重绘
-    try {
-        var _mpA = document.getElementById("pageMarket");
-        var _ovA = document.getElementById("predictOverlay");
-        if ((_mpA && _mpA.classList.contains("active")) || (_ovA && _ovA.classList.contains("open"))) {
-            if (typeof buildPredictList === "function") buildPredictList();
-        }
-    } catch (e) {}
+    // 不再限页面/覆盖层：任何页面下行情回来都重算预测覆盖层(含 __predBannerTotal)
+    // 与市场页顶部横幅，保证自动/手动刷新在任意页面都生效
+    try { if (typeof buildPredictList === "function") buildPredictList(); } catch (e) {}
 }
 
 function removeMarketSymbol(sym) {
@@ -14696,9 +14834,10 @@ function renderFundHoldings() {
     if (_needEM && !window.__fundHdEmFetched) {
         window.__fundHdEmFetched = true;
         try {
-collectHoldingKline(fs).then(function() { renderFundHoldings(); }).catch(function() { renderFundHoldings(); });
-return;
-} catch (e) {}
+            // [2026-09-11] 不再阻塞首渲染：K 线/快照补齐前先立即渲染（成分股行由 _holdQ 预填），
+            // collectHoldingKline 完成后重渲染精修（原逻辑 return 等抓完才渲染，市场页要白等 1~3s）
+            collectHoldingKline(fs).then(function() { renderFundHoldings(); }).catch(function() { renderFundHoldings(); });
+        } catch (e) {}
     }
     // 收集所有美股(us)持仓代码，用于批量拉实时
     var usCodes = [];
@@ -14825,6 +14964,32 @@ return;
         tmp.innerHTML = html;
         Array.prototype.slice.call(tmp.children).forEach(function(el) { listEl.appendChild(el); });
     }
+    // [2026-09-11] 即时预填：切到市场页时先用 _holdQ(腾讯行情，启动/每次刷新已拉好)把成分股行
+    // 现价/涨跌/聚合市值立即填出来，不再等 fetchFundHoldingsRealtime 的 Bybit instruments→tickers→
+    // 腾讯Close→AlpacaPrev 整条链(实测 4~7s)才出数。行情链完成后 fillFundHoldingsQuotes 会按
+    // 盘中/盘外口径精修覆盖（含 BYB/ALP 徽标）。
+    if (window._holdQ) {
+        document.querySelectorAll('#unifiedList .fund-hd-item[data-fh-sym]').forEach(function(row) {
+            var sym = row.getAttribute("data-fh-sym") || "";
+            var _sp = sym.split("|");
+            var mkt0 = _sp[0] || "us", code0 = _sp[1] || "";
+            var q0 = window._holdQ[mkt0 + code0];
+            var qEl0 = row.querySelector(".fund-hd-quote");
+            var cEl0 = row.querySelector(".fund-hd-chg");
+            if (!q0 || !(q0.price > 0) || !qEl0 || !cEl0) return;
+            qEl0.textContent = q0.price >= 1 ? q0.price.toFixed(2) : q0.price.toFixed(4);
+            if (q0.prevClose > 0) {
+                var ch0 = (q0.price - q0.prevClose) / q0.prevClose * 100;
+                cEl0.textContent = (ch0 > 0 ? "+" : "") + ch0.toFixed(2) + "%";
+                cEl0.className = "fund-hd-chg " + (ch0 >= 0 ? "up" : "down");
+            }
+            var srcEl0 = row.querySelector(".market-src");
+            if (srcEl0 && srcEl0.classList.contains("s-none")) {
+                srcEl0.textContent = "QT";
+                srcEl0.className = "market-src s-tencent";
+            }
+        });
+    }
     renderUnifiedList();
     // 无条件聚合基金（含无季报/无实时持仓的基金），写入 data-chg/data-mv/data-pnl 并填充市值盈亏
     aggregateFundSums();
@@ -14833,9 +14998,32 @@ return;
 }
 
 // 基金美股持仓实时拉取：Bybit ticker + instruments-info(symbolType) + 腾讯基准(按时间窗口)
+// [2026-09-11] 缓存/in-flight：showPage 每次切市场页都重跑整条 Bybit instruments→tickers→
+// 腾讯Close→AlpacaPrev 链（实测 4~7s），期间基金行一直 "--"。30s 内切回直接复用上次结果
+// 即时填充；链进行中调用合并；12s 硬超时兜底（任一 fetch 永久挂起也强制用已拿到部分填充）。
+// 数据新鲜度由 2 分钟自动刷新(refreshAuto→fetchMarketData)与切页 fetchMarketData 保持。
+var _fhrCache = null, _fhrInflight = false;
 function fetchFundHoldingsRealtime(usCodes) {
+    var key = (usCodes || []).slice().sort().join(",");
+    if (_fhrCache && _fhrCache.key === key && Date.now() - _fhrCache.ts < 30000) {
+        fillFundHoldingsQuotes(_fhrCache.merged, _fhrCache.tencentMap, _fhrCache.alpacaMap);
+        return;
+    }
+    if (_fhrInflight) return;
+    _fhrInflight = true;
+    var _settled = false;
+    var _fill = function(m, t, a) {
+        if (_settled) return;
+        _settled = true;
+        if (_hardTO) clearTimeout(_hardTO);
+        _fhrCache = { key: key, ts: Date.now(), merged: m, tencentMap: t, alpacaMap: a };
+        _fhrInflight = false;
+        fillFundHoldingsQuotes(m, t, a);
+    };
+    var _hardTO = null;
     var symbols = usCodes.map(function(s) { return bybitCodeOf(s) + "USDT"; });
     var merged = { list: [] };
+    _hardTO = setTimeout(function() { _fill(merged, {}, {}); }, 12000);
     var pending = symbols.length;
     var stockSyms = [];
     var _ac = alpacaCfg();
@@ -14893,8 +15081,8 @@ function fetchFundHoldingsRealtime(usCodes) {
                                 var tCloseP = fetchTencentClose(stockSyms);
                                 var tCloseTimeout = new Promise(function(_, rej) { setTimeout(function() { rej(new Error("tencent close timeout")); }, 8000); });
                                 Promise.race([tCloseP, tCloseTimeout])
-                                    .then(function(map) { _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, map || {}, am); }); })
-                                    .catch(function(e) { _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, {}, am); }); });
+                                    .then(function(map) { _alpacaPrevForFund().then(function(am) { _fill(merged, map || {}, am); }); })
+                                    .catch(function(e) { _alpacaPrevForFund().then(function(am) { _fill(merged, {}, am); }); });
                             } else {
                                 _alpacaPrevForFund().then(function(am) { fillFundHoldingsQuotes(merged, {}, am); });
                             }
@@ -15318,7 +15506,22 @@ function marketStockUseBybit() {
     } catch (e) { return false; }
 }
 
+// [2026-09-11] in-flight + 20s TTL 去重：fetchMarketData 在 init 首屏预取一次，refresh 尾部
+// 与手动刷新又会无条件调一次，原本整轮 Bybit 扫描(~1.8s/只)会双跑。这里进行中调用合并共享，
+// 一轮跑完 20s 内的重复触发直接跳过（2 分钟自动刷新不受影响）。
+var _fmdInflight = null, _fmdLastTs = 0;
 function fetchMarketData() {
+    if (_fmdInflight) return _fmdInflight;
+    if (Date.now() - _fmdLastTs < 20000) return;
+    _fmdInflight = Promise.resolve().then(function() {
+        return fetchMarketDataRaw();
+    }).catch(function() {}).then(function() {
+        _fmdLastTs = Date.now();
+        _fmdInflight = null;
+    });
+    return _fmdInflight;
+}
+function fetchMarketDataRaw() {
     var loadingEl = document.getElementById("marketLoading");
     var errEl = document.getElementById("marketError");
     if (loadingEl) loadingEl.style.display = "";
