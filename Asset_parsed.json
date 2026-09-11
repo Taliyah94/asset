@@ -622,6 +622,10 @@
     {
       "date": "2026-09-09",
       "value": 31366.73113697
+    },
+    {
+      "date": "2026-09-10",
+      "value": 30470.45113697
     }
   ],
   "cashDaily": [
@@ -1255,6 +1259,11 @@
       "date": "2026-09-09",
       "value": 17497.06113697,
       "accrued": 3.67
+    },
+    {
+      "date": "2026-09-10",
+      "value": 17497.06113697,
+      "accrued": 3.67
     }
   ],
   "ibkrAccruedInterest": 3.67,
@@ -1264,20 +1273,20 @@
       "side": "Long",
       "position": 200.0,
       "costBasisPrice": 72.89310557,
-      "markPrice": 71.55,
-      "positionValue": 14310.0,
+      "markPrice": 69.21,
+      "positionValue": 13842.0,
       "costBasisMoney": 14578.621114,
-      "unrealizedPnl": -268.621114
+      "unrealizedPnl": -736.621114
     },
     {
       "symbol": "TQQQ  260911P00071000",
       "side": "Short",
       "position": -4.0,
       "costBasisPrice": 1.11304123,
-      "markPrice": 1.11,
-      "positionValue": -444.0,
+      "markPrice": 2.1807,
+      "positionValue": -872.28,
       "costBasisMoney": -445.216492,
-      "unrealizedPnl": 1.216492
+      "unrealizedPnl": -427.063508
     }
   ],
   "electronicFundTransfers": [
@@ -2179,152 +2188,9 @@
       "price": 0.04,
       "realized": 264.52,
       "tradeId": "10053204978"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ASML",
-      "underlying": "ASML",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 2,
-      "price": 1750.44,
-      "realized": 0,
-      "tradeId": "10027566346"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ASML",
-      "underlying": "ASML",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 9,
-      "price": 1750.11,
-      "realized": 0,
-      "tradeId": "10027566359"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ASML",
-      "underlying": "ASML",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -11,
-      "price": 1752.76,
-      "realized": 27.37,
-      "tradeId": "10027756102"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 12,
-      "price": 147.9,
-      "realized": 0,
-      "tradeId": "10027973735"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 126,
-      "price": 147.9,
-      "realized": 0,
-      "tradeId": "10027973754"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -6,
-      "price": 147.99,
-      "realized": 0.01,
-      "tradeId": "10028029825"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -1,
-      "price": 147.99,
-      "realized": 0.06,
-      "tradeId": "10028029828"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -1,
-      "price": 147.99,
-      "realized": 0.06,
-      "tradeId": "10028029832"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ORCL",
-      "underlying": "ORCL",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -130,
-      "price": 147.99,
-      "realized": 11.31,
-      "tradeId": "10028029833"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "QQQM",
-      "underlying": "QQQM",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 69,
-      "price": 297.41,
-      "realized": 0,
-      "tradeId": "10028397307"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "SNDK",
-      "underlying": "SNDK",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 15,
-      "price": 1201.3,
-      "realized": 0,
-      "tradeId": "10028278197"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "SNDK",
-      "underlying": "SNDK",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -15,
-      "price": 1208.92,
-      "realized": 113.26,
-      "tradeId": "10028320841"
-    },
-    {
-      "date": "2026-08-10",
-      "symbol": "ORCL  260814P00140000",
-      "underlying": "ORCL",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -3,
-      "price": 1.39,
-      "realized": 0,
-      "tradeId": "10029561503"
     }
   ],
-  "lastSync": "2026-09-10",
+  "lastSync": "2026-09-11",
   "seed": {
     "pa_funds": [
       {
