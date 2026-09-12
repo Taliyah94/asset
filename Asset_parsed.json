@@ -4,7 +4,7 @@
     "accountName": "XIAOMEI REN",
     "currency": "USD",
     "openDate": "2026-02-06",
-    "lastTradeDate": "2026-09-08"
+    "lastTradeDate": "2026-09-11"
   },
   "totalNetValueDaily": [
     {
@@ -626,6 +626,10 @@
     {
       "date": "2026-09-10",
       "value": 30470.45113697
+    },
+    {
+      "date": "2026-09-11",
+      "value": 31685.92856892
     }
   ],
   "cashDaily": [
@@ -1264,6 +1268,11 @@
       "date": "2026-09-10",
       "value": 17497.06113697,
       "accrued": 3.67
+    },
+    {
+      "date": "2026-09-11",
+      "value": 24584.25856892,
+      "accrued": 3.67
     }
   ],
   "ibkrAccruedInterest": 3.67,
@@ -1271,22 +1280,12 @@
     {
       "symbol": "TQQQ",
       "side": "Long",
-      "position": 200.0,
-      "costBasisPrice": 72.89310557,
-      "markPrice": 69.21,
-      "positionValue": 13842.0,
-      "costBasisMoney": 14578.621114,
-      "unrealizedPnl": -736.621114
-    },
-    {
-      "symbol": "TQQQ  260911P00071000",
-      "side": "Short",
-      "position": -4.0,
-      "costBasisPrice": 1.11304123,
-      "markPrice": 2.1807,
-      "positionValue": -872.28,
-      "costBasisMoney": -445.216492,
-      "unrealizedPnl": -427.063508
+      "position": 100.0,
+      "costBasisPrice": 72.51310557,
+      "markPrice": 70.98,
+      "positionValue": 7098.0,
+      "costBasisMoney": 7251.310557,
+      "unrealizedPnl": -153.310557
     }
   ],
   "electronicFundTransfers": [
@@ -1386,6 +1385,105 @@
     }
   ],
   "trades": [
+    {
+      "date": "2026-09-11",
+      "symbol": "TQQQ",
+      "underlying": "TQQQ",
+      "cat": "STK",
+      "buySell": "SELL",
+      "quantity": -100.0,
+      "price": 71.48,
+      "realized": -179.83,
+      "tradeId": "10204300704"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "ORCL  260911P00150000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -2.0,
+      "price": 0.5,
+      "realized": 0.0,
+      "tradeId": "10207041415"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "ORCL  260911P00150000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -1.0,
+      "price": 0.5,
+      "realized": 0.0,
+      "tradeId": "10207054923"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "ORCL  260911P00150000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 3.0,
+      "price": 0.0,
+      "realized": 147.92,
+      "tradeId": "10210347063"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "TQQQ  260911C00073000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -5.0,
+      "price": 0.04,
+      "realized": 0.0,
+      "tradeId": "10204919032"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "TQQQ  260911C00073000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 5.0,
+      "price": 0.0,
+      "realized": 18.53,
+      "tradeId": "10210309127"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "TQQQ  260911P00071000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 2.0,
+      "price": 0.56,
+      "realized": 109.07,
+      "tradeId": "10207022309"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "TQQQ  260911P00071000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 1.0,
+      "price": 0.56,
+      "realized": 54.8,
+      "tradeId": "10207022343"
+    },
+    {
+      "date": "2026-09-11",
+      "symbol": "TQQQ  260911P00071000",
+      "underlying": "TQQQ",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 1.0,
+      "price": 0.56,
+      "realized": 54.62,
+      "tradeId": "10207022392"
+    },
     {
       "date": "2026-09-08",
       "symbol": "TQQQ",
@@ -2190,7 +2288,7 @@
       "tradeId": "10053204978"
     }
   ],
-  "lastSync": "2026-09-11",
+  "lastSync": "2026-09-12",
   "seed": {
     "pa_funds": [
       {
