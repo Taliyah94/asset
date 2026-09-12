@@ -1407,6 +1407,9 @@ tbody tr:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     font-variant-numeric: tabular-nums;
+    /* 10 字符 YYYY-MM-DD 在 22% 定宽列内完整显示：13px 时约 71px 贴近列宽上限会触发 ellipsis 截断，
+       11px 时约 60px 留足余量（fitNumCells 对 td 的参照宽取的是整行 tr 宽，兜底判定失效，故此处显式指定） */
+    font-size: 11px;
 }
 
 .pending-tbl td.cls-amt {
@@ -5657,7 +5660,8 @@ let fMode = "cache",
     uMode = "cache",
     nxMode = "cache";
 var cnOk = true,
-    alpOk = true;
+    alpOk = true,
+    alpUsed = false; // 本轮是否真的发起过 Alpaca 请求（腾讯缺口的股票兜底 / 期权任务）；未发起时不算失败
 const EMBEDDED = typeof __EMBED_SEED__ !== "undefined" ? __EMBED_SEED__ : null;
 if (EMBEDDED && (!funds || !funds.length) && (!us || !us.length) && (!cash || !cash.length)) {
     funds = (EMBEDDED.pa_funds || []).map(f => {
@@ -6718,6 +6722,7 @@ function fetchOptionCloseCached(symList, cfg) {
 
 function fetchUsQuotes(symList) {
     var _ac = alpacaCfg();
+    alpUsed = false; // 每轮重置：仅当真的发起 Alpaca 请求时置 true（供 paintStatusTags 区分「未请求」与「请求失败」）
     var optSyms = symList.filter(function(x) {
         return isOptionSymbol(x)
     });
@@ -6745,6 +6750,7 @@ function fetchUsQuotes(symList) {
                 return !(q && q.price != null);
             });
             if (!_miss.length || !(_ac.keyId && _ac.secret)) return o;
+            alpUsed = true;
             return fetchUsQuotesAlpaca(_miss, _ac).then(function(am) {
                 for (var k2 in am) {
                     o[k2] = am[k2];
@@ -6765,7 +6771,7 @@ function fetchUsQuotes(symList) {
         // 盘中期权：现价用 bars(真实延迟≥15min)；昨收基准(prevClose)必须来自 snapshot 的 prevDailyBar.c
         // （bars 接口本身不含 prevClose），否则期权当日(_optBase)恒为 null → 画杠。
         // 故始终并行取 snapshot 补全昨收，并把结果同时挂 __alp_ 前缀，供 _alpacaPrevClose/_alpacaPrice 读取。
-        if (liveOpts.length) tasks.push(Promise.all([
+        if (liveOpts.length) { alpUsed = true; tasks.push(Promise.all([
             fetchOptionBarsAlpaca(liveOpts, _ac),
             fetchOptionQuotesAlpaca(liveOpts, _ac)
         ]).then(function(rs) {
@@ -6783,10 +6789,10 @@ function fetchUsQuotes(symList) {
                 }
             });
             return o;
-        }));
+        })); }
         // 盘外期权：现价用 bars(真实收盘价)，昨收基准同样依赖 snapshot（fetchOptionCloseCached 含 prevClose）；
         // 同样挂 __alp_ 前缀，保证 _alpacaPrevClose 被填充，避免期权当日画杠。
-        if (offOpts.length) tasks.push(Promise.all([
+        if (offOpts.length) { alpUsed = true; tasks.push(Promise.all([
             fetchOptionBarsAlpaca(offOpts, _ac),
             fetchOptionCloseCached(offOpts, _ac)
         ]).then(function(rs) {
@@ -6804,7 +6810,7 @@ function fetchUsQuotes(symList) {
                 }
             });
             return o;
-        }));
+        })); }
     }
     if (!tasks.length) {
         return Promise.resolve({})
@@ -12004,7 +12010,8 @@ function paintStatusTags() {
             label: "盘中"
         }
     } else {
-        if (cnOk && alpOk) sess = {
+        // alpUsed=false：本轮没发起任何 Alpaca 请求（无期权持仓且腾讯正股全部成功）——不存在"失败"，正常显示盘外
+        if (cnOk && (alpOk || !alpUsed)) sess = {
             cls: "fx-live",
             label: "盘外"
         };
@@ -13827,16 +13834,16 @@ if (floatRefresh) floatRefresh.addEventListener("click", function() {
     } else {
         _frLastClick = now;
         if (typeof refresh === "function") refresh(); // 单击：手动刷新一次（资产页）
-        // 同时刷新市场实时行情（Bybit KZ + 腾讯），否则市场列表点了没反应
+        // 同时刷新市场实时行情（Bybit HK + 腾讯），否则市场列表点了没反应
         if (typeof fetchMarketData === "function") { try { fetchMarketData(); } catch (e) {} }
     }
 });
 // 默认开启自动刷新美股（固定刷新），刷新按钮保持蓝色
 setAutoUsState(true);
 
-/* ============ 市场页面（Bybit KZ + 腾讯收盘价基准） ============ */
+/* ============ 市场页面（Bybit HK + 腾讯收盘价基准） ============ */
 var MARKET_STORAGE_KEY = "pa_market_symbols";
-var MARKET_API_BASE = "https://api.bybit.kz/v5/market";
+var MARKET_API_BASE = "https://api.byhkbit.com/v5/market";
 var _marketTimer = null;
 var _marketSymbols = [];
 
@@ -14166,7 +14173,8 @@ Array.prototype.slice.call(document.querySelectorAll(sel)).forEach(function(el) 
     void el.offsetHeight; // 强制 reflow（关键：否则 scrollWidth 仍是改字号前的旧值）
     // 用列(td)宽而非 cell div 宽：cell 设了 nowrap，内容超长时 div 的 clientWidth 会被撑成内容宽，
     // 导致 scrollWidth≈clientWidth、永远"不溢出"而不触发缩小；td 在 fixed 布局下宽度固定，更准确
-    var avail = (el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : el.clientWidth;
+    // 注意：el 本身是 td 时（如 .pending-tbl td.cls-date），parentElement 是 tr（整行宽），必须取 td 自身宽度
+    var avail = (el.tagName === "TD") ? el.clientWidth : ((el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : el.clientWidth);
     var iter = 0;
     while (el.scrollWidth > avail + 0.5 && fs > MIN_FS && iter++ < 24) {
         fs = Math.max(MIN_FS, fs - STEP);
