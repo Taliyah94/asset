@@ -6905,19 +6905,33 @@ function fetchUsQuotes(symList) {
         },
     };
 
+// GOOG(谷歌-C) 与 GOOGL(谷歌-A) 取价合并：统一按 GOOGL 取价（与 tencentQueryOf / normGoogleSym 口径一致）。
+// normGoogleSym 定义在后续脚本块，故用全局守卫访问（同 6442 / 6732 写法）。
+function _googNorm(code) {
+    var c = String(code == null ? "" : code);
+    if (!/^googl?$/i.test(c)) return c;
+    return (typeof window.normGoogleSym === "function") ? window.normGoogleSym(c) : "GOOGL";
+}
+// _holdQ 键：市场前缀 + 代码；美股把 GOOG 归一到 GOOGL，保证与腾讯/Bybit/Alpaca 取价同源
+function holdQKey(m, code) {
+    var mk = String(m == null || m === "" ? "us" : m);
+    var c = String(code == null ? "" : code);
+    return mk + (mk.toLowerCase() === "us" ? _googNorm(c) : c);
+}
+
 function collectHoldingSymbols() {
     var set = {};
     (funds || []).forEach(function(f) {
         var h = FUND_HOLDINGS[f.code];
         if (h && h.items) h.items.forEach(function(it) {
             // 腾讯 qt 支持 us / jp(日本) / kr(韩国) / hk / sz / sh，统一订阅实时行情（jp/kr 实测可读）
-            set[(it.m || "us") + it.c] = 1
+            set[holdQKey(it.m, it.c)] = 1
         })
     });
     // 把直接持有的美股也加入腾讯行情订阅（us 列表里的持仓）
     (us || []).forEach(function(u) {
         var sym = String(u.symbol || "").toUpperCase();
-        if (sym) set["us" + sym] = 1
+        if (sym) set[holdQKey("us", sym)] = 1
     });
     // QQQ 保底订阅：基金盘中估值的未知块基准（预测页 getQqqChangeForDay 读 _holdQ["usQQQ"]），
     // 依赖它的话不应受「是否恰好持有 QQQ/代理基金」影响
@@ -7403,7 +7417,7 @@ function holdingChg(it, predictDay) {
     // 美股：腾讯 qt.gtimg.cn 实时价。报价日期未刷到美东目标日（休市/周末/数据未更新）→ 返回 null，
     // 避免把上一交易日的「收盘 vs 前收」当目标日涨跌（与 QQQ 闸门同源口径）。
     if (mk === "us") {
-        var _qq = window._holdQ && window._holdQ[mk + it.c];
+        var _qq = window._holdQ && window._holdQ[holdQKey(mk, it.c)];
         if (!(_qq && _qq.price > 0 && _qq.prevClose > 0)) return null;
         var _td = (typeof computeFundDayRef === "function") ? String(computeFundDayRef() || "").replace(/-/g, "") : "";
         var _qd = _qq.date ? String(_qq.date).replace(/-/g, "") : "";
@@ -7924,7 +7938,7 @@ function computeCurrent() {
         var usd = hist.length ? valOnOrBefore(hist, todayTs(), "price") != null ? valOnOrBefore(hist, todayTs(), "price") : hist[0].price : u.price != null ? Number(u.price) : 0;
         // 美股当日价优先用腾讯(gtimg)实时价：先取 _holdQ（与饼图一致），再退回 _usdCn，最后 Alpaca
         var symUp = String(u.symbol || "").toUpperCase();
-        var qqUp = window._holdQ && symUp ? window._holdQ["us" + symUp] : null;
+        var qqUp = window._holdQ && symUp ? window._holdQ[holdQKey("us", symUp)] : null;
         if (qqUp && qqUp.price > 0) usd = qqUp.price;
         else if (u._usdCn != null && !isOptionSymbol(u.symbol)) usd = u._usdCn;
         // ===== 期权现价解析（必须在 usVal 累加之前完成，否则市值会用旧价）=====
@@ -8164,7 +8178,7 @@ function drawAllocation() {
             var st = getTradeStats(u);
             // 美股市值优先用腾讯(gtimg)实时价，拿不到再退回 Alpaca 价
             var sym = String(u.symbol || "").toUpperCase();
-            var qq = window._holdQ && sym ? window._holdQ["us" + sym] : null;
+            var qq = window._holdQ && sym ? window._holdQ[holdQKey("us", sym)] : null;
             var price = (qq && qq.price > 0) ? qq.price : (u.price != null && u.price > 0 ? u.price : u._usd || 0);
             if (st.holdShares === 0 || price <= 0) return;
             var val = st.holdShares * usUnitMult(u) * price * fx;
@@ -8733,7 +8747,7 @@ function renderAllocLegend() {
 
                 if (c.kind === "holding") {
                     var it = c.it, mk = it.m || "us";
-                    var _qq = window._holdQ && window._holdQ[mk + it.c];
+                    var _qq = window._holdQ && window._holdQ[holdQKey(mk, it.c)];
                     var isEM = !!EM_MKTS[mk];
                     var emPrice = (isEM && window._holdEMPrice) ? window._holdEMPrice[mk + it.c] : null;
                     var price = (isEM && emPrice != null && isFinite(emPrice)) ? emPrice
@@ -9099,7 +9113,7 @@ function usMarketValueFromList(fx) {
         var st = getTradeStatsAt(u, todayTs());
         if (!st || st.holdShares === 0) return;
         var sym = String(u.symbol || "").toUpperCase();
-        var qq = window._holdQ && sym ? window._holdQ["us" + sym] : null;
+        var qq = window._holdQ && sym ? window._holdQ[holdQKey("us", sym)] : null;
         var price = (qq && qq.price > 0) ? qq.price : (u.price != null && u.price > 0 ? u.price : u._usd || 0);
         if (!(price > 0)) return;
         v += st.holdShares * usUnitMult(u) * price * fx
@@ -10750,6 +10764,16 @@ function getMonthDays(y, m) {
     return days
 }
 
+/* 周期盈亏基准：优先用「期初前一刻」资产（上月末/上年末收盘）；
+   首期无历史数据时退化为期内首个有值日，避免首月/首年显示「—」 */
+function calPeriodBase(days) {
+    if (days && days.length) {
+        if (days[0].prev != null && days[0].prev > 0) return days[0].prev;
+        for (let i = 0; i < days.length; i++) if (days[i].total > 0) return days[i].total
+    }
+    return days && days.length ? days[0].total : 0
+}
+
 function calcColorScale(days, useAmt) {
     let maxAbs = 0;
     days.forEach(function(d) {
@@ -10916,12 +10940,12 @@ function renderCalDay(box, useAmt, todayStr) {
     nav.appendChild(nextBtn);
     box.appendChild(nav);
     /* 顶部月度盈亏汇总 */
-        if (days.length >= 2) {
-            // 月度盈亏基准用上月末（如 9 月取 8-31 收盘），而非当月 1 号
-            const _base = (days[0].prev != null) ? days[0].prev : days[0].total;
-            const _l = days[days.length - 1].total;
-            const _mChg = _l - _base;
-            const _mPct = _base > 0 ? _mChg / _base : null;
+    if (days.length >= 2) {
+        // 月度盈亏基准：优先上月末收盘；首月无历史则退化为当月首日（首个有值日）
+        const _base = calPeriodBase(days);
+        const _l = days[days.length - 1].total;
+        const _mChg = _l - _base;
+        const _mPct = _base > 0 ? _mChg / _base : null;
         const _sum = document.createElement("div");
         _sum.className = "cal-summary";
         const _v = document.createElement("div");
@@ -10986,8 +11010,8 @@ function renderCalMonth(box, useAmt) {
         let mChg = 0,
             mChgPct = null;
         if (days.length >= 2) {
-            // 月度盈亏基准用上月末（如 9 月取 8-31 收盘），而非当月 1 号
-            const _base = (days[0].prev != null) ? days[0].prev : days[0].total;
+            // 月度盈亏基准：优先上月末收盘；首月无历史则退化为当月首日（首个有值日）
+            const _base = calPeriodBase(days);
             const lastTotal = days[days.length - 1].total;
             mChg = lastTotal - _base;
             if (_base > 0) mChgPct = mChg / _base
@@ -11067,8 +11091,16 @@ function renderCalMonth(box, useAmt) {
         const _firstMD = getMonthDays(y, 1);
         let _yChg = 0;
         arr.forEach(function(o) { _yChg += (o.chg || 0) });
-        // 年度基准用上年末（12-31）收盘，与月度「上月末」口径一致（_yChg 已是各月「月末−上月末」累加=YTD）
-        const _yStart = _firstMD.length ? (_firstMD[0].prev != null ? _firstMD[0].prev : _firstMD[0].total) : 0;
+        // 年度基准：优先上年末（12-31）收盘；首年无历史则退化为当年首个有值日
+        let _yStart = (_firstMD.length && _firstMD[0].prev != null && _firstMD[0].prev > 0) ? _firstMD[0].prev : 0;
+        if (_yStart <= 0) {
+            for (let _m = 1; _m <= 12 && _yStart <= 0; _m++) {
+                const _md = getMonthDays(y, _m);
+                for (let _i = 0; _i < _md.length; _i++) {
+                    if (_md[_i].total > 0) { _yStart = _md[_i].total; break }
+                }
+            }
+        }
         const _yPct = _yStart > 0 ? _yChg / _yStart : null;
         const _sum = document.createElement("div");
         _sum.className = "cal-summary";
@@ -11797,13 +11829,14 @@ async function refreshRaw() {
     const _yTs = parseDate(ymd(todayTs() - 864e5));
     const _tTs = parseDate(ymd(todayTs()));
     us.forEach(u => {
-        const q = usRes[u.symbol];
+        const _uSymK = _googNorm(u.symbol);   // usRes 键已归一（GOOG→GOOGL），读取同归一口径
+        const q = usRes[_uSymK];
         if (q && q.price != null) {
             u.price = q.price;
             u.prevClose = q.prevClose;
             u._quoteTime = q.time || "";
             if (!isOptionSymbol(u.symbol)) {
-                var _cn = usRes["__cn_" + u.symbol];
+                var _cn = usRes["__cn_" + _uSymK];
                 if (_cn && _cn.price != null) {
                     u._usdCn = _cn.price;
                     u._cnPrevClose = _cn.prevClose
@@ -12289,7 +12322,7 @@ async function refreshUsOnly() {
     const _yTs = parseDate(ymd(todayTs() - 864e5));
     const _tTs = parseDate(ymd(todayTs()));
     us.forEach(u => {
-        const q = usRes[u.symbol];
+        const q = usRes[_googNorm(u.symbol)];   // usRes 键已归一（GOOG→GOOGL）
         if (q && q.price != null) {
             u.price = q.price;
             u.prevClose = q.prevClose;
@@ -13843,7 +13876,7 @@ setAutoUsState(true);
 
 /* ============ 市场页面（Bybit HK + 腾讯收盘价基准） ============ */
 var MARKET_STORAGE_KEY = "pa_market_symbols";
-var MARKET_API_BASE = "https://api.byhkbit.com/v5/market";
+var MARKET_API_BASE = "https://api.bybitgeorgia.ge/v5/market";
 var _marketTimer = null;
 var _marketSymbols = [];
 
@@ -13861,6 +13894,97 @@ function bybitSymTypeSet(sym, t) {
         c[sym] = t;
         localStorage.setItem("bbSymType", JSON.stringify(c));
     } catch (e) {}
+}
+
+/* ===== 股票/币种判定兜底（[2026-09-12 修复]） =====
+   现象：市场行情/基金持仓的涨跌幅显示成 Bybit 的 24h 涨跌（≈周五当天涨跌），
+        而正确口径是「Bybit 现价 vs 腾讯(QT)周五收盘」。
+   根因：当时的主源 api.byhkbit.com（hk）只提供 /tickers，/instruments-info 实测 404，
+        symbolType 永远取不到 → isStock=false → 美股/ETF 被判成「非股票(币)」，
+        走 ch=price24hPcnt 分支，且 stockSyms 为空 → 连腾讯基准都不会去拉。
+   两条兜底：① instruments-info 依次尝试备用 host；② 本地已知股票集合补判(不依赖网络)。
+   [2026-09-12 实测重选 host，见下] 主源已换成两接口都齐的 ge，hk 已删除。 */
+// [2026-09-12 实测重选] 本机=青岛联通直连实测(tickers / instruments-info 中位 ms)：
+//   ge 格鲁吉亚 831/767 ✅最优 · nl 荷兰 1002/826 ✅次优 · ae 1063/883 · id 1073/1054
+//   tr 土耳其 886/1626(ii慢) · hk 中国香港 1030/404(无ii，冷连接曾 16.4s) · kz 1495/1426(最慢)
+//   com / bytick 超时被墙 · eu TLS 断 → 全部弃用
+// 故：主源 ge，备用 nl；hk/kz 已删除（hk 无 instruments-info 且冷启尾延迟极高，kz 最慢）。
+var MARKET_ALT_BASES = ["https://api.bybit.nl/v5/market"];
+// 依次尝试主/备 host，任一拿到带 result 的 JSON 即返回；全失败才 reject
+// tickers 与 instruments-info 都走这里，主源抖动可自动接力备用（原先 tickers 硬绑主源，无接力）
+function bybitJsonAny(path, timeoutMs) {
+    var bases = [MARKET_API_BASE].concat(MARKET_ALT_BASES);
+    var i = 0;
+    function next() {
+        if (i >= bases.length) return Promise.reject(new Error("all bybit hosts failed"));
+        var base = bases[i++];
+        var timer = null;
+        var to = new Promise(function(_, rej) {
+            timer = setTimeout(function() { rej(new Error("host timeout")); }, timeoutMs || 5000);
+        });
+        return Promise.race([
+            fetch(base + path).then(function(r) { return r.json(); }),
+            to
+        ]).then(function(j) {
+            if (timer) clearTimeout(timer);
+            if (!j || !j.result) throw new Error("bad payload");
+            return j;
+        }).catch(function() { if (timer) clearTimeout(timer); return next(); });
+    }
+    return next();
+}
+// 本地已知股票集合（不依赖网络）：美股持仓/期权正股 + 基金季报持仓中的美股与港/韩股 special
+function bybitKnownStockSet() {
+    var set = {};
+    function add(s) {
+        s = String(s == null ? "" : s).toUpperCase().replace(/USDT$/, "");
+        if (s.indexOf("|") >= 0) s = s.split("|").pop();
+        if (!s) return;
+        set[s] = 1;
+        // [2026-09-12 修复] 同步登记 Bybit 归一代码：bybitIsStock 的查询键是 bybitCodeOf(sym) 的结果，
+        // 而 SYM_MAP 有映射（GOOG→GOOGL、02513→ZHIPU、AMD→AMDSTOCK 等），只存原始代码会失配漏判。
+        try { if (typeof bybitCodeOf === "function") { var b = bybitCodeOf(s); if (b) set[b] = 1; } } catch (e) {}
+    }
+    try {
+        if (typeof us !== "undefined" && us && us.length) {
+            us.forEach(function(u) {
+                if (!u || !u.symbol) return;
+                var s = String(u.symbol).toUpperCase();
+                if ((typeof isOptionSymbol === "function" && isOptionSymbol(s)) &&
+                    typeof parseOptionSymbol === "function") {
+                    var op = parseOptionSymbol(s);
+                    if (op && op.root) add(op.root);
+                } else {
+                    add(s.replace(/[^A-Z0-9]/g, ""));
+                }
+            });
+        }
+    } catch (e) {}
+    try {
+        if (typeof FUND_HOLDINGS !== "undefined" && FUND_HOLDINGS) {
+            Object.keys(FUND_HOLDINGS).forEach(function(k) {
+                var ph = FUND_HOLDINGS[k];
+                ((ph && ph.items) || []).forEach(function(it) {
+                    if (!it || !it.c) return;
+                    var mk = it.m || "us";
+                    if (mk === "us" ||
+                        (typeof isHkSpecial === "function" && isHkSpecial(it.c)) ||
+                        (typeof isKrSpecial === "function" && isKrSpecial(it.c))) add(it.c);
+                });
+            });
+        }
+    } catch (e) {}
+    return set;
+}
+// symbolType → 是否股票/ETF；symbolType 取不到时用本地集合兜底，避免美股掉进「币」分支
+function bybitIsStock(sym, symbolType) {
+    if (symbolType === "stock" || symbolType === "ETF") return true;
+    if (symbolType) return false; // 明确是币等其他类型
+    try {
+        var s = String(sym == null ? "" : sym).toUpperCase().replace(/USDT$/, "");
+        if (s.indexOf("|") >= 0) s = s.split("|").pop();
+        return !!bybitKnownStockSet()[s];
+    } catch (e) { return false; }
 }
 
 function getMarketSymbols() {
@@ -14014,7 +14138,8 @@ function tencentQueryOf(sym) {
         var _pp = String(sym).split("|");
         var _mk = String(_pp[0] || "").toLowerCase();
         var _cd = String(_pp[1] || "").toLowerCase();
-        if (_mk === "us") return "us" + _cd.toUpperCase();
+        // 美股统一走 normGoogleSym：GOOG(谷歌-C) 与 GOOGL(谷歌-A) 合并取 GOOGL 价
+        if (_mk === "us") return "us" + normGoogleSym(_cd.toUpperCase());
         if (_mk === "hk") return "hk" + _cd;
         if (_mk === "sh" || _mk === "sz") return _mk + _cd;
         if (_mk === "kr" || _mk === "jp") return _mk + _cd; // 韩股/日股：腾讯认 kr/jp 小写前缀
@@ -14022,10 +14147,10 @@ function tencentQueryOf(sym) {
     }
     var s = String(sym || "").toUpperCase().replace(/USDT$/, "");
     if (B_TO_TQ[s]) return B_TO_TQ[s];
-    if (s.indexOf("US") === 0) return "us" + s.substring(2);       // 美股: us + 大写代码
+    if (s.indexOf("US") === 0) return "us" + normGoogleSym(s.substring(2)); // 美股: us + 大写代码(GOOG→GOOGL)
     if (s.indexOf("HK") === 0) return "hk" + s.substring(2);       // 港股: hk + 小写代码
     if (s.indexOf("SH") === 0 || s.indexOf("SZ") === 0) return s.substring(0, 2).toLowerCase() + s.substring(2); // A股
-    return "us" + s; // 默认当美股
+    return "us" + normGoogleSym(s); // 默认当美股(GOOG→GOOGL)
 }
 
 // 腾讯行情：港股 hk、A股 sh/sz、美股 us 均可(注意大小写与格式)。
@@ -14066,8 +14191,12 @@ function fetchTencentClose(syms) {
                     try {
                         fetch("https://qt.gtimg.cn/q=" + q).then(function(rr) { return rr.arrayBuffer(); })
                             .then(function(buf) { parse(new TextDecoder("gbk").decode(buf)); finish(); })
-                            .catch(function() { finish(); });
-                    } catch (e) { finish(); }
+                            // [2026-09-12 修复] qt.gtimg.cn 无 CORS 头，fetch 兜底多数会直接抛错；
+                            // 原来这里 finish() 会在 script 注入还没 onload 时抢先收尾（done=true），
+                            // 导致腾讯基准整批丢失 → 涨跌幅退化成 Bybit 24h。改为：fetch 失败不提前收尾，
+                            // 交给 script onload/onerror，最坏由 12s guard 兜底（仍保证一定 settle）。
+                            .catch(function() {});
+                    } catch (e) {}
                 };
                 try {
                     var s = document.createElement("script");
@@ -15038,7 +15167,7 @@ function renderFundHoldings() {
             var sym = row.getAttribute("data-fh-sym") || "";
             var _sp = sym.split("|");
             var mkt0 = _sp[0] || "us", code0 = _sp[1] || "";
-            var q0 = window._holdQ[mkt0 + code0];
+            var q0 = window._holdQ[holdQKey(mkt0, code0)];
             var qEl0 = row.querySelector(".fund-hd-quote");
             var cEl0 = row.querySelector(".fund-hd-chg");
             if (!q0 || !(q0.price > 0) || !qEl0 || !cEl0) return;
@@ -15104,11 +15233,10 @@ function fetchFundHoldingsRealtime(usCodes) {
         }).catch(function() { return {}; });
     };
     symbols.forEach(function(sym) {
-        var tUrl = MARKET_API_BASE + "/tickers?category=linear&symbol=" + sym;
         // symbolType 缓存命中跳过 instruments-info；未命中与 ticker 并行(不再串行)，race 兜 5s
         var symbolType = bybitSymTypeGet(sym);
         var iUrlP = symbolType ? Promise.resolve() : Promise.race([
-            fetch(MARKET_API_BASE + "/instruments-info?category=linear&symbol=" + sym).then(function(r) { return r.json(); }),
+            bybitJsonAny("/instruments-info?category=linear&symbol=" + sym, 5000),
             new Promise(function(_, rej) { setTimeout(function() { rej(new Error("iUrl timeout")); }, 5000); })
         ]).then(function(json) {
             var l = json && json.result && json.result.list;
@@ -15117,12 +15245,13 @@ function fetchFundHoldingsRealtime(usCodes) {
                 bybitSymTypeSet(sym, symbolType);
             }
         }).catch(function() {});
-        var tP = fetch(tUrl)
-            .then(function(r) { return r.json(); })
+        // tickers 同样走主/备 host 轮询：主源 ge 抖动时自动接力 nl（原先硬绑主源，无接力）
+        var tP = bybitJsonAny("/tickers?category=linear&symbol=" + sym, 5000)
             .catch(function() { return null; });
-        Promise.all([iUrlP, tP]).then(function(r) {
-            var json = r[1];
-            var isStock = (symbolType === "stock" || symbolType === "ETF");
+        // [2026-09-12 解耦] 不再等 instruments-info：tickers 到齐即收尾（分类用 bbSymType 缓存 + 本地白名单，
+        // 基金成分股全部在 bybitKnownStockSet 白名单内，脱离 ii 也能正确判股票/币）。
+        tP.then(function(json) {
+            var isStock = bybitIsStock(sym, symbolType);
             var stockUseBybit = isStock && marketStockUseBybit();
             if (json && json.retCode === 0 && json.result && json.result.list) {
                 json.result.list.forEach(function(it) {
@@ -15133,7 +15262,7 @@ function fetchFundHoldingsRealtime(usCodes) {
                     it._src = isStock ? (stockUseBybit ? "bybit" : ((typeof isUsRegularSession === "function" && isUsRegularSession()) ? "tencent" : "alpaca")) : "bybit";
                     merged.list.push(it);
                     // 美股(含周末间隙走 Bybit 的)都要拉腾讯昨收/实时价，作涨跌基准
-                    if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
+                    if (isStock && stockSyms.indexOf(sym.replace(/USDT$/, "")) < 0) stockSyms.push(sym.replace(/USDT$/, ""));
                 });
             }
             pending--;
@@ -15642,6 +15771,10 @@ function fetchMarketDataRaw() {
         });
     }
     var settled = false; // 是否已渲染（防止超时与正常完成重复渲染）
+    // [2026-09-12 解耦] instruments-info 不再阻塞首屏：tickers 到齐即渲染（分类先用 bbSymType 缓存 + 本地白名单），
+    // instruments-info 异步返回后若改变分类，等全部 ii 落定再补渲染一次。冷启动不再等 hk(404)→kz 的 2~3s。
+    var _iiPending = symbols.length;
+    var _iiDirty = false;
 
     // 兜底：若任一 fetch 永久 pending（网络被墙/CORS 卡死），pending 永不归零，
     // renderMarketList 永不调用，导致美股/大宗/加密不显示（基金走独立渲染链照常显示）。
@@ -15726,12 +15859,11 @@ function fetchMarketDataRaw() {
     }, 8000);
 
     symbols.forEach(function(sym) {
-        var tUrl = MARKET_API_BASE + "/tickers?category=linear&symbol=" + sym;
-        // symbolType 缓存命中则完全跳过 instruments-info；未命中时与 ticker **并行**
-        // （原实现串行：等 instruments 结束才发 ticker，关键路径翻倍 ~1.9s → 现并行 ~max 两条）
+        var _plainSym = sym.replace(/USDT$/, "");
+        // symbolType 缓存命中则完全跳过 instruments-info；未命中时与 ticker **并行**（且不再阻塞渲染）
         var symbolType = bybitSymTypeGet(sym);
         var iUrlP = symbolType ? Promise.resolve() : Promise.race([
-            fetch(MARKET_API_BASE + "/instruments-info?category=linear&symbol=" + sym).then(function(r) { return r.json(); }),
+            bybitJsonAny("/instruments-info?category=linear&symbol=" + sym, 5000),
             new Promise(function(_, rej) { setTimeout(function() { rej(new Error("iUrl timeout")); }, 5000); })
         ]).then(function(json) {
             var l = json && json.result && json.result.list;
@@ -15740,23 +15872,19 @@ function fetchMarketDataRaw() {
                 bybitSymTypeSet(sym, symbolType);
             }
         }).catch(function() {});
-        var tP = fetch(tUrl)
-            .then(function(r) { return r.json(); })
+        // tickers 走主/备 host 轮询（主源 ge 抖动自动接力 nl）
+        var tP = bybitJsonAny("/tickers?category=linear&symbol=" + sym, 5000)
             .catch(function(err) {
                 hasError = true;
                 return null;
             });
-        Promise.all([iUrlP, tP]).then(function(r) {
-            var json = r[1];
-            var isStock = (symbolType === "stock" || symbolType === "ETF");
+        // —— tickers 到达即处理并渲染（分类先用缓存/白名单，不等 instruments-info）——
+        tP.then(function(json) {
+            var isStock = bybitIsStock(sym, symbolType);
             // 盘前/盘后/夜盘/周末间隙(非美东常规时段)美股走 Bybit；盘中走腾讯
             var stockUseBybit = isStock && marketStockUseBybit();
-            var useTencent = isStock && !stockUseBybit;
             // 数据源标识：bybit / tencent(腾讯财经)；Alpaca 仅作最终兜底(渲染层回退时标注)
-            var src = "bybit";
-            if (isStock) {
-                src = stockUseBybit ? "bybit" : "tencent";
-            }
+            var src = isStock ? (stockUseBybit ? "bybit" : "tencent") : "bybit";
             if (json && json.retCode === 0 && json.result && json.result.list) {
                 json.result.list.forEach(function(it) {
                     it._isStock = isStock;
@@ -15764,15 +15892,14 @@ function fetchMarketDataRaw() {
                     it._src = src;                // 数据源标识
                     it._ch24 = parseFloat(it.price24hPcnt); // 已是小数，渲染*100
                     merged.list.push(it);
-                    // 所有美股/ETF 都拉腾讯昨收作为涨跌基准(盘中盘外统一)，不再仅限盘中
-                    if (isStock) stockSyms.push(sym.replace(/USDT$/, ""));
                 });
+                // 所有美股/ETF 都拉腾讯昨收作为涨跌基准(盘中盘外统一)，不再仅限盘中
+                if (isStock && _plainSym && stockSyms.indexOf(_plainSym) < 0) stockSyms.push(_plainSym);
             } else {
                 // Bybit 读不到该符号（含股票/非美股，Bybit 多返回空列表而非报错）：
                 // 记录失败并加入腾讯/Alpaca 拉取集合，确保走兜底而非画杠
                 if (!json) _recordFail(isStock, sym);
-                var _plainFail = sym.replace(/USDT$/, "");
-                if (_plainFail && stockSyms.indexOf(_plainFail) < 0) stockSyms.push(_plainFail);
+                if (_plainSym && stockSyms.indexOf(_plainSym) < 0) stockSyms.push(_plainSym);
             }
             pending--;
             if (pending <= 0) {
@@ -15780,6 +15907,28 @@ function fetchMarketDataRaw() {
                 if (hasError && errEl) { errEl.style.display = ""; errEl.textContent = "部分行情获取失败，已显示已获取的部分"; }
                 _renderDone(false);
             }
+        });
+        // —— instruments-info 异步补正：若分类与首屏不一致，改标记并在全部 ii 落定后补渲染一次 ——
+        iUrlP.then(function() {
+            if (symbolType) {
+                var _isStock2 = bybitIsStock(sym, symbolType);
+                var _stockUseBybit2 = _isStock2 && marketStockUseBybit();
+                var _src2 = _isStock2 ? (_stockUseBybit2 ? "bybit" : "tencent") : "bybit";
+                var _changed = false;
+                merged.list.forEach(function(it) {
+                    if (it.symbol !== sym) return;
+                    if (it._isStock !== _isStock2) {
+                        it._isStock = _isStock2;
+                        it._useBybit = _stockUseBybit2;
+                        it._src = _src2;
+                        _changed = true;
+                    }
+                });
+                if (_isStock2 && _plainSym && stockSyms.indexOf(_plainSym) < 0) { stockSyms.push(_plainSym); _changed = true; }
+                if (_changed) _iiDirty = true;
+            }
+            _iiPending--;
+            if (_iiPending <= 0 && _iiDirty && settled) _renderDone(true);
         });
     });
 }
