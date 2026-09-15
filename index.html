@@ -4155,10 +4155,13 @@ background: #ffffff;
 .tqp-tf{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid #f0f0f0}
 .tqp-tf select{appearance:none;-webkit-appearance:none;border:1px solid #e2e6ea;background:#f7f9fb;border-radius:10px;padding:8px 30px 8px 12px;font-size:14px;font-weight:600;color:#222;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
 .tqp-tf select:focus{outline:none;border-color:#1a73e8}
-.tqp-ema-pills{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
-.tqp-ema-pill{border:1px solid #e2e6ea;background:#f7f9fb;border-radius:10px;padding:7px 10px;font-size:13px;font-weight:600;color:#888;cursor:pointer;user-select:none;transition:all .12s}
-.tqp-ema-pill:hover{border-color:#c7cdd4}
-.tqp-ema-pill.active{color:#fff;border-color:transparent}
+.tqp-ema-wrap{position:relative}
+.tqp-ema-btn{appearance:none;-webkit-appearance:none;border:1px solid #e2e6ea;background:#f7f9fb;border-radius:10px;padding:8px 30px 8px 12px;font-size:14px;font-weight:600;color:#222;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
+.tqp-ema-btn:focus{outline:none;border-color:#1a73e8}
+.tqp-ema-menu{position:absolute;bottom:calc(100% + 6px);left:0;z-index:20;background:#fff;border:1px solid #e2e6ea;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px;min-width:120px}
+.tqp-ema-menu label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;font-weight:600;color:#333;cursor:pointer;white-space:nowrap}
+.tqp-ema-menu label:hover{background:#f2f5f9}
+.tqp-ema-menu input{width:15px;height:15px;accent-color:#1a73e8;cursor:pointer}
     </style>
     <link data-page-node-id="o9NWRN16E8VRjHyaJ80KK9" href="manifest.webmanifest" rel="manifest">
 </head>
@@ -5665,12 +5668,15 @@ background: #ffffff;
                                                         <option value="W">周</option>
                                                         <option value="M">月</option>
                                                     </select>
-                                                    <span class="tqp-ema-pills" id="tqqqEma">
-                                                        <span class="tqp-ema-pill" data-ema="5">EMA5</span>
-                                                        <span class="tqp-ema-pill" data-ema="50">EMA50</span>
-                                                        <span class="tqp-ema-pill" data-ema="100">EMA100</span>
-                                                        <span class="tqp-ema-pill" data-ema="200">EMA200</span>
-                                                        <span class="tqp-ema-pill" data-ema="365">EMA365</span>
+                                                    <span class="tqp-ema-wrap">
+                                                        <button type="button" class="tqp-ema-btn" id="tqqqEmaBtn">EMA</button>
+                                                        <div class="tqp-ema-menu" id="tqqqEmaMenu" hidden>
+                                                            <label><input type="checkbox" data-ema="5"><span>EMA5</span></label>
+                                                            <label><input type="checkbox" data-ema="50"><span>EMA50</span></label>
+                                                            <label><input type="checkbox" data-ema="100"><span>EMA100</span></label>
+                                                            <label><input type="checkbox" data-ema="200"><span>EMA200</span></label>
+                                                            <label><input type="checkbox" data-ema="365"><span>EMA365</span></label>
+                                                        </div>
                                                     </span>
                                                 </div>
                                             </div>
@@ -16818,19 +16824,16 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     for(let i = 1; i < n; i++){ prev = bars[i].c * k + prev * (1 - k); out[i] = prev; }
     return out;
   }
-  // 同步 EMA 开关高亮：激活的周期用自身配色填充
-  function syncEmaPills(){
-    const pills = document.querySelectorAll('#tqqqEma .tqp-ema-pill');
-    Array.prototype.forEach.call(pills, function(pill){
-      const v = pill.getAttribute('data-ema');
-      const active = emaPeriods.indexOf(parseInt(v, 10)) >= 0;
-      if(active){
-        const c = EMA_COLORS[v] || '#888';
-        pill.style.background = c; pill.style.borderColor = c; pill.style.color = '#fff';
-      } else {
-        pill.style.background = ''; pill.style.borderColor = ''; pill.style.color = '';
-      }
-    });
+  // 同步 EMA 下拉菜单：勾选状态 + 按钮文案（EMA 50/100/200/365）
+  function syncEmaMenu(){
+    const menu = document.getElementById('tqqqEmaMenu');
+    if(menu){
+      Array.prototype.forEach.call(menu.querySelectorAll('input[data-ema]'), function(cb){
+        cb.checked = emaPeriods.indexOf(parseInt(cb.getAttribute('data-ema'), 10)) >= 0;
+      });
+    }
+    const btn = document.getElementById('tqqqEmaBtn');
+    if(btn) btn.textContent = 'EMA';
   }
   function setPrice(p, pct){
     const up = pct >= 0, c = col(up);
@@ -16922,11 +16925,12 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       if(emaCache.src !== bars) emaCache = { src: bars, map: {} };
       emaPeriods.forEach(p => { if(!emaCache.map[p]) emaCache.map[p] = computeEma(p); });
     }
-    // 右侧预留约 2 根 K 的空白，使最新一根不贴右轴
-    const cwEst = (W - padL - 60) / Math.max(1, n);
-    padR = 60 + 2 * cwEst;
+    // 纵轴固定在最右边（padR=60）；蜡烛区右端留约 2 根 K 的空白，使最新一根不贴纵轴
+    padR = 60;
     plotW = W - padL - padR;
-    cw = plotW / n;
+    const cwEst = plotW / Math.max(1, n);
+    const gap = Math.min(plotW * 0.5, 2 * cwEst);   // 右侧 2 根 K 间距
+    cw = (plotW - gap) / n;
     let minL = Infinity, maxH = -Infinity;
     for(const b of disp){ if(b.l < minL) minL = b.l; if(b.h > maxH) maxH = b.h; }
     if(emaPeriods.length && emaCache.src === bars){ for(const p of emaPeriods){ const a = emaCache.map[p]; if(!a) continue; for(let i = vs; i < ve; i++){ const v = a[i]; if(v != null && !isNaN(v)){ if(v < minL) minL = v; if(v > maxH) maxH = v; } } } }  // 各 EMA 纳入纵轴范围，避免被裁
@@ -17030,8 +17034,9 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       ctx.fillStyle = '#454b54'; ctx.textAlign = align; ctx.textBaseline = 'middle';
       ctx.fillText(txt, tx, ty);
     };
-    markExtreme(maxH, padL + cw * (iMax + 0.5), yOf(maxH), true);
-    markExtreme(minL, padL + cw * (iMin + 0.5), yOf(minL), false);
+    // 仅标注蜡烛本身的最高/最低（不含 EMA 极值），引线落在 K 线上而非 EMA 线
+    markExtreme(disp[iMax].h, padL + cw * (iMax + 0.5), yOf(disp[iMax].h), true);
+    markExtreme(disp[iMin].l, padL + cw * (iMin + 0.5), yOf(disp[iMin].l), false);
     // 底部时间刻度（每隔 4 根一个；首标签日期，跨日重显日期）
     ctx.fillStyle = '#9aa0a6'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
@@ -17205,7 +17210,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     page.classList.add('open');
     viewEndIdx = null; viewCount = Math.min(DISPLAY, bars.length) || DISPLAY;
     tfSel.value = String(curInterval);
-    emaPeriods = [50, 100, 200, 365]; syncEmaPills();
+    emaPeriods = [50, 100, 200, 365]; syncEmaMenu();
     loadTicker();
     fetchKline(curInterval);
     loadCost();
@@ -17225,17 +17230,24 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     fetchKline(curInterval).finally(() => setTimeout(() => refreshBtn.classList.remove('spin'), 600));
   });
   tfSel.addEventListener('change', () => { curInterval = tfSel.value; fetchKline(curInterval); });
-  // EMA 多选开关：点击切换该周期显隐，再点已激活的即取消
-  const emaPills = Array.prototype.slice.call(document.querySelectorAll('#tqqqEma .tqp-ema-pill'));
-  emaPills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      const num = parseInt(pill.getAttribute('data-ema'), 10);
-      const idx = emaPeriods.indexOf(num);
-      if(idx >= 0) emaPeriods.splice(idx, 1); else emaPeriods.push(num);   // 再点已激活的即取消
-      emaPeriods.sort((a, b) => a - b);
-      syncEmaPills();
-      draw();
-    });
+  // EMA 下拉菜单：点按钮展开，菜单内逐项勾选开关；点空白处关闭
+  const emaBtn = document.getElementById('tqqqEmaBtn');
+  const emaMenu = document.getElementById('tqqqEmaMenu');
+  emaBtn.addEventListener('click', e => { e.stopPropagation(); emaMenu.hidden = !emaMenu.hidden; });
+  emaMenu.addEventListener('change', e => {
+    const cb = e.target.closest('input[data-ema]');
+    if(!cb) return;
+    const num = parseInt(cb.getAttribute('data-ema'), 10);
+    const idx = emaPeriods.indexOf(num);
+    if(cb.checked){ if(idx < 0) emaPeriods.push(num); }
+    else { if(idx >= 0) emaPeriods.splice(idx, 1); }
+    emaPeriods.sort((a, b) => a - b);
+    syncEmaMenu();
+    draw();
+  });
+  document.addEventListener('click', e => {
+    if(emaMenu.hidden) return;
+    if(!emaMenu.contains(e.target) && e.target !== emaBtn) emaMenu.hidden = true;
   });
   window.addEventListener('resize', () => { if(page.classList.contains('open')) draw(); });
 
