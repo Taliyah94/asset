@@ -4155,6 +4155,10 @@ background: #ffffff;
 .tqp-tf{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid #f0f0f0}
 .tqp-tf select{appearance:none;-webkit-appearance:none;border:1px solid #e2e6ea;background:#f7f9fb;border-radius:10px;padding:8px 30px 8px 12px;font-size:14px;font-weight:600;color:#222;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
 .tqp-tf select:focus{outline:none;border-color:#1a73e8}
+.tqp-ema-pills{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+.tqp-ema-pill{border:1px solid #e2e6ea;background:#f7f9fb;border-radius:10px;padding:7px 10px;font-size:13px;font-weight:600;color:#888;cursor:pointer;user-select:none;transition:all .12s}
+.tqp-ema-pill:hover{border-color:#c7cdd4}
+.tqp-ema-pill.active{color:#fff;border-color:transparent}
     </style>
     <link data-page-node-id="o9NWRN16E8VRjHyaJ80KK9" href="manifest.webmanifest" rel="manifest">
 </head>
@@ -5654,13 +5658,20 @@ background: #ffffff;
                                                         <option value="5">5分钟</option>
                                                         <option value="15">15分钟</option>
                                                         <option value="30">30分钟</option>
-                                                        <option value="60">1小时</option>
+                                                        <option value="60" selected>1小时</option>
                                                         <option value="120">2小时</option>
-                                                        <option value="240" selected>4小时</option>
+                                                        <option value="240">4小时</option>
                                                         <option value="D">日</option>
                                                         <option value="W">周</option>
                                                         <option value="M">月</option>
                                                     </select>
+                                                    <span class="tqp-ema-pills" id="tqqqEma">
+                                                        <span class="tqp-ema-pill" data-ema="5">EMA5</span>
+                                                        <span class="tqp-ema-pill" data-ema="50">EMA50</span>
+                                                        <span class="tqp-ema-pill" data-ema="100">EMA100</span>
+                                                        <span class="tqp-ema-pill" data-ema="200">EMA200</span>
+                                                        <span class="tqp-ema-pill" data-ema="365">EMA365</span>
+                                                    </span>
                                                 </div>
                                             </div>
 
@@ -16762,7 +16773,10 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
         canvas = el('tqqqCanvas'), tip = el('tqqqTip'), tfSel = el('tqqqTf'),
         listEl = el('unifiedList');
 
-  let curInterval = 240;
+  let curInterval = 60;
+  let emaPeriods = [50, 100, 200, 365];                 // 同时显示的 EMA 周期（可多选，默认开 50/100/200/365）
+  let emaCache = { src: null, map: {} };                // period -> 全量 EMA 数组，按 bars 缓存
+  const EMA_COLORS = { 5:'#f7b500', 50:'#2f80ed', 100:'#9b59ff', 200:'#19b39b', 365:'#ff5fa2' };
   let bars = [];
   let loading = false;
   // 视图窗口（缩放/平移）：viewEndIdx 显示区间末端索引（含），null=最新
@@ -16776,7 +16790,8 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     return [start, end];
   }
   // 绘图几何缓存（供 hover 使用）
-  let dpr = 1, cw = 0, padL = 52, padR = 60, padT = 22, padB = 30, plotW = 0, plotH = 0, yOf = null, disp = [], curPrice = null, curPct = 0;
+  let dpr = 1, cw = 0, padL = 52, padR = 60, padT = 22, padB = 30, plotW = 0, plotH = 0, yOf = null, disp = [], curPrice = null, curPct = 0, costPrice = null, yCur = null;
+  let hoverIdx = null, hoverY = null;   // 悬停十字线：吸附的 K 下标 + 鼠标 Y（画布坐标）
   // 拖拽/缩放时高频触发，用 rAF 合并成每帧最多一次 draw，避免卡顿
   let drawRaf = 0;
   function requestDraw(){
@@ -16794,6 +16809,29 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
   }
   function fmtFull(ts){ return new Date(ts).toLocaleString('sv-SE',{timeZone:TZ}).replace('T',' '); } // 2026-09-13 11:30:00
   function col(up){ return up ? UP_C() : DOWN_C(); }
+  // 全量 EMA（基于 bars 收盘价，seed=首根收盘），便于可见窗口左缘连续
+  function computeEma(period){
+    const n = bars.length, out = new Array(n);
+    if(n === 0) return out;
+    const k = 2 / (period + 1);
+    let prev = bars[0].c; out[0] = prev;
+    for(let i = 1; i < n; i++){ prev = bars[i].c * k + prev * (1 - k); out[i] = prev; }
+    return out;
+  }
+  // 同步 EMA 开关高亮：激活的周期用自身配色填充
+  function syncEmaPills(){
+    const pills = document.querySelectorAll('#tqqqEma .tqp-ema-pill');
+    Array.prototype.forEach.call(pills, function(pill){
+      const v = pill.getAttribute('data-ema');
+      const active = emaPeriods.indexOf(parseInt(v, 10)) >= 0;
+      if(active){
+        const c = EMA_COLORS[v] || '#888';
+        pill.style.background = c; pill.style.borderColor = c; pill.style.color = '#fff';
+      } else {
+        pill.style.background = ''; pill.style.borderColor = ''; pill.style.color = '';
+      }
+    });
+  }
   function setPrice(p, pct){
     const up = pct >= 0, c = col(up);
     curPrice = p; curPct = pct;
@@ -16814,6 +16852,17 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       const pct = (chgAttr != null && !isNaN(parseFloat(chgAttr))) ? parseFloat(chgAttr) : (+t.price24hPcnt * 100);
       setPrice(last, pct);
       draw();   // 现价更新后立即重绘指引线（与 fetchKline 并发时确保首帧显示）
+    }catch(e){}
+  }
+
+  // 持仓成本价 = 美股持仓「单价」列的均价（us 数组中 TQQQ 的 getTradeStats().avgCost），非 Asset_parsed.json
+  async function loadCost(){
+    try{
+      const item = us.find(function(x){ return String(x.symbol || '').toUpperCase() === 'TQQQ'; });
+      if(!item){ costPrice = null; return; }
+      const st = (typeof getTradeStats === 'function') ? getTradeStats(item) : (item._stats || { avgCost: 0 });
+      costPrice = (st && st.avgCost > 0) ? st.avgCost : null;
+      draw();
     }catch(e){}
   }
 
@@ -16867,12 +16916,25 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       ctx.fillText('加载中…', W/2, H/2); return;
     }
     const [vs, ve] = visibleRange(); disp = bars.slice(vs, ve);
+    const n = disp.length;
+    // 多 EMA：确保各周期已按全量 bars 计算（可见窗口左缘连续），仅绘制可见段
+    if(emaPeriods.length && bars.length){
+      if(emaCache.src !== bars) emaCache = { src: bars, map: {} };
+      emaPeriods.forEach(p => { if(!emaCache.map[p]) emaCache.map[p] = computeEma(p); });
+    }
+    // 右侧预留约 2 根 K 的空白，使最新一根不贴右轴
+    const cwEst = (W - padL - 60) / Math.max(1, n);
+    padR = 60 + 2 * cwEst;
+    plotW = W - padL - padR;
+    cw = plotW / n;
     let minL = Infinity, maxH = -Infinity;
     for(const b of disp){ if(b.l < minL) minL = b.l; if(b.h > maxH) maxH = b.h; }
+    if(emaPeriods.length && emaCache.src === bars){ for(const p of emaPeriods){ const a = emaCache.map[p]; if(!a) continue; for(let i = vs; i < ve; i++){ const v = a[i]; if(v != null && !isNaN(v)){ if(v < minL) minL = v; if(v > maxH) maxH = v; } } } }  // 各 EMA 纳入纵轴范围，避免被裁
     const span = (maxH - minL) || 1;
     // 桌面端左右都留刻度边距；手机端仅右侧刻度（保持原样，padL 不放大）
-    padL = (window.innerWidth <= 480) ? 6 : 52; padR = 60; padT = 22; padB = 30;
-    plotW = W - padL - padR; plotH = H - padT - padB;
+    padL = (window.innerWidth <= 480) ? 6 : 52; padT = 22; padB = 30;
+    plotH = H - padT - padB;
+    // 注意：padR / plotW 在蜡烛块按 n 预留右侧 2 根 K 空白后再定
     yOf = p => padT + (maxH - p) / span * plotH;
     // 价格刻度（仅数字，无横向虚线网格；现价指引线单独绘制）——左右两侧对称显示
     ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
@@ -16892,8 +16954,6 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       }
     }
     // 蜡烛（无成交量）——更宽更密
-    const n = disp.length;
-    cw = plotW / n;
     const bodyW = Math.max(1.4, Math.min(cw * 0.72, 18));
     for(let i = 0; i < n; i++){
       const b = disp[i], cx = padL + cw * (i + 0.5), up = b.c >= b.o, c = col(up);
@@ -16902,11 +16962,29 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       const yO = yOf(b.o), yC = yOf(b.c), top = Math.min(yO, yC), hgt = Math.max(1, Math.abs(yC - yO));
       ctx.fillRect(cx - bodyW / 2, top, bodyW, hgt);
     }
+    // 多 EMA 均线（可多选）：各周期独立配色实线，叠在蜡烛之上
+    if(emaPeriods.length && emaCache.src === bars){
+      emaPeriods.forEach(p => {
+        const a = emaCache.map[p]; if(!a) return;
+        ctx.strokeStyle = EMA_COLORS[p] || '#888'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+        ctx.beginPath();
+        let started = false;
+        for(let i = vs; i < ve; i++){
+          const v = a[i];
+          if(v == null || isNaN(v)) continue;
+          const x = padL + cw * (i - vs + 0.5), y = yOf(v);
+          if(!started){ ctx.moveTo(x, y); started = true; }
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      });
+    }
     // 现价水平指引线（跟随涨跌色：涨绿跌红）
     // 区间内有则正常画；实时价突破显示窗口时贴边绘制（不再整条隐藏），保证手机端窄窗口也能看到
     if(curPrice != null){
       const rawY = yOf(curPrice);
       const y = Math.min(padT + plotH - 1, Math.max(padT + 1, rawY));
+      yCur = y;
       const c = col(curPct >= 0);
       ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
       ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
@@ -16918,6 +16996,22 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       const tw = ctx.measureText(txt).width, tx = padL + plotW + 4;
       ctx.fillRect(tx - 2, y - 8, tw + 8, 16);
       ctx.fillStyle = '#fff'; ctx.fillText(txt, tx + 2, y);
+    }
+    // 持仓成本价 = 美股持仓「单价」均价（avgCost）水平指引线 —— 琥珀色实线，区别于现价虚线（涨绿跌红）
+    // 区间外则贴边绘制；右侧标签仅价格数字，与现价标签过近时下移避让
+    if(costPrice != null){
+      const rawY = yOf(costPrice);
+      let yc = Math.min(padT + plotH - 1, Math.max(padT + 1, rawY));
+      if(curPrice != null && Math.abs(yc - yCur) < 14) yc = Math.min(padT + plotH - 9, yCur + 16);
+      const cc = '#e8902a';
+      ctx.strokeStyle = cc; ctx.lineWidth = 1.2; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(padL, yc); ctx.lineTo(padL + plotW, yc); ctx.stroke();
+      ctx.fillStyle = cc; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
+      const txt = costPrice.toFixed(2);
+      const tw = ctx.measureText(txt).width, tx = padL + plotW + 4;
+      ctx.fillRect(tx - 2, yc - 8, tw + 8, 16);
+      ctx.fillStyle = '#fff'; ctx.fillText(txt, tx + 2, yc);
     }
     // 显示区域内最高/最低价：用斜引线引出价格标签
     let iMax = 0, iMin = 0;
@@ -16951,6 +17045,36 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       ctx.fillStyle = '#9aa0a6';
       ctx.fillText(txt, cx, H - 12);
     }
+    // 十字线：鼠标/手指所在处 → 竖线吸附到该根 K 中心，横线跟随指针 Y，并带价格/时间标签
+    if(hoverIdx != null && hoverIdx >= 0 && hoverIdx < n){
+      const hx = padL + cw * (hoverIdx + 0.5);
+      const hy = (hoverY == null) ? padT + plotH / 2 : Math.min(padT + plotH, Math.max(padT, hoverY));
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,128,140,.85)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(hx, padT); ctx.lineTo(hx, padT + plotH);            // 竖线
+      ctx.moveTo(padL, hy); ctx.lineTo(padL + plotW, hy);            // 横线
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
+      // 右侧价格标签（由 Y 反推价格）
+      const hp = maxH - (hy - padT) / plotH * span;
+      const ptxt = hp.toFixed(2), ptw = ctx.measureText(ptxt).width;
+      ctx.fillStyle = '#3b4048';
+      ctx.fillRect(padL + plotW + 2, hy - 8, ptw + 8, 16);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(ptxt, padL + plotW + 6, hy);
+      // 底部时间标签（取该根 K 的完整时间）
+      const b = disp[hoverIdx], ttxt = fmtFull(b.t).slice(5, 16);   // MM-DD HH:mm
+      const ttw = ctx.measureText(ttxt).width;
+      let ttx = hx - (ttw + 12) / 2;
+      ttx = Math.max(padL, Math.min(ttx, padL + plotW - (ttw + 12)));
+      ctx.fillStyle = '#3b4048';
+      ctx.fillRect(ttx, H - 24, ttw + 12, 18);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(ttxt, ttx + 6, H - 15);
+      ctx.restore();
+    }
   }
 
   // ===== 交互：悬停信息 + 拖拽平移 + 滚轮/双指缩放 =====
@@ -16979,10 +17103,19 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     }
     const rect = canvas.getBoundingClientRect();
     const i = Math.floor((e.clientX - rect.left - padL) / Math.max(1, cw));
-    if(i < 0 || i >= disp.length){ tip.style.display = 'none'; return; }
+    if(i < 0 || i >= disp.length){
+      tip.style.display = 'none';
+      if(hoverIdx != null){ hoverIdx = null; hoverY = null; requestDraw(); }
+      return;
+    }
+    hoverIdx = i; hoverY = e.clientY - rect.top;   // 十字线（画在 canvas 上）
+    requestDraw();
     showTip(i, e.clientX, e.clientY, rect);
   });
-  canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  canvas.addEventListener('mouseleave', () => {
+    tip.style.display = 'none';
+    if(hoverIdx != null){ hoverIdx = null; hoverY = null; requestDraw(); }
+  });
   // 双击/双指轻点检测（桌面 mousedown 与触摸 touchstart 共用）：300ms 内、位移 <30px 视为一次重置
   let lastTapX = 0, lastTapY = 0, lastTapT = 0;
   function onTap(x, y){
@@ -16997,6 +17130,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     if(onTap(e.clientX, e.clientY)){ e.preventDefault(); dragging = false; canvas.style.cursor = ''; tip.style.display = 'none'; return; }
     dragging = true; dragX = e.clientX; dragEnd0 = (viewEndIdx == null) ? bars.length : viewEndIdx;
     canvas.style.cursor = 'grabbing'; tip.style.display = 'none';
+    hoverIdx = null; hoverY = null; requestDraw();
   });
   window.addEventListener('mouseup', () => { dragging = false; canvas.style.cursor = ''; });
   canvas.addEventListener('wheel', e => {
@@ -17022,8 +17156,12 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
       if(onTap(tx, ty)){ e.preventDefault(); touchMode = null; return; }
       touchMode = 'pan'; lastTouchX = tx; dragEnd0 = (viewEndIdx == null) ? bars.length : viewEndIdx;
+      // 单指按下即显示十字线（吸附到该根 K），拖动时随之平移
+      const rect = canvas.getBoundingClientRect();
+      const i = Math.floor((tx - rect.left - padL) / Math.max(1, cw));
+      if(i >= 0 && i < disp.length){ hoverIdx = i; hoverY = ty - rect.top; requestDraw(); }
     }
-    else if(e.touches.length === 2){ touchMode = 'pinch'; lastDist = touchDist(e.touches); }
+    else if(e.touches.length === 2){ touchMode = 'pinch'; lastDist = touchDist(e.touches); hoverIdx = null; hoverY = null; }
   }, {passive:true});
   canvas.addEventListener('touchmove', e => {
     if(!bars.length) return; e.preventDefault();
@@ -17032,7 +17170,12 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       const dx = e.touches[0].clientX - lastTouchX; lastTouchX = e.touches[0].clientX;
       const shift = Math.round(-dx / Math.max(1, cw));
       let ne = dragEnd0 + shift; ne = Math.max(Math.min(viewCount, bars.length), Math.min(ne, bars.length));
-      viewEndIdx = (ne >= bars.length) ? null : ne; requestDraw();
+      viewEndIdx = (ne >= bars.length) ? null : ne;
+      // 十字线跟随手指：吸附到所指的 K
+      const i = Math.floor((e.touches[0].clientX - rect.left - padL) / Math.max(1, cw));
+      if(i >= 0 && i < disp.length){ hoverIdx = i; hoverY = e.touches[0].clientY - rect.top; }
+      else { hoverIdx = null; hoverY = null; }
+      requestDraw();
     } else if(touchMode === 'pinch' && e.touches.length === 2){
       const d = touchDist(e.touches); const f = lastDist / Math.max(1, d); lastDist = d;
       const [vs, ve] = visibleRange(); const cur = ve - vs;
@@ -17046,7 +17189,10 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     }
   }, {passive:false});
   canvas.addEventListener('touchend', e => {
-    if(e.touches.length === 0) touchMode = null;
+    if(e.touches.length === 0){
+      touchMode = null;
+      if(hoverIdx != null){ hoverIdx = null; hoverY = null; requestDraw(); }
+    }
   });
 
   function resetView(){
@@ -17059,8 +17205,10 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     page.classList.add('open');
     viewEndIdx = null; viewCount = Math.min(DISPLAY, bars.length) || DISPLAY;
     tfSel.value = String(curInterval);
+    emaPeriods = [50, 100, 200, 365]; syncEmaPills();
     loadTicker();
     fetchKline(curInterval);
+    loadCost();
   }
   function closePage(){ page.classList.remove('open'); tip.style.display = 'none'; }
 
@@ -17077,6 +17225,18 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     fetchKline(curInterval).finally(() => setTimeout(() => refreshBtn.classList.remove('spin'), 600));
   });
   tfSel.addEventListener('change', () => { curInterval = tfSel.value; fetchKline(curInterval); });
+  // EMA 多选开关：点击切换该周期显隐，再点已激活的即取消
+  const emaPills = Array.prototype.slice.call(document.querySelectorAll('#tqqqEma .tqp-ema-pill'));
+  emaPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      const num = parseInt(pill.getAttribute('data-ema'), 10);
+      const idx = emaPeriods.indexOf(num);
+      if(idx >= 0) emaPeriods.splice(idx, 1); else emaPeriods.push(num);   // 再点已激活的即取消
+      emaPeriods.sort((a, b) => a - b);
+      syncEmaPills();
+      draw();
+    });
+  });
   window.addEventListener('resize', () => { if(page.classList.contains('open')) draw(); });
 
   // 定时刷新：ticker 常驻（刷新 K线页现价），K线仅在页面打开时拉取
