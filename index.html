@@ -2798,7 +2798,7 @@ tbody tr:hover {
 
 /* ===== 7×24 快讯页（华尔街见闻，底部悬浮栏第 4 个页签） ===== */
 #pageNews { background: #f1f3f5; padding-bottom: 96px; }
-.news-page { max-width: 680px; margin: 0 auto; }
+.news-page { margin: 0 auto; }
 .news-head {
     position: sticky;
     top: 0;
@@ -4126,6 +4126,35 @@ background: #ffffff;
     font-size: 11px;
     font-weight: 700;
 }
+/* ===== TQQQ 富途风格 K线页（覆盖层，入口为市场行情列表 TQQQ 行箭头） ===== */
+/* TQQQ 行内打开箭头（复用基金展开箭头 .u-caret 视觉） */
+.market-item.tqqq-row{grid-template-columns:minmax(150px,1fr) 92px 100px}
+.tqqq-caret{display:inline-flex;align-items:center;cursor:pointer}
+.tqqq-caret .u-caret{color:#bbb;transition:color .15s}
+.tqqq-caret:hover .u-caret{color:#1a73e8}
+/* 富途风格 K线页（覆盖层） */
+.tqqq-page{position:fixed;top:0;left:0;right:0;bottom:80px;z-index:10001;background:#fff;display:none;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.tqqq-page.open{display:flex}
+.tqp-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #f0f0f0}
+.tqp-back{border:none;background:transparent;font-size:26px;line-height:1;color:#333;cursor:pointer;padding:0 4px}
+.tqp-title{flex:1 1 auto;min-width:0}
+.tqp-name{font-size:18px;font-weight:700;color:#1a1a1a;display:flex;align-items:baseline;gap:8px}
+.tqp-name span{font-size:12px;font-weight:400;color:#999}
+.tqp-refresh{border:none;background:transparent;font-size:20px;color:#666;cursor:pointer;padding:2px 6px}
+.tqp-refresh.spin{animation:spin1 .9s linear infinite}
+@keyframes spin1{to{transform:rotate(360deg)}}
+.tqp-price{display:flex;align-items:baseline;gap:12px;padding:14px 16px 4px}
+.tqp-px{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.tqp-chg{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+/* K 线图表区 */
+.tqp-chart{flex:1 1 auto;position:relative;min-height:0;padding:4px 0}
+.tqp-chart canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;-webkit-user-select:none;user-select:none}
+.tqp-tip{position:absolute;display:none;pointer-events:none;background:rgba(30,30,30,.92);color:#fff;font-size:12px;line-height:1.55;padding:8px 10px;border-radius:8px;white-space:nowrap;z-index:5;font-variant-numeric:tabular-nums}
+.tqp-tip b{color:#ffd24a;font-weight:600}
+.tqp-tip .row{display:flex;justify-content:space-between;gap:14px}
+.tqp-tf{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid #f0f0f0}
+.tqp-tf select{appearance:none;-webkit-appearance:none;border:1px solid #e2e6ea;background:#f7f9fb;border-radius:10px;padding:8px 30px 8px 12px;font-size:14px;font-weight:600;color:#222;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
+.tqp-tf select:focus{outline:none;border-color:#1a73e8}
     </style>
     <link data-page-node-id="o9NWRN16E8VRjHyaJ80KK9" href="manifest.webmanifest" rel="manifest">
 </head>
@@ -4149,7 +4178,7 @@ background: #ffffff;
         </div>
     </div>
     <section data-page-node-id="2ZOMEmhn2GRimjFXSJgOF1" class="page-section page-market" id="pageMarket">
-        <section data-page-node-id="ToWo3yRdSrs0NsAnmnn97h" class="panel" style="max-width:680px; margin:0 auto">
+        <section data-page-node-id="ToWo3yRdSrs0NsAnmnn97h" class="panel">
             <h2 data-page-node-id="GYuu3maNf5A8pHoNTP7U9t" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px">
                 <div data-page-node-id="j3hpIkYrLv2sw8RhPK2VEs" class="market-toolbar" style="display:flex; gap:8px; align-items:center; font-size:13px; font-weight:400; color:#888">
                     <input data-page-node-id="gAQdZ2F0EBK3RWleAXCqqJ" id="marketAddInput" placeholder="如 NVDA" style="width:96px; padding:6px 10px; border:1px solid #ddd; border-radius:8px; font-size:16px; outline:none">
@@ -5601,6 +5630,37 @@ background: #ffffff;
                                                         <button data-page-node-id="Xb5EsQ0lWhyv9m3U4jx6nP" class="qm-close" id="quoteClose"><!--pnid:X0T5BHPeH5FIhke5mUDLfJ-->✕</button>
                                                     </div>
                                                     <div data-page-node-id="HrwruiTN7K08inEAv6mUZF" class="qm-body"><iframe data-page-node-id="y3rrHDMyNFxnQpO2a1MoTL" id="quoteFrame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" src></iframe></div>
+                                                </div>
+                                            </div>
+
+                                            <!-- TQQQ 富途风格 K线页（覆盖层）：仅 TQQQ，Bybit 永续数据源，多周期可下拉切换 -->
+                                            <div data-page-node-id="tqqqQuotePage" class="tqqq-page" id="tqqqQuotePage">
+                                                <div class="tqp-head">
+                                                    <button class="tqp-back" id="tqqqBack" type="button" title="返回">‹</button>
+                                                    <div class="tqp-title"><div class="tqp-name">TQQQ <span>ProShares UltraPro QQQ</span></div></div>
+                                                    <button class="tqp-refresh" id="tqqqRefresh" type="button" title="刷新">⟳</button>
+                                                </div>
+                                                <div class="tqp-price">
+                                                    <div class="tqp-px" id="tqqqPx">--</div>
+                                                    <div class="tqp-chg" id="tqqqChg2">--</div>
+                                                </div>
+                                                <div class="tqp-chart">
+                                                    <canvas id="tqqqCanvas"></canvas>
+                                                    <div class="tqp-tip" id="tqqqTip"></div>
+                                                </div>
+                                                <div class="tqp-tf">
+                                                    <select id="tqqqTf">
+                                                        <option value="1">1分钟</option>
+                                                        <option value="5">5分钟</option>
+                                                        <option value="15">15分钟</option>
+                                                        <option value="30">30分钟</option>
+                                                        <option value="60">1小时</option>
+                                                        <option value="120">2小时</option>
+                                                        <option value="240" selected>4小时</option>
+                                                        <option value="D">日</option>
+                                                        <option value="W">周</option>
+                                                        <option value="M">月</option>
+                                                    </select>
                                                 </div>
                                             </div>
 
@@ -10839,7 +10899,11 @@ function applyColorScheme(name, save) {
     });
     if (save) { try { localStorage.setItem("assetColorScheme", _schemeName) } catch (e) {} }
 }
-try { const _s = localStorage.getItem("assetColorScheme"); applyColorScheme(_s && _s in COLOR_SCHEMES ? _s : _schemeName, false) } catch (e) {}
+try {
+  const _s = localStorage.getItem("assetColorScheme");
+  // 默认绿涨红跌；若此前误存为红涨(redGreen)，统一纠正回绿涨(greenRed)
+  applyColorScheme(_s === "redGreen" ? "greenRed" : (_s && _s in COLOR_SCHEMES ? _s : "greenRed"), true);
+} catch (e) {}
 
 function cellColor(val, maxAbs) {
     if (val == null) return {
@@ -13801,6 +13865,15 @@ nodes.forEach(function(n) {
 });
 bar.parentNode.insertBefore(assetsPage, bar.nextSibling);
 
+/* [修复] K线页与各类弹窗是 fixed 全屏覆盖层，必须常驻 body，不能被 #pageAssets 的
+   display:none（非资产视图下）隐藏。上面把所有 body 子节点塞进 #pageAssets 时，这些
+   覆盖层也被一并塞入，导致在「市场行情」等视图里点击 TQQQ / 打开弹窗时页面不弹出。
+   这里把它们移回 body。 */
+["allocOverlay", "predictOverlay", "modalBg", "tradeModalBg", "tradeEditModalBg", "dividendModalBg", "dividendEditModalBg", "cashTradeModalBg", "cashTradeEditModalBg", "fundTradeModalBg", "fundTradeEditModalBg", "quoteModalBg", "tqqqQuotePage"].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && el.parentNode !== document.body) document.body.appendChild(el);
+});
+
 function showPage(name) {
     document.querySelectorAll(".page-section").forEach(function(p) {
         p.classList.toggle("active", p.id === "page" + name.charAt(0).toUpperCase() + name.slice(1))
@@ -14765,13 +14838,15 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
             _ic = symToIcon[_icKey] || null;
         }
         var _icHtml = _ic ? window.itemIconHtml(_ic) : "";
-        html += '<div class="u-row u-grid market-item' + (_hs ? " market-item-us" : "") + (_isMultiOpt ? " u-row-multi" : "") + '" data-symbol="' + key + '"' + dataAttr + chgAttr + '>'
+        var _isTqqq = (!g.isOption && sym === "TQQQ");
+        html += '<div class="u-row u-grid market-item' + (_hs ? " market-item-us" : "") + (_isMultiOpt ? " u-row-multi" : "") + (_isTqqq ? " tqqq-row" : "") + '" data-symbol="' + key + '"' + dataAttr + chgAttr + '>'
             + '<div class="u-name">'
                 + _icHtml
                 + '<div class="un-text">'
                     + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _nfs + 'px">' + name + '</span></div>'
                     + '<div class="un-sym' + (_isMultiOpt ? " un-sym-multi" : "") + '">' + _symHtml
                         + ' <span class="market-src ' + srcCls + '">' + srcLabel + '</span>'
+                        + (_isTqqq ? '<span class="tqqq-caret" title="查看 TQQQ K 线"><span class="u-caret">▶</span></span>' : "")
                     + '</div>'
                 + '</div>'
             + '</div>'
@@ -16664,6 +16739,352 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
+})();
+    </script>
+
+    <!-- TQQQ 富途风格 K线页逻辑：Bybit 永续数据源，原生多周期，自动翻页，红涨绿跌，无成交量 -->
+    <script data-page-node-id="tqqqKScript">
+"use strict";
+(function(){
+  const TQQQ = 'TQQQUSDT';
+  const HOST = 'https://api.bybitgeorgia.ge';
+  const TZ = 'America/New_York';
+  // 涨跌配色跟随设置页（默认绿涨红跌，可在设置里切红涨绿跌）
+  function UP_C(){ return (window.COLOR_SCHEMES[window._schemeName] || window.COLOR_SCHEMES.greenRed).up; }
+  function DOWN_C(){ return (window.COLOR_SCHEMES[window._schemeName] || window.COLOR_SCHEMES.greenRed).down; }
+  const isPhone = (window.innerWidth || 0) <= 480;
+  const MAX_PAGES = 12, DISPLAY = isPhone ? 20 : 60;
+
+  const el = id => document.getElementById(id);
+  const page = el('tqqqQuotePage'),
+        back = el('tqqqBack'), refreshBtn = el('tqqqRefresh'),
+        pxEl = el('tqqqPx'), chgEl = el('tqqqChg2'),
+        canvas = el('tqqqCanvas'), tip = el('tqqqTip'), tfSel = el('tqqqTf'),
+        listEl = el('unifiedList');
+
+  let curInterval = 240;
+  let bars = [];
+  let loading = false;
+  // 视图窗口（缩放/平移）：viewEndIdx 显示区间末端索引（含），null=最新
+  let viewCount = DISPLAY, viewEndIdx = null;
+  function visibleRange(){
+    const n = bars.length;
+    const cnt = Math.max(8, Math.min(viewCount, n));
+    let end = (viewEndIdx == null) ? n : Math.min(Math.max(viewEndIdx, cnt), n);
+    let start = end - cnt;
+    if(start < 0){ start = 0; end = Math.min(cnt, n); }
+    return [start, end];
+  }
+  // 绘图几何缓存（供 hover 使用）
+  let dpr = 1, cw = 0, padL = 52, padR = 60, padT = 22, padB = 30, plotW = 0, plotH = 0, yOf = null, disp = [], curPrice = null, curPct = 0;
+  // 拖拽/缩放时高频触发，用 rAF 合并成每帧最多一次 draw，避免卡顿
+  let drawRaf = 0;
+  function requestDraw(){
+    if(drawRaf) return;
+    drawRaf = requestAnimationFrame(() => { drawRaf = 0; draw(); });
+  }
+
+  function fmtAxis(ts){
+    const d = new Date(ts);
+    const mo = String(d.getMonth() + 1).padStart(2,'0');
+    const da = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return { date: mo+'/'+da, time: hh+':'+mm };
+  }
+  function fmtFull(ts){ return new Date(ts).toLocaleString('sv-SE',{timeZone:TZ}).replace('T',' '); } // 2026-09-13 11:30:00
+  function col(up){ return up ? UP_C() : DOWN_C(); }
+  function setPrice(p, pct){
+    const up = pct >= 0, c = col(up);
+    curPrice = p; curPct = pct;
+    pxEl.textContent = p.toFixed(2); pxEl.style.color = c;
+    chgEl.textContent = (up ? '+' : '') + pct.toFixed(2) + '%'; chgEl.style.color = c;
+  }
+
+  async function loadTicker(){
+    try{
+      const r = await fetch(`${HOST}/v5/market/tickers?category=linear&symbol=${TQQQ}`);
+      const j = await r.json();
+      const t = j.result && j.result.list && j.result.list[0];
+      if(!t) return;
+      const last = +t.lastPrice;
+      // 涨跌幅与市场行情 TQQQ 行保持一致：优先取已渲染行的 data-chg
+      const row = document.querySelector('.tqqq-row');
+      const chgAttr = row && row.getAttribute('data-chg');
+      const pct = (chgAttr != null && !isNaN(parseFloat(chgAttr))) ? parseFloat(chgAttr) : (+t.price24hPcnt * 100);
+      setPrice(last, pct);
+      draw();   // 现价更新后立即重绘指引线（与 fetchKline 并发时确保首帧显示）
+    }catch(e){}
+  }
+
+  // Bybit kline，按 1000 根/页自动滑窗翻页（原生周期，不聚合）
+  async function fetchKline(interval){
+    if(loading) return;
+    loading = true;
+    try{
+      let end = Date.now();
+      const earliest = end - 400 * 864e5;   // 最多回看 ~13 个月
+      const seen = new Set(), collected = [];
+      let pages = 0;
+      while(pages < MAX_PAGES){
+        const start = Math.max(earliest, end - 365 * 864e5);
+        const url = `${HOST}/v5/market/kline?category=linear&symbol=${TQQQ}&interval=${interval}&start=${start}&end=${end}&limit=1000`;
+        const r = await fetch(url);
+        const j = await r.json();
+        const list = (j.result && j.result.list) || [];
+        if(!list.length) break;
+        for(const b of list){
+          const t = +b[0];
+          if(seen.has(t)) continue;
+          seen.add(t);
+          collected.push({ t, o:+b[1], h:+b[2], l:+b[3], c:+b[4] });
+        }
+        const oldest = +list[list.length - 1][0];
+        pages++;
+        if(list.length < 1000 || oldest <= earliest) break;
+        end = oldest - 1;   // 窗口前移继续翻页
+      }
+      collected.sort((a,b) => a.t - b.t);
+      bars = collected;
+      draw();
+    }catch(e){}
+    finally{ loading = false; }
+  }
+
+  function draw(){
+    const rect = canvas.getBoundingClientRect();
+    if(!rect.width) return;   // 页面未打开时跳过
+    dpr = window.devicePixelRatio || 1;
+    const cw2 = Math.max(1, Math.round(rect.width * dpr)), ch2 = Math.max(1, Math.round(rect.height * dpr));
+    if(canvas.width !== cw2) canvas.width = cw2;   // 仅在尺寸变化时才重建缓冲区（避免拖拽时反复重建导致卡顿）
+    if(canvas.height !== ch2) canvas.height = ch2;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = rect.width, H = rect.height;
+    ctx.clearRect(0, 0, W, H);
+    if(!bars.length){
+      ctx.fillStyle = '#aaa'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('加载中…', W/2, H/2); return;
+    }
+    const [vs, ve] = visibleRange(); disp = bars.slice(vs, ve);
+    let minL = Infinity, maxH = -Infinity;
+    for(const b of disp){ if(b.l < minL) minL = b.l; if(b.h > maxH) maxH = b.h; }
+    const span = (maxH - minL) || 1;
+    // 桌面端左右都留刻度边距；手机端仅右侧刻度（保持原样，padL 不放大）
+    padL = (window.innerWidth <= 480) ? 6 : 52; padR = 60; padT = 22; padB = 30;
+    plotW = W - padL - padR; plotH = H - padT - padB;
+    yOf = p => padT + (maxH - p) / span * plotH;
+    // 价格刻度（仅数字，无横向虚线网格；现价指引线单独绘制）——左右两侧对称显示
+    ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
+    ctx.textBaseline = 'middle';
+    const ticks = 5;
+    ctx.fillStyle = '#9aa0a6';
+    ctx.textAlign = 'left';
+    for(let i = 0; i <= ticks; i++){
+      const p = maxH - span * i / ticks, y = yOf(p);
+      ctx.fillText(p.toFixed(2), padL + plotW + 6, y);   // 右侧
+    }
+    ctx.textAlign = 'right';
+    if(window.innerWidth > 480){   // 仅桌面端显示左侧刻度，手机端不改
+      for(let i = 0; i <= ticks; i++){
+        const p = maxH - span * i / ticks, y = yOf(p);
+        ctx.fillText(p.toFixed(2), padL - 6, y);            // 左侧
+      }
+    }
+    // 蜡烛（无成交量）——更宽更密
+    const n = disp.length;
+    cw = plotW / n;
+    const bodyW = Math.max(1.4, Math.min(cw * 0.72, 18));
+    for(let i = 0; i < n; i++){
+      const b = disp[i], cx = padL + cw * (i + 0.5), up = b.c >= b.o, c = col(up);
+      ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx, yOf(b.h)); ctx.lineTo(cx, yOf(b.l)); ctx.stroke();
+      const yO = yOf(b.o), yC = yOf(b.c), top = Math.min(yO, yC), hgt = Math.max(1, Math.abs(yC - yO));
+      ctx.fillRect(cx - bodyW / 2, top, bodyW, hgt);
+    }
+    // 现价水平指引线（跟随涨跌色：涨绿跌红）
+    // 区间内有则正常画；实时价突破显示窗口时贴边绘制（不再整条隐藏），保证手机端窄窗口也能看到
+    if(curPrice != null){
+      const rawY = yOf(curPrice);
+      const y = Math.min(padT + plotH - 1, Math.max(padT + 1, rawY));
+      const c = col(curPct >= 0);
+      ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+      ctx.setLineDash([]);
+      // 右侧现价标签
+      ctx.fillStyle = c; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
+      const txt = curPrice.toFixed(2);
+      const tw = ctx.measureText(txt).width, tx = padL + plotW + 4;
+      ctx.fillRect(tx - 2, y - 8, tw + 8, 16);
+      ctx.fillStyle = '#fff'; ctx.fillText(txt, tx + 2, y);
+    }
+    // 显示区域内最高/最低价：用斜引线引出价格标签
+    let iMax = 0, iMin = 0;
+    for(let i = 1; i < n; i++){
+      if(disp[i].h > disp[iMax].h) iMax = i;
+      if(disp[i].l < disp[iMin].l) iMin = i;
+    }
+    const markExtreme = (price, cx, y, upward) => {
+      ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
+      const txt = price.toFixed(2), tw = ctx.measureText(txt).width, gap = 6;
+      const ty = y + (upward ? -11 : 11);
+      let align = 'left', tx = cx + gap;
+      if(tx + tw > padL + plotW - 4){ align = 'right'; tx = cx - gap; }  // 靠右时翻到左侧避让边界
+      ctx.strokeStyle = '#9aa0a6'; ctx.lineWidth = 1; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(align === 'left' ? tx - 1 : tx + 1, ty); ctx.stroke();
+      ctx.fillStyle = '#454b54'; ctx.textAlign = align; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, tx, ty);
+    };
+    markExtreme(maxH, padL + cw * (iMax + 0.5), yOf(maxH), true);
+    markExtreme(minL, padL + cw * (iMin + 0.5), yOf(minL), false);
+    // 底部时间刻度（每隔 4 根一个；首标签日期，跨日重显日期）
+    ctx.fillStyle = '#9aa0a6'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
+    const step = 4;
+    let lastDate = '';
+    for(let i = 0; i < n; i += step){
+      const b = disp[i], cx = padL + cw * (i + 0.5), f = fmtAxis(b.t);
+      let txt;
+      if(i === 0 || f.date !== lastDate){ txt = f.date; lastDate = f.date; }
+      else{ txt = f.time; }
+      ctx.fillStyle = '#9aa0a6';
+      ctx.fillText(txt, cx, H - 12);
+    }
+  }
+
+  // ===== 交互：悬停信息 + 拖拽平移 + 滚轮/双指缩放 =====
+  let dragging = false, dragX = 0, dragEnd0 = 0;
+  function showTip(i, clientX, clientY, rect){
+    const b = disp[i], c = col(b.c >= b.o);
+    tip.innerHTML =
+      `<div style="margin-bottom:3px;color:${c}">${fmtFull(b.t)}</div>` +
+      `<div class="row"><span>开</span><b>${b.o.toFixed(2)}</b></div>` +
+      `<div class="row"><span>高</span><b>${b.h.toFixed(2)}</b></div>` +
+      `<div class="row"><span>低</span><b>${b.l.toFixed(2)}</b></div>` +
+      `<div class="row"><span>收</span><b>${b.c.toFixed(2)}</b></div>`;
+    tip.style.display = 'block';
+    let tx = clientX - rect.left + 14;
+    if(tx + 180 > rect.width) tx = clientX - rect.left - 180;
+    tip.style.left = tx + 'px';
+    tip.style.top = Math.max(8, clientY - rect.top - 10) + 'px';
+  }
+  canvas.addEventListener('mousemove', e => {
+    if(!disp.length){ tip.style.display = 'none'; return; }
+    if(dragging){
+      const dx = e.clientX - dragX; dragX = e.clientX;
+      const shift = Math.round(-dx / Math.max(1, cw));
+      let ne = dragEnd0 + shift; ne = Math.max(Math.min(viewCount, bars.length), Math.min(ne, bars.length));
+      viewEndIdx = (ne >= bars.length) ? null : ne; requestDraw(); return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const i = Math.floor((e.clientX - rect.left - padL) / Math.max(1, cw));
+    if(i < 0 || i >= disp.length){ tip.style.display = 'none'; return; }
+    showTip(i, e.clientX, e.clientY, rect);
+  });
+  canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  // 双击/双指轻点检测（桌面 mousedown 与触摸 touchstart 共用）：300ms 内、位移 <30px 视为一次重置
+  let lastTapX = 0, lastTapY = 0, lastTapT = 0;
+  function onTap(x, y){
+    const now = Date.now();
+    if(now - lastTapT < 300 && Math.hypot(x - lastTapX, y - lastTapY) < 30){
+      lastTapT = 0; resetView(); return true;
+    }
+    lastTapX = x; lastTapY = y; lastTapT = now; return false;
+  }
+  canvas.addEventListener('mousedown', e => {
+    if(!bars.length) return;
+    if(onTap(e.clientX, e.clientY)){ e.preventDefault(); dragging = false; canvas.style.cursor = ''; tip.style.display = 'none'; return; }
+    dragging = true; dragX = e.clientX; dragEnd0 = (viewEndIdx == null) ? bars.length : viewEndIdx;
+    canvas.style.cursor = 'grabbing'; tip.style.display = 'none';
+  });
+  window.addEventListener('mouseup', () => { dragging = false; canvas.style.cursor = ''; });
+  canvas.addEventListener('wheel', e => {
+    if(!bars.length) return;
+    e.preventDefault();
+    const [vs, ve] = visibleRange(); const cur = ve - vs;
+    const factor = e.deltaY < 0 ? 0.8 : 1.25;
+    let newCnt = Math.round(cur * factor); newCnt = Math.max(8, Math.min(newCnt, bars.length));
+    const rect = canvas.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left - padL) / Math.max(1, plotW)));
+    const cursorIdx = vs + frac * cur; viewCount = newCnt;
+    let ne = Math.round(cursorIdx + newCnt * (1 - frac));
+    ne = Math.max(Math.min(viewCount, bars.length), Math.min(ne, bars.length));
+    viewEndIdx = (ne >= bars.length) ? null : ne;
+    requestDraw();
+  }, {passive:false});
+  // 触摸：单指轻点=重置(经 onTap)，单指拖动=平移，双指捏合=缩放
+  let touchMode = null, lastDist = 0, lastTouchX = 0;
+  function touchDist(t){ return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+  canvas.addEventListener('touchstart', e => {
+    if(!bars.length) return;
+    if(e.touches.length === 1){
+      const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+      if(onTap(tx, ty)){ e.preventDefault(); touchMode = null; return; }
+      touchMode = 'pan'; lastTouchX = tx; dragEnd0 = (viewEndIdx == null) ? bars.length : viewEndIdx;
+    }
+    else if(e.touches.length === 2){ touchMode = 'pinch'; lastDist = touchDist(e.touches); }
+  }, {passive:true});
+  canvas.addEventListener('touchmove', e => {
+    if(!bars.length) return; e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    if(touchMode === 'pan' && e.touches.length === 1){
+      const dx = e.touches[0].clientX - lastTouchX; lastTouchX = e.touches[0].clientX;
+      const shift = Math.round(-dx / Math.max(1, cw));
+      let ne = dragEnd0 + shift; ne = Math.max(Math.min(viewCount, bars.length), Math.min(ne, bars.length));
+      viewEndIdx = (ne >= bars.length) ? null : ne; requestDraw();
+    } else if(touchMode === 'pinch' && e.touches.length === 2){
+      const d = touchDist(e.touches); const f = lastDist / Math.max(1, d); lastDist = d;
+      const [vs, ve] = visibleRange(); const cur = ve - vs;
+      let newCnt = Math.round(cur * f); newCnt = Math.max(8, Math.min(newCnt, bars.length));
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const frac = Math.min(1, Math.max(0, (midX - rect.left - padL) / Math.max(1, plotW)));
+      const cursorIdx = vs + frac * cur; viewCount = newCnt;
+      let ne = Math.round(cursorIdx + newCnt * (1 - frac));
+      ne = Math.max(Math.min(viewCount, bars.length), Math.min(ne, bars.length));
+      viewEndIdx = (ne >= bars.length) ? null : ne; requestDraw();
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', e => {
+    if(e.touches.length === 0) touchMode = null;
+  });
+
+  function resetView(){
+    viewEndIdx = null;
+    viewCount = Math.min(DISPLAY, bars.length) || DISPLAY;
+    draw();
+  }
+
+  function openPage(){
+    page.classList.add('open');
+    viewEndIdx = null; viewCount = Math.min(DISPLAY, bars.length) || DISPLAY;
+    tfSel.value = String(curInterval);
+    loadTicker();
+    fetchKline(curInterval);
+  }
+  function closePage(){ page.classList.remove('open'); tip.style.display = 'none'; }
+
+  // 入口：任一页面（市场行情/资产）TQQQ 行任意位置点击 → 打开 K线页（与基金行「整行可点」一致）
+  // document 捕获阶段委托，在行自身点击前拦截并阻止冒泡，避免同时触发行情弹窗(openQuote)
+  document.addEventListener('click', e => {
+    const c = e.target.closest('.tqqq-row');
+    if (c) { e.stopPropagation(); e.preventDefault(); openPage(); }
+  }, true);
+  back.addEventListener('click', closePage);
+  refreshBtn.addEventListener('click', () => {
+    refreshBtn.classList.add('spin');
+    loadTicker();
+    fetchKline(curInterval).finally(() => setTimeout(() => refreshBtn.classList.remove('spin'), 600));
+  });
+  tfSel.addEventListener('change', () => { curInterval = tfSel.value; fetchKline(curInterval); });
+  window.addEventListener('resize', () => { if(page.classList.contains('open')) draw(); });
+
+  // 定时刷新：ticker 常驻（刷新 K线页现价），K线仅在页面打开时拉取
+  loadTicker();
+  setInterval(() => {
+    loadTicker();
+    if(page.classList.contains('open')) fetchKline(curInterval);
+  }, 15000);
 })();
     </script>
 </body>
