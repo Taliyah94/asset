@@ -2835,7 +2835,7 @@ tbody tr:hover {
 .news-empty, .news-err { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
 .news-err { color: var(--down); }
 .news-foot { text-align: center; color: var(--muted); font-size: 11px; padding: 14px 0 4px; }
-/* 数据源切换：众安实时(iframe) / 华尔街见闻(卡片) */
+/* 数据源切换：ELE 实时(iframe) / 华尔街见闻(卡片) */
 .news-src-switch { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: flex; gap: 3px; background: #eef1f4; border-radius: 14px; padding: 2px; }
 .news-src-switch button { border: 0; background: transparent; color: var(--muted); padding: 4px 11px; border-radius: 12px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s; }
 .news-src-switch button.on { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(16,24,40,.14); font-weight: 600; }
@@ -4162,6 +4162,13 @@ background: #ffffff;
 .tqp-ema-menu label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;font-weight:600;color:#333;cursor:pointer;white-space:nowrap}
 .tqp-ema-menu label:hover{background:#f2f5f9}
 .tqp-ema-menu input{width:15px;height:15px;accent-color:#1a73e8;cursor:pointer}
+.tqp-tz-wrap{position:relative}
+.tqp-tz-btn{appearance:none;-webkit-appearance:none;border:1px solid #e2e6ea;background:#f7f9fb;border-radius:10px;padding:8px 30px 8px 12px;font-size:14px;font-weight:600;color:#222;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
+.tqp-tz-btn:focus{outline:none;border-color:#1a73e8}
+.tqp-tz-menu{position:absolute;bottom:calc(100% + 6px);left:0;z-index:20;background:#fff;border:1px solid #e2e6ea;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px;min-width:110px}
+.tqp-tz-menu label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;font-weight:600;color:#333;cursor:pointer;white-space:nowrap}
+.tqp-tz-menu label:hover{background:#f2f5f9}
+.tqp-tz-menu label.active{background:#eaf1fb;color:#1a73e8}
     </style>
     <link data-page-node-id="o9NWRN16E8VRjHyaJ80KK9" href="manifest.webmanifest" rel="manifest">
 </head>
@@ -4236,14 +4243,14 @@ background: #ffffff;
         </section>
     </section>
 
-    <!--pnid:CitjUYriZfNSjmlG6MIf7C--><!-- 7×24 快讯：独立页面（底部悬浮栏第 4 个页签）；可在「众安实时(iframe)」与「华尔街见闻卡片」间切换 -->
+    <!--pnid:CitjUYriZfNSjmlG6MIf7C--><!-- 7×24 快讯：独立页面（底部悬浮栏第 4 个页签）；可在「ELE 实时(iframe)」与「华尔街见闻卡片」间切换 -->
     <section data-page-node-id="LMKjyJul667vuzW8WAVdVi" class="page-section page-news" id="pageNews">
         <div data-page-node-id="NFnQI8PcLkjUwqPIPfsJBL" class="news-page">
             <div data-page-node-id="ffm2fga1entYXkwTR63i3j" class="news-head">
                 <div data-page-node-id="t4OtO0GNvkDpRFxCkNPkUX" class="news-head-row">
                     <div data-page-node-id="0yGQfqxykITDH8H1Rmw013" class="news-title"><span data-page-node-id="yQR9hyDk3gjnYSorNH4Sz1" class="news-dot"></span><!--pnid:3qx1neWkGL8dakDX757PFp-->7×24 快讯</div>
                     <div data-page-node-id="wUBo7bcHAfZRb9mz6ZiVJE" class="news-src-switch" id="newsSrcSwitch">
-                        <button data-page-node-id="2mO15OjkWkPivCQRFsLqZw" class="on" data-src="futu" type="button"><!--pnid:rLGxxN39lOL0n2GUGcGqMA-->富途资讯（ZA）</button>
+                        <button data-page-node-id="2mO15OjkWkPivCQRFsLqZw" class="on" data-src="futu" type="button"><!--pnid:rLGxxN39lOL0n2GUGcGqMA-->富途资讯（ELE）</button>
                         <button data-page-node-id="2pK6EwPIXvLycWG2e5EZop" data-src="wj" type="button"><!--pnid:FpPhAhvDCdYLeG5k8VoWLN-->华尔街见闻</button>
                     </div>
                     <a data-page-node-id="NQWsj7HY0gCgdZVhpWttjd" class="news-cal-btn" href="https://news.platform.elebank.com/new-calendar?lang=zh-cn" rel="noopener noreferrer" target="_blank" title="新标签打开富途财经日历"><!--pnid:fMWcOABnXUVvd6OabsxlNZ-->📅 财历</a>
@@ -4255,10 +4262,10 @@ background: #ffffff;
                 </div>
             </div>
             <div data-page-node-id="eMPZfguayWCc2BEuBTCdFP" class="news-body">
-                <!--pnid:Kh4WoWvtI5Xor5y0FTZx0U--><!-- 众安银行 7×24 快讯：iframe 直接嵌入（懒加载，切到该视图才请求） -->
+                <!--pnid:Kh4WoWvtI5Xor5y0FTZx0U--><!-- Ele Bank 7×24 快讯：iframe 直接嵌入（懒加载，切到该视图才请求） -->
                 <div data-page-node-id="sp2NbefJDS1U3y7MVLp0VJ" class="news-futu" id="newsFutu" style="display:none">
-                    <iframe data-page-node-id="syUTecSKw03eepaEjJk32z" id="futuFrame" loading="lazy" referrerpolicy="no-referrer" title="众安银行 7×24 快讯"></iframe>
-                    <div data-page-node-id="o5YYitDzo8Eq7heeYeBYVo" class="news-foot"><!--pnid:qWpz5lvl8oxz79IojE1nQB-->数据源：众安银行 7×24 快讯 · iframe 嵌入 · 仅供个人看板</div>
+                    <iframe data-page-node-id="syUTecSKw03eepaEjJk32z" id="futuFrame" loading="lazy" referrerpolicy="no-referrer" title="Ele Bank 7×24 快讯"></iframe>
+                    <div data-page-node-id="o5YYitDzo8Eq7heeYeBYVo" class="news-foot"><!--pnid:qWpz5lvl8oxz79IojE1nQB-->数据源：Ele Bank 7×24 快讯 · iframe 嵌入 · 仅供个人看板</div>
                 </div>
                 <!--pnid:vwAZi0NozP9YZ7EBgpn0p4--><!-- 华尔街见闻：原卡片视图 -->
                 <div data-page-node-id="LKqjDtkvAG0OlkWmCb9VLC" class="news-wj" id="newsWj">
@@ -5676,6 +5683,13 @@ background: #ffffff;
                                                             <label><input type="checkbox" data-ema="100"><span>EMA100</span></label>
                                                             <label><input type="checkbox" data-ema="200"><span>EMA200</span></label>
                                                             <label><input type="checkbox" data-ema="365"><span>EMA365</span></label>
+                                                        </div>
+                                                    </span>
+                                                    <span class="tqp-tz-wrap">
+                                                        <button type="button" class="tqp-tz-btn" id="tqqqTzBtn">美东</button>
+                                                        <div class="tqp-tz-menu" id="tqqqTzMenu" hidden>
+                                                            <label data-tz="ET"><span>美东</span></label>
+                                                            <label data-tz="BJ"><span>北京时间</span></label>
                                                         </div>
                                                     </span>
                                                 </div>
@@ -16704,7 +16718,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
         if (autoEl) autoEl.addEventListener('change', function () { setAuto(this.checked); });
         setAuto(!autoEl || autoEl.checked);
 
-        /* 「众安实时(iframe) / 华尔街见闻(卡片)」数据源切换 */
+        /* 「ELE 实时(iframe) / 华尔街见闻(卡片)」数据源切换 */
         var sw = document.getElementById('newsSrcSwitch');
         var futuWrap = document.getElementById('newsFutu');
         var wjWrap = document.getElementById('newsWj');
@@ -16721,7 +16735,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
             if (wjWrap) wjWrap.style.display = futu ? 'none' : 'block';
             if (tabsEl) tabsEl.style.display = futu ? 'none' : '';
             if (barEl) barEl.style.display = futu ? 'none' : '';
-            // 懒加载：切到众安视图才首次请求 iframe，避免进新闻页即拉取整页
+            // 懒加载：切到 ELE 视图才首次请求 iframe，避免进新闻页即拉取整页
             if (futu && !futuLoaded && frame) {
                 frame.src = 'https://news.platform.elebank.com/main/live';
                 futuLoaded = true;
@@ -16765,7 +16779,8 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
 (function(){
   const TQQQ = 'TQQQUSDT';
   const HOST = 'https://api.bybitgeorgia.ge';
-  const TZ = 'America/New_York';
+  let TZ = 'America/New_York';                     // 当前显示时区（美东/北京），横轴与十字线统一走这里
+  let tzChoice = 'ET';                             // 'ET'=美东(America/New_York)，'BJ'=北京时间(Asia/Shanghai)
   // 涨跌配色跟随设置页（默认绿涨红跌，可在设置里切红涨绿跌）
   function UP_C(){ return (window.COLOR_SCHEMES[window._schemeName] || window.COLOR_SCHEMES.greenRed).up; }
   function DOWN_C(){ return (window.COLOR_SCHEMES[window._schemeName] || window.COLOR_SCHEMES.greenRed).down; }
@@ -16805,14 +16820,18 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     drawRaf = requestAnimationFrame(() => { drawRaf = 0; draw(); });
   }
 
-  function fmtAxis(ts){
-    const d = new Date(ts);
-    const mo = String(d.getMonth() + 1).padStart(2,'0');
-    const da = String(d.getDate()).padStart(2,'0');
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mm = String(d.getMinutes()).padStart(2,'0');
-    return { date: mo+'/'+da, time: hh+':'+mm };
+  // 按当前时区 TZ 拆解日期/时间：fmtFull、横轴、十字线统一走这里，保证时区一致
+  let _tzKey = '', _tzFmt = null;
+  function tzParts(ts){
+    if(_tzKey !== TZ || !_tzFmt){
+      _tzKey = TZ;
+      _tzFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hourCycle: 'h23',
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+    const m = {}; _tzFmt.formatToParts(new Date(ts)).forEach(p => m[p.type] = p.value);
+    return { date: m.month + '/' + m.day, time: m.hour + ':' + m.minute, minute: parseInt(m.minute, 10) };
   }
+  function fmtAxis(ts){ const f = tzParts(ts); return { date: f.date, time: f.time }; }
   function fmtFull(ts){ return new Date(ts).toLocaleString('sv-SE',{timeZone:TZ}).replace('T',' '); } // 2026-09-13 11:30:00
   function col(up){ return up ? UP_C() : DOWN_C(); }
   // 全量 EMA（基于 bars 收盘价，seed=首根收盘），便于可见窗口左缘连续
@@ -16933,7 +16952,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     cw = (plotW - gap) / n;
     let minL = Infinity, maxH = -Infinity;
     for(const b of disp){ if(b.l < minL) minL = b.l; if(b.h > maxH) maxH = b.h; }
-    if(emaPeriods.length && emaCache.src === bars){ for(const p of emaPeriods){ const a = emaCache.map[p]; if(!a) continue; for(let i = vs; i < ve; i++){ const v = a[i]; if(v != null && !isNaN(v)){ if(v < minL) minL = v; if(v > maxH) maxH = v; } } } }  // 各 EMA 纳入纵轴范围，避免被裁
+    // 纵轴范围仅按蜡烛高低取（不再把 EMA 极值纳入）；EMA 超出绘图框的部分在绘制阶段裁剪
     const span = (maxH - minL) || 1;
     // 桌面端左右都留刻度边距；手机端仅右侧刻度（保持原样，padL 不放大）
     padL = (window.innerWidth <= 480) ? 6 : 52; padT = 22; padB = 30;
@@ -16967,7 +16986,10 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
       ctx.fillRect(cx - bodyW / 2, top, bodyW, hgt);
     }
     // 多 EMA 均线（可多选）：各周期独立配色实线，叠在蜡烛之上
+    // 纵轴以蜡烛高低为准，EMA 超出绘图框的部分裁剪掉（clip 到 K 线区，不溢出到刻度区）
     if(emaPeriods.length && emaCache.src === bars){
+      ctx.save();
+      ctx.beginPath(); ctx.rect(padL, padT, plotW, plotH); ctx.clip();
       emaPeriods.forEach(p => {
         const a = emaCache.map[p]; if(!a) return;
         ctx.strokeStyle = EMA_COLORS[p] || '#888'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
@@ -16982,6 +17004,7 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
         }
         ctx.stroke();
       });
+      ctx.restore();
     }
     // 现价水平指引线（跟随涨跌色：涨绿跌红）
     // 区间内有则正常画；实时价突破显示窗口时贴边绘制（不再整条隐藏），保证手机端窄窗口也能看到
@@ -17037,18 +17060,20 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     // 仅标注蜡烛本身的最高/最低（不含 EMA 极值），引线落在 K 线上而非 EMA 线
     markExtreme(disp[iMax].h, padL + cw * (iMax + 0.5), yOf(disp[iMax].h), true);
     markExtreme(disp[iMin].l, padL + cw * (iMin + 0.5), yOf(disp[iMin].l), false);
-    // 底部时间刻度（每隔 4 根一个；首标签日期，跨日重显日期）
+    // 底部时间刻度：仅在整点/半点（及跨日）打标签，并按像素间距避免过密
     ctx.fillStyle = '#9aa0a6'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.font = '11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif';
-    const step = 4;
-    let lastDate = '';
-    for(let i = 0; i < n; i += step){
-      const b = disp[i], cx = padL + cw * (i + 0.5), f = fmtAxis(b.t);
-      let txt;
-      if(i === 0 || f.date !== lastDate){ txt = f.date; lastDate = f.date; }
-      else{ txt = f.time; }
-      ctx.fillStyle = '#9aa0a6';
-      ctx.fillText(txt, cx, H - 12);
+    const labelMinPx = 64;                              // 相邻标签最小间距，避免过密
+    let lastLabelX = -1e9;
+    for(let i = 0; i < n; i++){
+      const b = disp[i], f = tzParts(b.t);
+      const onMark = (f.minute % 30 === 0);             // 整点(00)或半点(30)，按当前时区判断
+      const dateChanged = (i === 0) || (tzParts(disp[i - 1].t).date !== f.date);
+      if(!(onMark || dateChanged)) continue;            // 只保留整点/半点与跨日
+      const cx = padL + cw * (i + 0.5);
+      if(cx - lastLabelX < labelMinPx) continue;          // 太近则跳过，等下一个整点/半点
+      ctx.fillText(dateChanged ? f.date : f.time, cx, H - 12);
+      lastLabelX = cx;
     }
     // 十字线：鼠标/手指所在处 → 竖线吸附到该根 K 中心，横线跟随指针 Y，并带价格/时间标签
     if(hoverIdx != null && hoverIdx >= 0 && hoverIdx < n){
@@ -17249,6 +17274,27 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     if(emaMenu.hidden) return;
     if(!emaMenu.contains(e.target) && e.target !== emaBtn) emaMenu.hidden = true;
   });
+  // 时区下拉菜单：点按钮展开，菜单内单选「美东 / 北京时间」，默认美东；横轴与十字线同步切换
+  const tzBtn = document.getElementById('tqqqTzBtn');
+  const tzMenu = document.getElementById('tqqqTzMenu');
+  function syncTzMenu(){
+    tzBtn.textContent = (tzChoice === 'ET') ? '美东' : '北京时间';
+    Array.prototype.forEach.call(tzMenu.querySelectorAll('[data-tz]'), function(lb){
+      lb.classList.toggle('active', lb.getAttribute('data-tz') === tzChoice);
+    });
+  }
+  tzBtn.addEventListener('click', e => { e.stopPropagation(); tzMenu.hidden = !tzMenu.hidden; });
+  tzMenu.addEventListener('click', e => {
+    const it = e.target.closest('[data-tz]'); if(!it) return;
+    tzChoice = it.getAttribute('data-tz');
+    TZ = (tzChoice === 'ET') ? 'America/New_York' : 'Asia/Shanghai';
+    tzMenu.hidden = true; syncTzMenu(); requestDraw();
+  });
+  document.addEventListener('click', e => {
+    if(tzMenu.hidden) return;
+    if(!tzMenu.contains(e.target) && e.target !== tzBtn) tzMenu.hidden = true;
+  });
+  syncTzMenu();
   window.addEventListener('resize', () => { if(page.classList.contains('open')) draw(); });
 
   // 定时刷新：ticker 常驻（刷新 K线页现价），K线仅在页面打开时拉取
