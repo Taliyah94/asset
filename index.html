@@ -513,11 +513,11 @@ button.danger:hover {
 }
 
 .chart-stats .cs-val.up {
-    color: #e0533d;
+    color: var(--up);
 }
 
 .chart-stats .cs-val.down {
-    color: #2b9d5e;
+    color: var(--down);
 }
 
 .chart-stats .cs-val.flat {
@@ -10081,7 +10081,14 @@ function renderCashTradeTable(c) {
     var txs = (c.transactions || []).map(function(t, oi) {
         return { t: t, oi: oi }
     }).sort(function(a, b) {
-        return a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0
+        // 主排序：日期降序（新→旧）
+        if (a.t.date !== b.t.date) return a.t.date < b.t.date ? 1 : -1;
+        // 同日期：支出(out)在上、收入(in)在下
+        var wa = a.t.type === "out" ? 0 : 1;
+        var wb = b.t.type === "out" ? 0 : 1;
+        if (wa !== wb) return wa - wb;
+        // 同类型保持原始录入顺序
+        return a.oi - b.oi;
     });
     if (!txs.length) return '<div class="empty">暂无收支记录</div>';
     var html = '<table class="trade-table"><thead><tr><th>日期</th><th>类型</th><th>金额</th><th></th></tr></thead><tbody>';
