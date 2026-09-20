@@ -4916,5 +4916,264 @@
       "d": "2026-09-18",
       "c": 721.45
     }
-  ]
+  ],
+  "_property": {
+    "community": {
+      "name": "瑞源水岸",
+      "district": "黄岛区辛安",
+      "city": "青岛"
+    },
+    "live_fetched": {
+      "soufun": true,
+      "lianjia": false
+    },
+    "stale_sources": [],
+    "deals": [
+      {
+        "date": "2026-08-09",
+        "area_m2": 71.56,
+        "total_wan": 56.0,
+        "unit_price": 7826,
+        "source": "房天下"
+      },
+      {
+        "date": "2026-05-14",
+        "area_m2": 93.19,
+        "total_wan": 60.0,
+        "unit_price": 6439,
+        "source": "房天下/链家"
+      },
+      {
+        "date": "2026-03-08",
+        "area_m2": 74.43,
+        "total_wan": 54.5,
+        "unit_price": 7323,
+        "source": "房天下/链家"
+      },
+      {
+        "date": "2026-03-04",
+        "area_m2": 71.56,
+        "total_wan": 58.9,
+        "unit_price": 8230,
+        "source": "链家(需登录)/房天下"
+      },
+      {
+        "date": "2025-05-26",
+        "area_m2": 92.65,
+        "total_wan": 82.0,
+        "unit_price": 8851,
+        "source": "房天下"
+      },
+      {
+        "date": "2025-03-14",
+        "area_m2": 92.65,
+        "total_wan": 85.0,
+        "unit_price": 9272,
+        "source": "房天下/链家"
+      },
+      {
+        "date": "2025-01-07",
+        "area_m2": 92.65,
+        "total_wan": 75.0,
+        "unit_price": 8095,
+        "source": "房天下"
+      },
+      {
+        "date": "2024-12-11",
+        "area_m2": 93.81,
+        "total_wan": 85.0,
+        "unit_price": 9115,
+        "source": "房天下"
+      },
+      {
+        "date": "2024-06-01",
+        "area_m2": 71.56,
+        "total_wan": 76.0,
+        "unit_price": 10719,
+        "source": "房天下"
+      },
+      {
+        "date": "2024-04-15",
+        "area_m2": 92.65,
+        "total_wan": 116.0,
+        "unit_price": 12521,
+        "source": "房天下"
+      },
+      {
+        "date": "2024-03-18",
+        "area_m2": 92.0,
+        "total_wan": 106.0,
+        "unit_price": 11577,
+        "source": "房天下"
+      },
+      {
+        "date": "2024-03-04",
+        "area_m2": 71.0,
+        "total_wan": 70.0,
+        "unit_price": 9860,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-08-31",
+        "area_m2": 93.81,
+        "total_wan": 111.0,
+        "unit_price": 11833,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-08-06",
+        "area_m2": 71.56,
+        "total_wan": 84.0,
+        "unit_price": 11767,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-06-28",
+        "area_m2": 103.51,
+        "total_wan": 121.0,
+        "unit_price": 11738,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-05-11",
+        "area_m2": 93.0,
+        "total_wan": 116.0,
+        "unit_price": 12474,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-03-24",
+        "area_m2": 74.7,
+        "total_wan": 75.0,
+        "unit_price": 10105,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-03-22",
+        "area_m2": 71.56,
+        "total_wan": 87.0,
+        "unit_price": 12158,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-03-20",
+        "area_m2": 74.33,
+        "total_wan": 75.0,
+        "unit_price": 10118,
+        "source": "房天下"
+      },
+      {
+        "date": "2023-02-10",
+        "area_m2": 46.75,
+        "total_wan": 48.0,
+        "unit_price": 10439,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-12-16",
+        "area_m2": 103.51,
+        "total_wan": 125.0,
+        "unit_price": 12106,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-11-25",
+        "area_m2": 74.43,
+        "total_wan": 77.0,
+        "unit_price": 10346,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-11-03",
+        "area_m2": 74.7,
+        "total_wan": 83.0,
+        "unit_price": 11192,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-10-26",
+        "area_m2": 74.33,
+        "total_wan": 83.0,
+        "unit_price": 11167,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-09-29",
+        "area_m2": 74.43,
+        "total_wan": 82.0,
+        "unit_price": 11058,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-09-17",
+        "area_m2": 74.7,
+        "total_wan": 79.0,
+        "unit_price": 10576,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-09-13",
+        "area_m2": 74.7,
+        "total_wan": 75.0,
+        "unit_price": 10041,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-09-10",
+        "area_m2": 71.56,
+        "total_wan": 89.0,
+        "unit_price": 12438,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-06-14",
+        "area_m2": 75.0,
+        "total_wan": 94.0,
+        "unit_price": 12587,
+        "source": "房天下"
+      },
+      {
+        "date": "2022-01-04",
+        "area_m2": 74.33,
+        "total_wan": 92.0,
+        "unit_price": 12418,
+        "source": "房天下"
+      },
+      {
+        "date": "2021-09-27",
+        "area_m2": 74.43,
+        "total_wan": 94.0,
+        "unit_price": 12630,
+        "source": "房天下"
+      },
+      {
+        "date": "2021-08-31",
+        "area_m2": 94.55,
+        "total_wan": 121.0,
+        "unit_price": 12798,
+        "source": "房天下"
+      },
+      {
+        "date": "2021-08-24",
+        "area_m2": 71.56,
+        "total_wan": 90.0,
+        "unit_price": 12605,
+        "source": "房天下"
+      },
+      {
+        "date": "2021-08-22",
+        "area_m2": 71.56,
+        "total_wan": 103.0,
+        "unit_price": 14506,
+        "source": "房天下"
+      },
+      {
+        "date": "2021-07-28",
+        "area_m2": 74.43,
+        "total_wan": 92.0,
+        "unit_price": 12442,
+        "source": "房天下"
+      }
+    ]
+  }
 }

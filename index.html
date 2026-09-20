@@ -67,6 +67,7 @@ window.__B = window.__B || __B;
     --fund: #3b6ef5;
     --us: #f59e0b;
     --cash: #14b8a6;
+    --property: #0ea5e9;
     --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 6px 18px rgba(16, 24, 40, .06), 0 16px 40px rgba(16, 24, 40, .05);
     --shadow-hover: 0 4px 12px rgba(16, 24, 40, .08), 0 16px 40px rgba(16, 24, 40, .11);
     --radius: 16px;
@@ -252,6 +253,238 @@ button.danger:hover {
     grid-template-columns: repeat(3, 1fr);
     gap: 14px;
     margin-bottom: 18px;
+}
+
+/* 资产页顶部卡片：2×2 布局，现金与房产同行（房产卡片不计入任何汇总计算） */
+#cards {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* 现金卡片：沿用默认两行格式（名称一行、金额一行），与基金/美股一致 */
+/* 房产卡片：同样的两行格式（名称一行、金额一行），名称行末尾带右箭头(点击展开明细)，明细为卡片下方独立整行 */
+#cards .property-card {
+    cursor: pointer;
+}
+
+#cards .property-card .prop-arrow {
+    margin-left: 5px;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--text);
+    transition: transform .2s ease;
+}
+
+#cards .property-card.open .prop-arrow {
+    transform: rotate(90deg);
+}
+
+.prop-details {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 12px;
+    color: var(--text);
+}
+
+.prop-details[hidden] {
+    display: none;
+}
+
+.prop-details .pd-row {
+    padding: 3px 0;
+    border-bottom: 1px dashed var(--line);
+}
+
+/* 明细分两栏：每页 10 条 → 5 行 × 2 列；分页逻辑不变 */
+.pd-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 18px;
+}
+
+.prop-details .pd-row:last-child {
+    border-bottom: none;
+}
+
+.prop-details .pd-ref {
+    color: var(--property);
+}
+
+/* 房产成交单价走势图：内联 SVG 折线，填充满整行宽度，端点标注最低/最高 */
+.pd-chart {
+    padding: 6px 2px 2px;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed var(--line);
+}
+
+.pd-chart-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.pd-svg {
+    display: block;
+    width: 100%;
+    height: 120px;
+    pointer-events: none;
+}
+
+.pd-plot {
+    position: relative;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+/* 数据点：可点击，hover/选中放大；最低/最高点加描边强调 */
+.pd-pt {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #0ea5e9;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 0 1px rgba(14, 165, 233, .35);
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    transition: transform .12s ease;
+    z-index: 2;
+}
+
+.pd-pt:hover,
+.pd-pt.active {
+    transform: translate(-50%, -50%) scale(1.6);
+    z-index: 3;
+}
+
+.pd-pt.pk-min,
+.pd-pt.pk-max {
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, .6);
+}
+
+/* 年份标注：沿横轴对齐各年份首笔成交位置 */
+.pd-years {
+    position: relative;
+    height: 15px;
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--text2, #8a94a6);
+}
+
+.pd-years span {
+    position: absolute;
+    transform: translateX(-50%);
+    font-variant-numeric: tabular-nums;
+}
+
+/* 选中数据点的竖向游标线 */
+.pd-cursor {
+    position: absolute;
+    top: 0;
+    bottom: 15px;
+    width: 1px;
+    background: #0ea5e9;
+    opacity: .45;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+/* 图下方信息条：日期 / 单价 / 对应面积总价（跟随点击或拖动切换） */
+.pd-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(14, 165, 233, .08);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.pd-info .pi-item {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.pd-info .pi-item span {
+    color: var(--text2, #8a94a6);
+    font-size: 11px;
+}
+
+.pd-info .pi-item b {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.pd-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text2, #8a94a6);
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 小屏两栏较窄：缩小字号并强制单行，避免明细折行 */
+@media (max-width: 640px) {
+    .pd-list {
+        column-gap: 12px;
+    }
+
+    .prop-details .pd-row {
+        font-size: 10.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+/* 明细分页控件：每页 10 条 */
+.pd-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+
+.pd-pager .pd-btn {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s ease;
+}
+
+.pd-pager .pd-btn:hover:not(:disabled) {
+    border-color: #d8deea;
+}
+
+.pd-pager .pd-btn:disabled {
+    opacity: .35;
+    cursor: default;
+}
+
+.pd-pager .pd-info {
+    font-size: 12px;
+    color: var(--text2, var(--text));
+    font-variant-numeric: tabular-nums;
 }
 
 .card {
@@ -1975,17 +2208,18 @@ tbody tr:hover {
         margin-top: 4px;
     }
 
-    /* 手机端：基金/美股一行两个，现金独占一行 */
+    /* 手机端：基金/美股一行两个，现金与房产同行（各占一列） */
     #cards {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    #cards .cash-card {
-        grid-column: 1 / -1;
+    #cards .cash-card,
+    #cards .property-card {
         display: flex;
+        flex-wrap: nowrap;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: 8px 12px;
         text-align: left;
         padding: 10px 14px;
     }
@@ -1994,7 +2228,8 @@ tbody tr:hover {
         margin: 0;
     }
 
-    #cards .cash-card .mv {
+    #cards .cash-card .mv,
+    #cards .property-card .mv {
         font-size: 18px;
         margin-top: 0;
     }
@@ -9350,7 +9585,203 @@ function renderCards(cur) {
         }
         html += "</div>"
     });
+    // 房产卡片：仅展示总额（默认面积 71.56㎡ × 最新成交单价），不计入任何汇总计算；下拉菜单展示 JSON 成交明细
+    const prop = window.__PROPERTY__;
+    if (prop && Array.isArray(prop.deals) && prop.deals.length) {
+        // 行情自动刷新会重建卡片 DOM：保留明细展开状态与当前页码，避免翻页/展开被重置
+        const prevDet = document.getElementById('propDetails');
+        const propWasOpen = !!(prevDet && !prevDet.hasAttribute('hidden'));
+        const prevPage = Math.max(0, window.__PROP_PAGE__ || 0);
+        const DEFAULT_AREA = 71.56;
+        const deals = prop.deals.slice().sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
+        const latest = deals[0];
+        const latestUnit = Number(latest.unit_price) || 0;
+        const total = DEFAULT_AREA * latestUnit;
+        // 房产卡片：显示名称+总额+右箭头(点击展开明细)；明细在卡片下方独立整行展开，每页 10 条分页，不参与任何汇总
+        const PAGE_SIZE = 10;
+        const totalPages = Math.ceil(deals.length / PAGE_SIZE);
+        const curPage = Math.min(prevPage, totalPages - 1);
+        window.__PROP_PAGES__ = totalPages;
+        window.__PROP_PAGE__ = curPage;
+        let listHtml = '';
+        deals.forEach(function(d, i) {
+            const pg = Math.floor(i / PAGE_SIZE);
+            listHtml += '<div class="pd-row pd-page" data-page="' + pg + '"' + (pg === curPage ? '' : ' style="display:none"') + '>'
+                  + d.date + ' · ' + d.area_m2 + '㎡ · ¥' + d.unit_price + '/㎡'
+                  + '</div>';
+        });
+        let det = '<div class="pd-chart">' + buildPropertyChart(deals, DEFAULT_AREA) + '</div>'
+                + '<div class="pd-list">' + listHtml + '</div>';
+        det += '<div class="pd-pager">'
+              + '<button type="button" class="pd-btn" id="pdPrev" onclick="propGoPage(-1)"' + (curPage === 0 ? ' disabled' : '') + '>‹ 上一页</button>'
+              + '<span class="pd-info" id="pdPageInfo">第 ' + (curPage + 1) + '/' + totalPages + ' 页</span>'
+              + '<button type="button" class="pd-btn" id="pdNext" onclick="propGoPage(1)"' + (curPage >= totalPages - 1 ? ' disabled' : '') + '>下一页 ›</button>'
+              + '</div>';
+        html += '<div class="card property-card' + (propWasOpen ? ' open' : '') + '" id="propCard" onclick="togglePropDetails()">'
+              + '<span class="k"><span class="dot" style="background:var(--property)"></span>房产<span class="prop-arrow">›</span></span>'
+              + '<span class="mv">' + fmt0(total) + '</span>'
+              + '</div>'
+              + '<div class="prop-details" id="propDetails"' + (propWasOpen ? '' : ' hidden') + '>' + det + '</div>';
+    }
     cards.innerHTML = html
+}
+
+// 房产卡片：点击展开/收起成交明细（明细为卡片下方独立整行，每页 10 条分页，不参与任何汇总）
+function togglePropDetails() {
+    var d = document.getElementById('propDetails');
+    var c = document.getElementById('propCard');
+    if (!d || !c) return;
+    if (d.hasAttribute('hidden')) {
+        d.removeAttribute('hidden');
+        c.classList.add('open');
+    } else {
+        d.setAttribute('hidden', '');
+        c.classList.remove('open');
+    }
+}
+
+// 房产明细分页：每页 10 条，首页禁用"上一页"，末页禁用"下一页"
+function propGoPage(delta) {
+    var rows = document.querySelectorAll('#propDetails .pd-page');
+    var pages = Math.ceil(rows.length / 10) || 1;
+    var p = (window.__PROP_PAGE__ || 0) + delta;
+    if (p < 0) p = 0;
+    if (p > pages - 1) p = pages - 1;
+    window.__PROP_PAGE__ = p;
+    rows.forEach(function(r) {
+        r.style.display = (Number(r.getAttribute('data-page')) === p) ? '' : 'none';
+    });
+    var info = document.getElementById('pdPageInfo');
+    if (info) info.textContent = '第 ' + (p + 1) + '/' + pages + ' 页';
+    var prev = document.getElementById('pdPrev');
+    var next = document.getElementById('pdNext');
+    if (prev) prev.disabled = (p === 0);
+    if (next) next.disabled = (p === pages - 1);
+}
+
+// 房产成交单价走势图：内联 SVG 折线（按日期升序）+ 年份标注 + 可点击/拖动选点；选中内容显示在图下方信息条
+function buildPropertyChart(deals, area) {
+    try {
+        var asc = deals.slice().sort(function(a, b) { return (a.date || "").localeCompare(b.date || ""); });
+        var vals = asc.map(function(d) { return Number(d.unit_price) || 0; });
+        if (vals.length < 2) return "";
+        var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+        var W = 320, H = 120, pad = 16;
+        // 横坐标按真实时间长度定位（日期差比例），而非按成交笔数等距；日期异常时回退等距
+        var times = asc.map(function(d) { var t = Date.parse((d.date || "") + "T00:00:00"); return isNaN(t) ? null : t; });
+        var useTime = times.length > 1 && times.every(function(t) { return t != null; }) && times[times.length - 1] > times[0];
+        var t0 = useTime ? times[0] : 0;
+        var span = useTime ? (times[times.length - 1] - times[0]) : 1;
+        var xOf = function(i) {
+            if (useTime) return pad + ((times[i] - t0) / span) * (W - 2 * pad);
+            return asc.length > 1 ? pad + i * ((W - 2 * pad) / (asc.length - 1)) : W / 2;
+        };
+        var yOf = function(v) { return (H - pad) - ((v - min) / ((max - min) || 1)) * (H - 2 * pad); };
+        var pts = asc.map(function(d, i) { return xOf(i).toFixed(1) + "," + yOf(vals[i]).toFixed(1); }).join(" ");
+        var areaPts = "0," + (H - pad) + " " + pts + " " + W + "," + (H - pad);
+        var color = "#0ea5e9";
+        var minIdx = vals.indexOf(min), maxIdx = vals.indexOf(max);
+        var baseArea = area || 71.56;
+        var lastIdx = asc.length - 1;
+        var infoHtml = function(i) {
+            var t = vals[i], tot = Math.round(t * baseArea);
+            return '<div class="pi-item"><span>日期</span><b>' + asc[i].date + '</b></div>'
+                + '<div class="pi-item"><span>单价</span><b>¥' + t.toLocaleString("zh-CN") + '/㎡</b></div>'
+                + '<div class="pi-item"><span>总价 · ' + baseArea + '㎡</span><b>¥' + tot.toLocaleString("zh-CN") + '</b></div>';
+        };
+        // 全部数据点：可点击/拖动选中
+        var ptsHtml = asc.map(function(d, i) {
+            var t = vals[i];
+            var tot = Math.round(t * baseArea);
+            var cls = "pd-pt" + (i === minIdx ? " pk-min" : "") + (i === maxIdx ? " pk-max" : "") + (i === lastIdx ? " active" : "");
+            return '<i class="' + cls + '" style="left:' + (xOf(i) / W * 100).toFixed(2) + '%;top:' + yOf(t).toFixed(1) + 'px"'
+                + ' data-date="' + d.date + '" data-unit="' + t + '" data-total="' + tot + '" data-area="' + baseArea + '"'
+                + ' onclick="propShowIndex(' + i + ')"></i>';
+        }).join("");
+        // 年份标注：按真实时间轴落在每年 1/1 的位置（早于起点的年份贴最左，晚于终点的跳过）
+        var yearsHtml = "";
+        if (useTime) {
+            var yearSet = {};
+            asc.forEach(function(d) { var y = (d.date || "").slice(0, 4); if (y) yearSet[y] = 1; });
+            Object.keys(yearSet).sort().forEach(function(y) {
+                var jt = Date.parse(y + "-01-01T00:00:00");
+                if (isNaN(jt)) return;
+                var xp;
+                if (jt < t0) xp = pad;
+                else if (jt > times[times.length - 1]) return;
+                else xp = pad + ((jt - t0) / span) * (W - 2 * pad);
+                yearsHtml += '<span style="left:' + (xp / W * 100).toFixed(2) + '%">' + y + '</span>';
+            });
+        } else {
+            var lastYear = null;
+            asc.forEach(function(d, i) {
+                var y = (d.date || "").slice(0, 4);
+                if (y && y !== lastYear) {
+                    yearsHtml += '<span style="left:' + (xOf(i) / W * 100).toFixed(2) + '%">' + y + '</span>';
+                    lastYear = y;
+                }
+            });
+        }
+        return '<div class="pd-chart-title">成交单价走势（元/㎡ · 点击或拖动切换日期）</div>'
+            + '<div class="pd-plot" id="pdPlot"'
+            + ' onmousedown="propScrub(event)" onmousemove="propScrub(event)"'
+            + ' ontouchstart="propScrub(event)" ontouchmove="propScrub(event)">'
+            + '<svg class="pd-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" width="100%" height="' + H + '">'
+            + '<defs><linearGradient id="pdGrad" x1="0" y1="0" x2="0" y2="1">'
+            + '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.22"/>'
+            + '<stop offset="100%" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>'
+            + '<polygon points="' + areaPts + '" fill="url(#pdGrad)"/>'
+            + '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+            + '</svg>'
+            + '<div class="pd-years">' + yearsHtml + '</div>'
+            + '<div class="pd-cursor" id="pdCursor" style="left:' + (xOf(lastIdx) / W * 100).toFixed(2) + '%"></div>'
+            + ptsHtml
+            + '</div>'
+            + '<div class="pd-info" id="pdInfo">' + infoHtml(lastIdx) + '</div>'
+            + '<div class="pd-axis"><span>最低 ¥' + min.toLocaleString("zh-CN") + ' · ' + asc[minIdx].date + '</span>'
+            + '<span>最高 ¥' + max.toLocaleString("zh-CN") + ' · ' + asc[maxIdx].date + '</span></div>';
+    } catch (e) {
+        return "";
+    }
+}
+
+// 房产走势图：选中第 idx 个数据点，内容显示在图下方信息条（日期 / 单价 / 对应面积总价）
+function propShowIndex(idx) {
+    var plot = document.getElementById('pdPlot');
+    var bar = document.getElementById('pdInfo');
+    var cur = document.getElementById('pdCursor');
+    if (!plot || !bar) return;
+    var pts = plot.querySelectorAll('.pd-pt');
+    if (idx < 0 || idx >= pts.length) return;
+    var el = pts[idx];
+    var prev = plot.querySelector('.pd-pt.active');
+    if (prev) prev.classList.remove('active');
+    el.classList.add('active');
+    var unit = Number(el.getAttribute('data-unit'));
+    var total = Number(el.getAttribute('data-total'));
+    var area = el.getAttribute('data-area') || '71.56';
+    bar.innerHTML = '<div class="pi-item"><span>日期</span><b>' + el.getAttribute('data-date') + '</b></div>'
+        + '<div class="pi-item"><span>单价</span><b>¥' + unit.toLocaleString('zh-CN') + '/㎡</b></div>'
+        + '<div class="pi-item"><span>总价 · ' + area + '㎡</span><b>¥' + total.toLocaleString('zh-CN') + '</b></div>';
+    if (cur) cur.style.left = el.style.left;
+}
+
+// 房产走势图：鼠标/触摸拖动切换日期（吸附到最近数据点）
+function propScrub(e) {
+    var plot = document.getElementById('pdPlot');
+    if (!plot) return;
+    var t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    var r = plot.getBoundingClientRect();
+    var f = (t.clientX - r.left) / r.width;
+    if (f < 0) f = 0;
+    if (f > 1) f = 1;
+    var pts = plot.querySelectorAll('.pd-pt');
+    var best = -1, bd = 1e9;
+    for (var i = 0; i < pts.length; i++) {
+        var d = Math.abs(parseFloat(pts[i].style.left) / 100 - f);
+        if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0) propShowIndex(best);
 }
 var sortState = {
     fund: {
@@ -12500,6 +12931,8 @@ async function loadFundHoldingsFromGithub() {
         window._dailyQuotes = obj._daily_quotes || obj._jpkr_quotes || null;
         // QQQ 历史快照（静态写进 fund_holdings.json 顶层 qqq_daily），供曲线图基准对比
         if (Array.isArray(obj.qqq_daily) && obj.qqq_daily.length) window.__QQQ_DAILY__ = obj.qqq_daily;
+        // 房产数据（脚本合并进 fund_holdings.json 的 _property 顶层键，不计入任何汇总计算）
+        if (obj._property) window.__PROPERTY__ = obj._property;
         var n = 0;
         Object.keys(obj).forEach(function(code) {
             var v = obj[code];
