@@ -266,6 +266,11 @@ button.danger:hover {
     cursor: pointer;
 }
 
+/* 房产卡片空数据态：JSON 缺失或 deals 为空时显示「—」占位，无明细不可展开，不显示手型光标 */
+#cards .property-card.empty {
+    cursor: default;
+}
+
 #cards .property-card .prop-arrow {
     margin-left: 5px;
     font-size: 15px;
@@ -863,7 +868,8 @@ button.danger:hover {
 /* ===== 日历图（日/周/月/年 四视图）===== */
 .cal-box {
     overflow-x: auto;
-    padding: 12px 0 4px;
+    /* 左右 padding 给选中黑框(box-shadow 外扩 2-3px)留绘制空间，否则最左/最右格子的黑框会被滚动容器裁掉 */
+    padding: 12px 3px 4px;
     min-height: 200px;
 }
 
@@ -1320,6 +1326,12 @@ tbody tr:hover {
 .tag.err {
     background: #fdeaea;
     color: #d24545;
+}
+
+/* 利息类型标签（现金明细：盈透应计利息 / 手动记利息），与分红同色系 */
+.tag.int {
+    background: #fff3e0;
+    color: #d9822b;
 }
 
 .tag.div {
@@ -2058,7 +2070,7 @@ tbody tr:hover {
 }
 
 .time-bar.tb-option {
-    background: #3b6ef5;
+    background: #1a9e54;
 }
 
 /* 时间标签已并入「代码」副行：缩小字号与内边距，避免把副行撑高 */
@@ -2420,22 +2432,25 @@ tbody tr:hover {
     white-space: nowrap;
 }
 
-/* 现金明细：盈透应计利息作为普通收入交易（可编辑/删除/计入总额），用弱化备注区分手工收支 */
-.us-trade-detail .trade-table td .muted-note {
-    color: #9aa3b2;
-    font-size: 11px;
-    margin-left: 4px;
-}
+/* 现金：操作列抽离为「操作」按钮切换（与基金/美股主表一致：默认隐藏操作列，操作视图保留名称列、仅隐藏金额列）
+   注意：主表列隐藏必须用「直接子代」选择器，否则会命中展开明细行里嵌套交易表的同序列单元格，
+   导致默认视图下明细的「金额」列被误隐藏、点「操作」后才出现 */
+#pane-cash[data-ops="off"] > table > thead th:nth-child(3),
+#pane-cash[data-ops="off"] #tbCash > tr:not(.us-trade-detail) > td:nth-child(3) { display: none; }
+#pane-cash[data-ops="on"] > table > thead th:nth-child(2),
+#pane-cash[data-ops="on"] #tbCash > tr:not(.us-trade-detail) > td:nth-child(2) { display: none; }
+#pane-cash[data-ops="on"] > table > thead th:nth-child(3),
+#pane-cash[data-ops="on"] #tbCash > tr:not(.us-trade-detail) > td:nth-child(3) { text-align: center; }
+/* 现金明细嵌套交易表（日期/类型/金额/编辑删）：默认显示 日期/类型/金额、隐藏编辑删列；
+   操作视图反向：只显示 日期 + 编辑/删（隐藏类型、金额列） */
+#pane-cash[data-ops="off"] .us-trade-detail .trade-table th:nth-child(4),
+#pane-cash[data-ops="off"] .us-trade-detail .trade-table td:nth-child(4) { display: none; }
+#pane-cash[data-ops="on"] .us-trade-detail .trade-table th:nth-child(2),
+#pane-cash[data-ops="on"] .us-trade-detail .trade-table td:nth-child(2),
+#pane-cash[data-ops="on"] .us-trade-detail .trade-table th:nth-child(3),
+#pane-cash[data-ops="on"] .us-trade-detail .trade-table td:nth-child(3) { display: none; }
 
-/* 现金：操作列抽离为「操作」按钮切换（与基金/美股主表一致：默认隐藏操作列，操作视图保留名称列、仅隐藏金额列） */
-#pane-cash[data-ops="off"] thead th:nth-child(3),
-#pane-cash[data-ops="off"] tbody tr:not(.us-trade-detail) td:nth-child(3) { display: none; }
-#pane-cash[data-ops="on"] thead th:nth-child(2),
-#pane-cash[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2) { display: none; }
-#pane-cash[data-ops="on"] thead th:nth-child(3),
-#pane-cash[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3) { text-align: center; }
-
-/* 现金明细日期使用紧凑格式（ymdCompact），日期列自然收窄，避免窄屏横向溢出（与基金/美股交易明细一致） */
+/* 现金明细日期使用全格式（YYYY-MM-DD，与基金/美股交易明细一致）；操作列默认隐藏后列宽充足，无窄屏溢出问题 */
 
 /* 交易明细「数量」列：买入标绿、卖出标红，跟随设置页「涨绿跌红/涨红跌绿」切换 */
 .us-trade-detail .trade-table td.qty-buy { color: var(--up); }
@@ -2712,9 +2727,11 @@ tbody tr:hover {
 #pane-us .tbl-scroll table th, #pane-us .tbl-scroll table td { max-width: 0; }
 .tbl-scroll table th { text-overflow: ellipsis; white-space: nowrap; }
 .tbl-scroll table td .cell-main, .tbl-scroll table td .cell-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 默认数据视图：隐藏操作列，数据列撑满 100% */
-#pane-fund[data-ops="off"] thead th:nth-child(5), #pane-fund[data-ops="off"] tbody td:nth-child(5) { display: none; }
-#pane-us[data-ops="off"] thead th:nth-child(6), #pane-us[data-ops="off"] tbody td:nth-child(6) { display: none; }
+/* 默认数据视图：隐藏操作列，数据列撑满 100%（直接子代选择器，避免命中展开明细嵌套交易表） */
+#pane-fund[data-ops="off"] .tbl-scroll > table > thead th:nth-child(5),
+#pane-fund[data-ops="off"] #tbFund > tr:not(.us-trade-detail) > td:nth-child(5) { display: none; }
+#pane-us[data-ops="off"] .tbl-scroll > table > thead th:nth-child(6),
+#pane-us[data-ops="off"] #tbUs > tr:not(.us-trade-detail) > td:nth-child(6) { display: none; }
 #pane-fund[data-ops="off"] col:nth-child(1){ width:40% !important; }
 #pane-fund[data-ops="off"] col:nth-child(2){ width:20% !important; }
 #pane-fund[data-ops="off"] col:nth-child(3){ width:20% !important; }
@@ -2727,16 +2744,26 @@ tbody tr:hover {
                                                 #pane-us[data-ops="off"] col:nth-child(5){ width:15% !important; }  /* 单价：从 17% 扣 2% 给当日 */
                                                 #pane-us[data-ops="off"] col:nth-child(6){ width:0 !important; }
 /* 操作视图：仅显示操作列（100%），数据列隐藏 */
-#pane-fund[data-ops="on"] thead th:nth-child(2), #pane-fund[data-ops="on"] thead th:nth-child(3), #pane-fund[data-ops="on"] thead th:nth-child(4), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3), #pane-fund[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(4) { display: none; }
+#pane-fund[data-ops="on"] .tbl-scroll > table > thead th:nth-child(2), #pane-fund[data-ops="on"] .tbl-scroll > table > thead th:nth-child(3), #pane-fund[data-ops="on"] .tbl-scroll > table > thead th:nth-child(4),
+#pane-fund[data-ops="on"] #tbFund > tr:not(.us-trade-detail) > td:nth-child(2), #pane-fund[data-ops="on"] #tbFund > tr:not(.us-trade-detail) > td:nth-child(3), #pane-fund[data-ops="on"] #tbFund > tr:not(.us-trade-detail) > td:nth-child(4) { display: none; }
 #pane-fund[data-ops="on"] col:nth-child(1){ width:55% !important; }
 #pane-fund[data-ops="on"] col:nth-child(2){ width:45% !important; }
 #pane-fund[data-ops="on"] col:not(:nth-child(1)):not(:nth-child(2)){ width:0 !important; }
-#pane-us[data-ops="on"] thead th:nth-child(2), #pane-us[data-ops="on"] thead th:nth-child(3), #pane-us[data-ops="on"] thead th:nth-child(4), #pane-us[data-ops="on"] thead th:nth-child(5), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(4), #pane-us[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(5) { display: none; }
+#pane-us[data-ops="on"] .tbl-scroll > table > thead th:nth-child(2), #pane-us[data-ops="on"] .tbl-scroll > table > thead th:nth-child(3), #pane-us[data-ops="on"] .tbl-scroll > table > thead th:nth-child(4), #pane-us[data-ops="on"] .tbl-scroll > table > thead th:nth-child(5),
+#pane-us[data-ops="on"] #tbUs > tr:not(.us-trade-detail) > td:nth-child(2), #pane-us[data-ops="on"] #tbUs > tr:not(.us-trade-detail) > td:nth-child(3), #pane-us[data-ops="on"] #tbUs > tr:not(.us-trade-detail) > td:nth-child(4), #pane-us[data-ops="on"] #tbUs > tr:not(.us-trade-detail) > td:nth-child(5) { display: none; }
 #pane-us[data-ops="on"] col:nth-child(1){ width:55% !important; }
 #pane-us[data-ops="on"] col:nth-child(2){ width:45% !important; }
 #pane-us[data-ops="on"] col:not(:nth-child(1)):not(:nth-child(2)){ width:0 !important; }
 /* 操作视图下操作列按钮横向铺满居中 */
 #pane-fund[data-ops="on"] .ops-cell, #pane-us[data-ops="on"] .ops-cell { justify-content: center; }
+/* 展开明细嵌套交易表与「操作」联动（基金：日期/净值/数量/编辑删；美股：日期/价格/数量/编辑删）：
+   默认数据视图只显示数据列（隐藏编辑删）；操作视图只显示 日期 + 编辑/删（隐藏净值/价格、数量），与现金明细一致 */
+#pane-fund[data-ops="off"] .us-trade-detail .trade-table th:nth-child(4), #pane-fund[data-ops="off"] .us-trade-detail .trade-table td:nth-child(4),
+#pane-us[data-ops="off"] .us-trade-detail .trade-table th:nth-child(4), #pane-us[data-ops="off"] .us-trade-detail .trade-table td:nth-child(4) { display: none; }
+#pane-fund[data-ops="on"] .us-trade-detail .trade-table th:nth-child(2), #pane-fund[data-ops="on"] .us-trade-detail .trade-table td:nth-child(2),
+#pane-fund[data-ops="on"] .us-trade-detail .trade-table th:nth-child(3), #pane-fund[data-ops="on"] .us-trade-detail .trade-table td:nth-child(3),
+#pane-us[data-ops="on"] .us-trade-detail .trade-table th:nth-child(2), #pane-us[data-ops="on"] .us-trade-detail .trade-table td:nth-child(2),
+#pane-us[data-ops="on"] .us-trade-detail .trade-table th:nth-child(3), #pane-us[data-ops="on"] .us-trade-detail .trade-table td:nth-child(3) { display: none; }
 /* 基金/美股：取消首列「名称/代码」横向滚动时的 sticky 固定，并禁止表格横向滚动（不再左右滑动） */
 #pane-fund .tbl-scroll, #pane-us .tbl-scroll { overflow-x: hidden !important; }
 #pane-fund .tbl-scroll>table>thead>tr>th:first-child,
@@ -9653,8 +9680,10 @@ function renderCards(cur) {
         html += "</div>"
     });
     // 房产卡片：仅展示总额（默认面积 71.56㎡ × 最新成交单价），不计入任何汇总计算；下拉菜单展示 JSON 成交明细
+    // JSON 缺失 / _property 缺失 / deals 为空：仍显示卡片，总额画「—」（empty 态无箭头、不可展开明细）
     const prop = window.__PROPERTY__;
-    if (prop && Array.isArray(prop.deals) && prop.deals.length) {
+    const propDeals = (prop && Array.isArray(prop.deals)) ? prop.deals : [];
+    if (propDeals.length) {
         // 行情自动刷新会重建卡片 DOM：保留明细展开状态与当前页码，避免翻页/展开被重置
         const prevDet = document.getElementById('propDetails');
         const propWasOpen = !!(prevDet && !prevDet.hasAttribute('hidden'));
@@ -9686,9 +9715,11 @@ function renderCards(cur) {
               + '</div>';
         html += '<div class="card property-card' + (propWasOpen ? ' open' : '') + '" id="propCard" onclick="togglePropDetails()">'
               + '<span class="k"><span class="dot" style="background:var(--property)"></span>房产<span class="prop-arrow">›</span></span>'
-              + '<span class="mv">' + fmt0(total) + '</span>'
+              + '<span class="mv">' + (total > 0 ? fmt0(total) : "—") + '</span>'
               + '</div>'
               + '<div class="prop-details" id="propDetails"' + (propWasOpen ? '' : ' hidden') + '>' + det + '</div>';
+    } else {
+        html += '<div class="card property-card empty"><span class="k"><span class="dot" style="background:var(--property)"></span>房产</span><span class="mv">—</span></div>';
     }
     cards.innerHTML = html
 }
@@ -10170,7 +10201,7 @@ function renderTables() {
             var predSubTxt = predPct == null ? "—" : predPct.toFixed(2) + "%";
             var realizedTxt = fst.realizedPnl !== 0 ? (fst.realizedPnl >= 0 ? "+" : "") + fmt0(fst.realizedPnl) : "—";
             var realizedCls = fst.realizedPnl > 0 ? "up" : fst.realizedPnl < 0 ? "down" : "";
-            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + '<td><div class="cell-main">' + (mv != null ? fmt0(mv) : "—") + '</div></td>' + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> " + fmt0(fst.avgCost) + '</span><span><b>总交易</b> ' + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
+            return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + '<td><div class="cell-main">' + (mv != null ? fmt0(mv) : "—") + '</div></td>' + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> ¥" + Number(fst.avgCost || 0).toFixed(2) + '</span><span><b>总交易</b> ' + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
         }).join("")
     }
     const tu = $("tbUs");
@@ -10228,10 +10259,10 @@ function renderTables() {
             var totalIn = 0,
                 totalOut = 0;
             txs.forEach(function(t) {
-                if (t.type === "in") totalIn += Number(t.amount) || 0;
-                else totalOut += Number(t.amount) || 0
+                if (t.type === "out") totalOut += Number(t.amount) || 0;
+                else totalIn += Number(t.amount) || 0
             });
-            return '<tr class="us-row-toggle" data-cash-row="' + c.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(c.icon) + "<span>" + esc(c.note || c.id) + '</span></div></td>' + '<td class="' + amtCls + '">' + amtHtml + "</td>" + '<td><button class="sm" data-edit="cash" data-id="' + c.id + '">编辑</button>' + '<button class="sm danger" data-del="cash" data-id="' + c.id + '">删</button></td></tr>' + '<tr class="us-trade-detail hidden" id="cash-detail-' + c.id + '"><td colspan="3"><div class="trade-inner">' + '<div class="trade-stats cash-stats"><span><b>收</b> ' + (isUsd ? fmtUSD(totalIn) : fmt0(totalIn)) + "</span><span><b>支</b> " + (isUsd ? fmtUSD(totalOut) : fmt0(totalOut)) + "</span><span><b>净</b> " + (isUsd ? fmtUSD(amt >= 0 ? amt : -amt) : fmt0(amt >= 0 ? amt : -amt)) + "</span><span>" + txs.length + "<b>笔</b></span></div>" + '<div class="trade-actions"><button class="sm primary" data-cash-trade-in="' + c.id + '">+ 收入</button><button class="sm danger" data-cash-trade-out="' + c.id + '">- 支出</button></div>' + renderCashTradeTable(c) + "</div></td></tr>"
+            return '<tr class="us-row-toggle" data-cash-row="' + c.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(c.icon) + "<span>" + esc(c.note || c.id) + '</span></div></td>' + '<td class="' + amtCls + '">' + amtHtml + "</td>" + '<td><button class="sm" data-edit="cash" data-id="' + c.id + '">编辑</button>' + '<button class="sm danger" data-del="cash" data-id="' + c.id + '">删</button></td></tr>' + '<tr class="us-trade-detail hidden" id="cash-detail-' + c.id + '"><td colspan="3"><div class="trade-inner">' + '<div class="trade-stats cash-stats"><span><b>收</b> ' + (isUsd ? fmtUSD(totalIn) : fmt0(totalIn)) + "</span><span><b>支</b> " + (isUsd ? fmtUSD(totalOut) : fmt0(totalOut)) + "</span><span><b>净</b> " + (isUsd ? fmtUSD(amt >= 0 ? amt : -amt) : fmt0(amt >= 0 ? amt : -amt)) + "</span><span>" + txs.length + "<b>笔</b></span></div>" + '<div class="trade-actions"><button class="sm primary" data-cash-trade-in="' + c.id + '">+ 收入</button><button class="sm" data-cash-trade-interest="' + c.id + '">+ 利息</button><button class="sm danger" data-cash-trade-out="' + c.id + '">- 支出</button></div>' + renderCashTradeTable(c) + "</div></td></tr>"
         }).join("")
     }
     renderPending();
@@ -10392,7 +10423,7 @@ function renderTradeTable(u) {
         var qtyCls = t.type === "buy" ? "qty-buy" : (t.type === "sell" ? "qty-sell" : "");
         var delTag = t.type === "dividend" ? "data-dividend-del" : "data-trade-del";
         var editTag = t.type === "dividend" ? "data-dividend-edit" : "data-trade-edit";
-        html += "<tr><td>" + esc(ymdCompact(t.date) || "") + "</td><td>" + priceTd + "</td><td class=\"" + qtyCls + "\">" + qty + "</td>" + '<td><button class="btn-trade-sm" ' + editTag + '="' + u.id + '" data-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" ' + delTag + '="' + u.id + '" data-trade-idx="' + i + '">删</button></td></tr>'
+        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + priceTd + "</td><td class=\"" + qtyCls + "\">" + qty + "</td>" + '<td><button class="btn-trade-sm" ' + editTag + '="' + u.id + '" data-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" ' + delTag + '="' + u.id + '" data-trade-idx="' + i + '">删</button></td></tr>'
     });
     html += "</tbody></table>";
     return html
@@ -10422,7 +10453,7 @@ function renderFundTradeTable(f) {
         var t = x.t, i = x.oi;
         var amt = t.shares * t.price;
         var qtyCls = t.type === "buy" ? "qty-buy" : (t.type === "sell" ? "qty-sell" : "");
-        html += "<tr><td>" + esc(ymdCompact(t.date) || "") + "</td><td>" + fmt0(t.price) + "</td><td class=\"" + qtyCls + "\">" + Number(t.shares).toFixed(2) + "</td>" + '<td><button class="btn-trade-sm" data-fund-trade-edit="' + f.id + '" data-fund-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-fund-trade-del="' + f.id + '" data-fund-trade-idx="' + i + '">删</button></td></tr>'
+        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + Number(t.price).toFixed(2) + "</td><td class=\"" + qtyCls + "\">" + Number(t.shares).toFixed(2) + "</td>" + '<td><button class="btn-trade-sm" data-fund-trade-edit="' + f.id + '" data-fund-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-fund-trade-del="' + f.id + '" data-fund-trade-idx="' + i + '">删</button></td></tr>'
     });
     html += "</tbody></table>";
     return html
@@ -10544,7 +10575,7 @@ function calcCashAmount(c) {
     var total = 0;
     txs.forEach(function(t) {
         var a = Number(t.amount) || 0;
-        total += t.type === "in" ? a : -a
+        total += t.type === "out" ? -a : a
     });
     return total
 }
@@ -10557,7 +10588,7 @@ function calcCashAmountAt(c, ts) {
     var total = 0;
     txs.forEach(function(t) {
         var a = Number(t.amount) || 0;
-        total += t.type === "in" ? a : -a
+        total += t.type === "out" ? -a : a
     });
     return total
 }
@@ -10579,9 +10610,8 @@ function renderCashTradeTable(c) {
     var html = '<table class="trade-table"><thead><tr><th>日期</th><th>类型</th><th>金额</th><th></th></tr></thead><tbody>';
     txs.forEach(function(x) {
         var t = x.t, i = x.oi;
-        var typeTag = t.type === "in" ? '<span class="tag ok">收入</span>' : '<span class="tag err">支出</span>';
-        var noteHtml = t.note ? '<span class="muted-note">' + esc(t.note) + '</span>' : '';
-        html += "<tr><td>" + esc(ymdCompact(t.date) || "") + "</td><td>" + typeTag + "</td><td>" + (c.currency === "usd" ? fmtUSD(Number(t.amount) || 0) : fmt0(Number(t.amount) || 0)) + noteHtml + "</td>" + '<td><button class="btn-trade-sm" data-cash-trade-edit="' + c.id + '" data-cash-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-cash-trade-del="' + c.id + '" data-cash-trade-idx="' + i + '">删</button></td></tr>'
+        var typeTag = t.type === "in" ? '<span class="tag ok">收入</span>' : t.type === "interest" ? '<span class="tag int">利息</span>' : '<span class="tag err">支出</span>';
+        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + typeTag + "</td><td>" + (c.currency === "usd" ? fmtUSD(Number(t.amount) || 0) : fmt0(Number(t.amount) || 0)) + "</td>" + '<td><button class="btn-trade-sm" data-cash-trade-edit="' + c.id + '" data-cash-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-cash-trade-del="' + c.id + '" data-cash-trade-idx="' + i + '">删</button></td></tr>'
     });
     html += "</tbody></table>";
     return html
@@ -10593,11 +10623,11 @@ function openCashTradeModal(cashId, type) {
         cashId: cashId,
         type: type
     };
-    $("cashTradeModalTitle").textContent = type === "in" ? "添加收入" : "添加支出";
+    $("cashTradeModalTitle").textContent = type === "in" ? "添加收入" : type === "interest" ? "添加利息" : "添加支出";
     buildDateGroup("dtg_ctm", "");
     $("ctm_in").value = "";
     $("ctm_out").value = "";
-    $("ctm_in_field").style.display = type === "in" ? "" : "none";
+    $("ctm_in_field").style.display = (type === "in" || type === "interest") ? "" : "none";
     $("ctm_out_field").style.display = type === "out" ? "" : "none";
     $("cashTradeModalBg").classList.add("show")
 }
@@ -10611,13 +10641,13 @@ function saveCashTrade() {
     if (!cashTradeEditing) return;
     var date = getDateGroup("dtg_ctm");
     var type = cashTradeEditing.type;
-    var amount = parseFloat(type === "in" ? $("ctm_in").value : $("ctm_out").value);
+    var amount = parseFloat((type === "in" || type === "interest") ? $("ctm_in").value : $("ctm_out").value);
     if (!date) {
         alert("请填写日期");
         return
     }
     if (isNaN(amount) || amount <= 0) {
-        alert(type === "in" ? "请填写收入金额" : "请填写支出金额");
+        alert(type === "out" ? "请填写支出金额" : type === "interest" ? "请填写利息金额" : "请填写收入金额");
         return
     }
     var item = cash.find(function(x) {
@@ -10652,11 +10682,11 @@ function openCashTradeEditModal(cashId, idx) {
         cashId: cashId,
         idx: idx
     };
-    $("cashTradeEditModalTitle").textContent = "编辑" + (t.type === "in" ? "收入" : "支出") + "记录";
+    $("cashTradeEditModalTitle").textContent = "编辑" + (t.type === "in" ? "收入" : t.type === "interest" ? "利息" : "支出") + "记录";
     buildDateGroup("dtg_ctem", t.date);
-    $("ctem_in").value = t.type === "in" ? t.amount : "";
+    $("ctem_in").value = (t.type === "in" || t.type === "interest") ? t.amount : "";
     $("ctem_out").value = t.type === "out" ? t.amount : "";
-    $("ctem_in_field").style.display = t.type === "in" ? "" : "none";
+    $("ctem_in_field").style.display = (t.type === "in" || t.type === "interest") ? "" : "none";
     $("ctem_out_field").style.display = t.type === "out" ? "" : "none";
     $("cashTradeEditModalBg").classList.add("show")
 }
@@ -10675,13 +10705,13 @@ function saveCashTradeEdit() {
     if (!item || !item.transactions) return;
     var t = item.transactions[cashTradeEditTarget.idx];
     var type = t.type;
-    var amount = parseFloat(type === "in" ? $("ctem_in").value : $("ctem_out").value);
+    var amount = parseFloat((type === "in" || type === "interest") ? $("ctem_in").value : $("ctem_out").value);
     if (!date) {
         alert("请填写日期");
         return
     }
     if (isNaN(amount) || amount <= 0) {
-        alert(type === "in" ? "请填写收入金额" : "请填写支出金额");
+        alert(type === "out" ? "请填写支出金额" : type === "interest" ? "请填写利息金额" : "请填写收入金额");
         return
     }
     t.date = date;
@@ -10982,6 +11012,7 @@ function drawChartInternal() {
         label: "TWR",
         data: twrRel,
         type: "line",
+        hidden: true, // 默认隐藏，图例可点开
         borderColor: "#f59e0b",
         borderWidth: 2,
         fill: false,
@@ -10996,6 +11027,7 @@ function drawChartInternal() {
             label: "QQQ",
             data: qqqRet,
             type: "line",
+            hidden: true, // 默认隐藏，图例可点开
             borderColor: "#2563eb",
             borderWidth: 1.5,
             borderDash: [5, 3],
@@ -11280,7 +11312,8 @@ function drawChartInternal() {
         chart.data.datasets.forEach(function (ds, i) {
             if (!ds.label) return;
             var color = ds.borderColor || (ds.backgroundColor || "#1f2733");
-            var off = chart.getDatasetMeta(i).hidden ? " off" : "";
+            // 用 isDatasetVisible 读显隐：同时覆盖 dataset.hidden（默认隐藏）与 meta.hidden（点击切换）两种来源
+            var off = chart.isDatasetVisible(i) ? "" : " off";
             html += '<span class="lg-item' + off + '" data-ds="' + i + '"><i style="background:' + color + '"></i>' + ds.label + '</span>';
         });
         lg.innerHTML = html;
@@ -12234,16 +12267,15 @@ async function syncCashFromJson() {
                 amount: amt
             })
         }
-        // 盈透应计利息：作为普通收入交易并入余额（可编辑/删除/计入总额）
+        // 盈透应计利息：独立「利息」类型交易（可编辑/删除/计入总额，与收入同方向）
         var ai = Number(j.ibkrAccruedInterest) || 0;
         item.accruedInterest = ai;
         item.accruedDate = date;
         if (ai > 0) {
             item.transactions.push({
                 date: date,
-                type: "in",
-                amount: +ai.toFixed(2),
-                note: "应计利息"
+                type: "interest",
+                amount: +ai.toFixed(2)
             });
         }
         item.amount = calcCashAmount(item);
@@ -13711,6 +13743,11 @@ document.body.addEventListener("click", function(e) {
     var cin = e.target.closest("[data-cash-trade-in]");
     if (cin) {
         openCashTradeModal(cin.dataset.cashTradeIn, "in");
+        return
+    }
+    var cint = e.target.closest("[data-cash-trade-interest]");
+    if (cint) {
+        openCashTradeModal(cint.dataset.cashTradeInterest, "interest");
         return
     }
     var cout = e.target.closest("[data-cash-trade-out]");
