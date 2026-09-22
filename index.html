@@ -316,10 +316,6 @@ button.danger:hover {
     border-bottom: none;
 }
 
-.prop-details .pd-ref {
-    color: var(--property);
-}
-
 /* 房产成交单价走势图：内联 SVG 折线，填充满整行宽度，端点标注最低/最高 */
 .pd-chart {
     padding: 6px 2px 2px;
@@ -626,10 +622,13 @@ button.danger:hover {
     margin: 0 0 4px;
 }
 
-.panel .hint {
-    font-size: 12px;
-    color: var(--text);
-    margin: 0 0 12px;
+/* 图表/设置页与资产页同宽：复用 .wrap 的 1080px 居中约束。
+   注意：本规则必须早于下方的媒体查询块，否则其 16px 会反向覆盖移动端的 12px */
+#pageChart,
+#pageSettings {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 20px 16px 80px;
 }
 
 .range {
@@ -933,12 +932,12 @@ button.danger:hover {
 }
 
 .cal-total-pill .cal-total-label {
-    font-size: 13px;
+    font-size: 14px;
     opacity: .9;
 }
 
 .cal-total-pill .cal-total-val {
-    font-size: 16px;
+    font-size: 19px;
     font-weight: 700;
     margin-top: 2px;
 }
@@ -950,7 +949,7 @@ button.danger:hover {
     margin-bottom: 2px;
 }
 .cal-summary-val {
-    font-size: 26px;
+    font-size: 30px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: .3px;
@@ -1003,12 +1002,17 @@ button.danger:hover {
     background: #f5f7fa;
     cursor: default;
     color: #33404f;
-    padding: 4px 2px;
+    padding: 6px 3px;
     min-height: 52px;
     min-width: 0;
     overflow: hidden;
-    aspect-ratio: 1;
+    /* 格子改为扁形：原 aspect-ratio:1 在桌面（格宽 140px）会撑成正方形，
+       日期与金额只占中间一小条、四周大片空白，选中黑框显得格外笨重。
+       现改由内容撑高 + 行距控制，一屏能多显示几周，观感也更紧凑 */
+    gap: 2px;
     transition: transform .1s;
+    /* 容器查询：格内字号按格子实际宽度自适应（五位数金额不换行、不溢出） */
+    container-type: inline-size;
 }
 
 .cal-cell:hover {
@@ -1022,11 +1026,13 @@ button.danger:hover {
     min-height: 30px;
 }
 
+/* 选中/今日的描边：原 2px 在 50px 小格与 140px 大格上观感都不够精致，
+   收到 1.5px 更利落；仍是外描边，不影响格内布局 */
 .cal-cell.today {
-    box-shadow: 0 0 0 2px var(--brand, #3b82f6);
+    box-shadow: 0 0 0 1.5px var(--brand, #3b82f6);
 }
 .cal-cell.sel {
-    box-shadow: 0 0 0 2px #111827;
+    box-shadow: 0 0 0 1.5px #111827;
     font-weight: 700;
 }
 
@@ -1038,25 +1044,53 @@ button.danger:hover {
 }
 
 .cal-cell .cal-v {
-    font-size: 10px;
+    /* 字号随格子宽度自适应：最长的 +123,456（8 字符）每 1px 字号约占 4.19px 文本宽，
+       可用宽约等于格宽 - 6px padding，故 20cqw 时占格宽 ≈ 84%，留有余量。
+       符号定宽后 "+" 不再虚占宽度，上限由 11px 放宽到 13px（月/年视图更宽松，可更大） */
+    font-size: clamp(9px, 20cqw, 13px);
     font-weight: 600;
     margin-top: 1px;
-    white-space: normal;
-    word-break: break-word;
+    /* 禁止断词换行（原先 normal + break-word 会让五位数断成两行），
+       放不下时靠字号缩小兜底，再不行才裁切 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
     font-variant-numeric: tabular-nums;
+}
+
+/* 正负号定宽：字体里 "+" 天然比 "-" 宽约 75%（实测 advance 比 0.57），
+   直接写会令 "+12,345" 比 "-12,345" 多占约 2.8px，正负单元格视觉不对齐。
+   这里把符号包成定宽内联盒，宽度锁死与 "-" 一致，仅收掉 "+" 右侧多余留白，
+   字形本身不缩放、不变形（笔画粗细与高度保持原样）。 */
+.cal-sign {
+    display: inline-block;
+    width: .57em;
+    /* "-" 的墨迹偏右、"+" 居中，靠 text-align 让两者视觉中心对齐 */
+    text-align: center;
+    font-weight: inherit;
 }
 
 /* 日视图：放大日期与涨跌数字，便于看清 */
 .cal-grid-day .cal-cell {
-    min-height: 62px;
+    /* 扁形格：高度只需容纳「日期 + 金额」两行（桌面 18px+18px）加 padding。
+       宽度由网格 7 等分决定，桌面格宽可达 140px，故高度取 68px 形成扁形，
+       比原 aspect-ratio:1 的 140px 正方形紧凑得多，一屏能看到更多周 */
+    min-height: 68px;
+    padding: 8px 4px;
 }
 
 .cal-grid-day .cal-cell .cal-d {
-    font-size: 15px;
+    /* 日期随格宽缩放：小格 13px、大格（桌面 95~140px）封顶 18px */
+    font-size: clamp(13px, 22cqw, 18px);
 }
 
 .cal-grid-day .cal-cell .cal-v {
-    font-size: 13px;
+    /* 日视图字号随格宽自适应：格 50px（手机）约 10px、95px 约 19px 封顶 18px。
+       系数取 20cqw 是因为手机 50px 格可用宽仅 44px，
+       最长文本 +123,456 在 10px 字号下占 41.9px，已接近上限，不可再放大系数。
+       真正能放开的是 max 值——桌面格宽后段（95px+）原先被 13px 卡死，现提到 18px */
+    font-size: clamp(9px, 20cqw, 18px);
     margin-top: 2px;
 }
 
@@ -1077,6 +1111,8 @@ button.danger:hover {
     text-align: center;
     cursor: pointer;
     container-type: inline-size;
+    /* 安全网：极端窄屏 + 六位数金额时宁可裁切，也不撑破网格布局 */
+    overflow: hidden;
 }
 .cal-mcard.sel {
     border-color: #111827;
@@ -1085,7 +1121,8 @@ button.danger:hover {
 }
 
 .cal-mcard .cal-mname {
-    font-size: clamp(13px, 14cqw, 17px);
+    /* 与 .cal-mval 同系数；下限 9px，320px 屏「10月」宽约 25px < 可用 33.5px，安全 */
+    font-size: clamp(9px, 15cqw, 19px);
     font-weight: 600;
     color: inherit;
     margin-bottom: 4px;
@@ -1093,7 +1130,10 @@ button.danger:hover {
 }
 
 .cal-mcard .cal-mval {
-    font-size: clamp(12px, 14cqw, 17px);
+    /* 系数 16cqw 经实测校准：cqw 参照内容盒（卡宽 - 20px padding），
+       常见值占可用宽 +1,234→49%、+12,345→58%、极端 +123,456→67%，余量充足。
+       下限 9px：320px 超小屏（可用 33.5px）能容纳六位数金额不溢出，再小则不可读 */
+    font-size: clamp(9px, 16cqw, 21px);
     font-weight: 700;
     white-space: nowrap;
 }
@@ -1115,6 +1155,8 @@ button.danger:hover {
     text-align: center;
     cursor: pointer;
     container-type: inline-size;
+    /* 安全网：同 .cal-mcard，极窄屏 + 极长金额时裁切而不撑破网格 */
+    overflow: hidden;
 }
 .cal-ycard.sel {
     box-shadow: 0 0 0 3px #111827;
@@ -1127,30 +1169,19 @@ button.danger:hover {
 }
 
 .cal-ycard .cal-yname {
-    font-size: clamp(13px, 14cqw, 17px);
+    /* 「2024年」5 字符每 1px 字号约 3.22px；320px 屏卡片可用仅 32px，
+       下限 9px 时占 29px < 32px，安全 */
+    font-size: clamp(9px, 15cqw, 19px);
     font-weight: 600;
     color: var(--text);
     margin-bottom: 6px;
 }
 
 .cal-ycard .cal-yval {
-    font-size: clamp(13px, 15cqw, 18px);
+    /* 同月卡片：16cqw 参照内容盒，常见值占比 ≈49~67%，下限 9px 保六位数在 320px 屏不溢出 */
+    font-size: clamp(9px, 16cqw, 22px);
     font-weight: 700;
-}
-
-.cal-years-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.cal-year-block {}
-
-.cal-year-h {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--brand);
-    margin-bottom: 8px;
+    white-space: nowrap;
 }
 
 /* 图例与汇总 */
@@ -1223,15 +1254,6 @@ button.danger:hover {
     color: #fff;
     font-weight: 700;
     box-shadow: 0 3px 10px rgba(59, 110, 245, .28);
-}
-
-.tab-logo {
-    width: 18px;
-    height: 18px;
-    vertical-align: -4px;
-    margin-right: 2px;
-    border-radius: 4px;
-    object-fit: contain;
 }
 
 .tabpane {
@@ -1355,13 +1377,6 @@ tbody tr:hover {
     margin-top: 3px;
     line-height: 1.3;
 }
-
-.alp-price {
-    margin-top: 4px;
-    font-size: 11px;
-    white-space: nowrap;
-}
-
 .detail {
     background: #fafbfc;
 }
@@ -1450,27 +1465,6 @@ tbody tr:hover {
         font-size: 12px;
     }
 }
-
-.detail .dtl {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 22px;
-    padding: 11px 14px;
-    font-size: 12px;
-    color: var(--text);
-}
-
-.detail .dtl b {
-    display: inline-block;
-    margin-right: 7px;
-    color: var(--text);
-    font-weight: 600;
-}
-
-.detail .dtl span {
-    white-space: nowrap;
-}
-
 .pane-head {
     display: flex;
     gap: 10px;
@@ -1562,11 +1556,6 @@ tbody tr:hover {
     padding: 6px;
     text-align: center;
 }
-
-.pending-filter-pop .pf-sep {
-    flex: 1;
-}
-
 .pending-filter-pop .pfp-actions {
     display: flex;
     gap: 8px;
@@ -1641,11 +1630,6 @@ tbody tr:hover {
     vertical-align: top;
     border-bottom: 1px solid var(--line);
 }
-
-.pending-tbl td.cls-name {
-    word-break: break-word;
-}
-
 .pending-tbl td.cls-date {
     white-space: nowrap;
     text-align: left;
@@ -1656,11 +1640,6 @@ tbody tr:hover {
        11px 时约 60px 留足余量（fitNumCells 对 td 的参照宽取的是整行 tr 宽，兜底判定失效，故此处显式指定） */
     font-size: 11px;
 }
-
-.pending-tbl td.cls-amt {
-    white-space: nowrap;
-}
-
 .pending-tbl td.cls-code {
     word-break: break-word;
 }
@@ -1709,17 +1688,6 @@ tbody tr:hover {
     flex-wrap: wrap;
     margin-bottom: 10px;
 }
-
-.pf-select {
-    padding: 6px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 13px;
-    max-width: 48%;
-}
-
 .pf-sum {
     font-size: 13px;
     color: var(--text);
@@ -1758,23 +1726,6 @@ tbody tr:hover {
     white-space: nowrap;
     text-align: right;
 }
-
-.fxbox {
-    font-size: 12px;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.fxbox input {
-    width: 88px;
-    padding: 4px 8px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    font: inherit;
-}
-
 .modal-bg {
     position: fixed;
     inset: 0;
@@ -2312,23 +2263,46 @@ tbody tr:hover {
         overflow-x: hidden;
     }
 
-    /* 月/年视图移动端都一排四个（每页 4 列 × 3 排 = 12 张，超量分页） */
+    /* 月/年视图移动端一排 3 个：4 列时卡片仅 71px 宽，
+       「2024年」+金额两行挤不下，3 列后卡宽 ~98px，字号可提升约 40% */
     .cal-month-cards,
     .cal-year-cards {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         max-width: 100%;
     }
 
+    /* ---- 日历移动端：吃满两侧白边 ----
+       原 #pageChart(16) + .panel(18) + #calView(3) + .cal-grid(2) 单侧共 39px，
+       两侧吃掉 78px，390px 屏仅剩 314px 给 7 列网格（每列 41.7px）。
+       现收成 8+10+2+0 = 20px，两侧省回 38px，列宽升到约 46px（+11%）。
+       桌面端（≥768px）不动，那里的留白是刻意的呼吸感。 */
+    .cal-grid,
+    .cal-wk {
+        /* 两处必须同步去 padding，否则星期表头与下方格子会错位 2px */
+        padding: 0;
+    }
+
     .cal-grid-day .cal-cell {
-        min-height: 50px;
+        /* 字号整体上调一档后，格高同步 48→54px 让每行有喘息空间。
+           实测内容高约 35px（日期 16.8 + 金额 16 + gap 2），54px 仍有 ~9px 余量 */
+        min-height: 54px;
+        padding: 6px 2px;
     }
 
     .cal-grid-day .cal-cell .cal-d {
-        font-size: 12px;
+        /* 日期独占一行、不与金额争宽度。日期文本仅占格宽 ~26%，
+           横向极富裕，故系数从 18cqw 提到 21cqw、上限 15→17px */
+        font-size: clamp(13px, 21cqw, 17px);
     }
 
     .cal-grid-day .cal-cell .cal-v {
-        font-size: 10px;
+        /* 金额与百分比共用同一档字号，随格宽（cqw）自适应。
+           430px 格宽 51px、格内可用宽约 47px：
+             金额 +123,456（9 字符）占 49px（104%，万元级六位数才需要）
+             百分比 +3.21%~+99.99%（7 字符）占 37~43px（78%~91%）✅
+           三位数百分比（+123.45%）需 49.2px 会超 4%，由 .cal-cell 的 overflow:hidden 裁切；
+           这在现实中要求单日翻倍，属极端场景 */
+        font-size: clamp(10px, 23cqw, 15px);
     }
 
     .cal-total-pill {
@@ -2346,16 +2320,51 @@ tbody tr:hover {
         margin: 0 2px;
     }
 
-    /* 图表/设置页移动端同宽（与 .wrap 的 12px 内边距一致） */
+    /* 图表/设置页移动端同宽（与 .wrap 的 12px 内边距一致）。
+       全局的 #pageChart 规则（约 3877 行）已挪到本媒体查询之前，
+       这里同特异性即可正常覆盖 */
     #pageChart,
     #pageSettings {
         padding: 20px 12px 80px;
     }
 
-    #pageChart>.page-head,
-    #pageSettings>.page-head {
-        margin: 0 -12px;
-        padding: 14px 12px;
+    /* 日历所在面板收到 10px（通用 .panel 仍是 18px），配合上面的 #pageChart 12px，
+       单侧白边从 39px 降到 20px。只限定 #pageChart 内，不影响其它页面的卡片观感 */
+    #pageChart .panel {
+        padding: 14px 10px;
+    }
+}
+
+/* 超窄屏（≤380px，如 iPhone SE 1代/老安卓）：3 列布局下卡片仍有 ~72px 宽，
+   无需再收内边距；此处仅把 760px 档的 10px 收紧到 8px，进一步让位给文本 */
+@media (max-width: 380px) {
+    .cal-mcard {
+        padding: 10px 8px;
+    }
+
+    .cal-ycard {
+        padding: 12px 8px;
+    }
+
+    /* 超窄屏（≤380px）再收一档：#pageChart 12→8px，
+       单侧白边 20→16px。此时列宽约 41px，六位数金额需降到 8px 才放得下 */
+    #pageChart {
+        padding: 16px 8px 80px;
+    }
+
+    #pageChart .panel {
+        padding: 10px 6px;
+    }
+
+    /* 超窄屏兜底：380px 以下列宽仅 38px，减 padding 后可用宽 ~34px，
+       760px 档的 23cqw（9px）会顶出 10%（实测占比 1.11）。
+       这里把下限降到 8px（约需 30px，占 91%）收口，金额与百分比共用 */
+    .cal-grid-day .cal-cell .cal-v {
+        font-size: clamp(8px, 21cqw, 14px);
+    }
+
+    .cal-grid-day .cal-cell .cal-d {
+        font-size: clamp(12px, 19cqw, 16px);
     }
 }
 
@@ -3689,9 +3698,7 @@ tbody tr:hover {
 }
 .fund-row .un-name-txt { white-space: normal; overflow-wrap: anywhere; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .u-name .un-main .u-caret { flex-shrink: 0; }
-.u-name .un-sym { font-size: 12px; color: #999; margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; }
-.u-name .un-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
-/* 市值/盈亏合并列：主值大字、次值小字，点击切换主次 */
+.u-name .un-sym { font-size: 12px; color: #999; margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; }/* 市值/盈亏合并列：主值大字、次值小字，点击切换主次 */
 .u-mvpnl {
     display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
     text-align: right; cursor: pointer; user-select: none;
@@ -3736,9 +3743,7 @@ tbody tr:hover {
 .u-fund-grid { height: 60px; box-sizing: border-box; padding: 8px 12px; overflow: hidden; }
 .fund-row.open .u-caret { transform: rotate(90deg); }
 .fund-acc-body { display: none; padding: 8px 12px 12px; }
-.fund-row.open .fund-acc-body { display: block; }
-.fund-name-sm { font-size: 13px; }
-/* 行管理面板 */
+.fund-row.open .fund-acc-body { display: block; }/* 行管理面板 */
 .mm-row {
     display: flex; align-items: center; gap: 10px;
     padding: 8px 10px; border: 1px solid #f0f0f0; border-radius: 10px; background: #fafafa;
@@ -3761,18 +3766,13 @@ tbody tr:hover {
 .mm-btn.pin-on { background: #2e7d32; border-color: #2e7d32; color: #fff; }
 .mm-btn.pin-bottom-on { background: #1565c0; border-color: #1565c0; color: #fff; }
 .mm-btn.del { color: #c62828; }
-.mm-btn:disabled { opacity: .35; cursor: not-allowed; }
-/* 基金行单价列：盈亏率胶囊(大)在上，单价(小)在下 */
-.fund-price-col { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-.fund-chg-pill {
+.mm-btn:disabled { opacity: .35; cursor: not-allowed; }.fund-chg-pill {
     font-size: 15px; font-weight: 700; line-height: 1;
     padding: 4px 10px; border-radius: 999px;
     font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .fund-chg-pill.up { background: #e8f5e9; color: #2e7d32; }
-.fund-chg-pill.down { background: #ffebee; color: #c62828; }
-.fund-price-sm { font-size: 11px; font-weight: 500; color: #999; font-variant-numeric: tabular-nums; }
-.fund-hd-item {
+.fund-chg-pill.down { background: #ffebee; color: #c62828; }.fund-hd-item {
     padding: 9px 0; border-top: 1px solid #f3f3f3; font-size: 13px;
 }
 .fund-hd-item:first-child { border-top: none; }
@@ -3891,36 +3891,6 @@ background: #ffffff;
         transform: rotate(360deg);
     }
 }
-
-.page-head {
-    font-size: 17px;
-    font-weight: 700;
-    padding: 14px 16px;
-    text-align: center;
-    background: var(--bg);
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    border-bottom: 1px solid var(--line);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-/* 图表/设置页与资产页同宽：复用 .wrap 的 1080px 居中约束 */
-#pageChart,
-#pageSettings {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 20px 16px 80px;
-}
-
-/* 标题栏顶到 1080 列边缘，与资产页顶部栏视觉一致 */
-#pageChart>.page-head,
-#pageSettings>.page-head {
-    margin: 0 -16px;
-    padding: 14px 16px;
-}
-
 /* 设置卡片原本自带左右 12px 外边距，与 section 的 16px 叠加会过窄，这里取消让其对齐 */
 #pageSettings>.setting-card {
     margin-left: 0;
@@ -4080,11 +4050,6 @@ background: #ffffff;
     flex-shrink: 0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
 }
-
-.icon-cell-img.dark {
-    background: #1a1a1a;
-}
-
 .icon-cell-img img {
     width: 34px;
     height: 34px;
@@ -4422,18 +4387,7 @@ background: #ffffff;
 
 .setting-row.danger .label {
     color: #d24545;
-}
-
-.setting-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    background: #fff5e6;
-    color: #c97a16;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 700;
-}
-/* ===== TQQQ 富途风格 K线页（覆盖层，入口为市场行情列表 TQQQ 行箭头） ===== */
+}/* ===== TQQQ 富途风格 K线页（覆盖层，入口为市场行情列表 TQQQ 行箭头） ===== */
 /* TQQQ 行内打开箭头（复用基金展开箭头 .u-caret 视觉） */
 .market-item.tqqq-row{grid-template-columns:minmax(150px,1fr) 92px 100px}
 .tqqq-caret{display:inline-flex;align-items:center;cursor:pointer}
@@ -6230,7 +6184,6 @@ const CAT_LABEL = {
     pending: "挂单"
 };
 var pendingFilter = {};
-var pendingRange = "all";
 var TRADES = [];
 var pendingPage = 1;
 const CAT_DEFAULT_FULL = {},
@@ -6370,6 +6323,36 @@ function fmtAmtPlain(n) {
     return (neg ? "-" : "+") + a.toLocaleString("zh-CN")
 }
 
+/* 日历专用：把正负号包成定宽 <span class="cal-sign">。
+   字体里 "+" 比 "-" 宽约 75%，定宽后正负单元格数字位才能左端对齐。
+   仅日历内使用（配合 innerHTML 赋值），不改变全局 fmtAmtPlain 的纯文本行为。 */
+function calSignHTML(neg) {
+    return '<span class="cal-sign">' + (neg ? "-" : "+") + "</span>"
+}
+
+function fmtAmtPlainHTML(n) {
+    const neg = n < 0;
+    const a = Math.round(Math.abs(n || 0));
+    return calSignHTML(neg) + a.toLocaleString("zh-CN")
+}
+
+function fmtAmtKHTML(n) {
+    const a = Math.abs(n || 0);
+    const neg = n < 0;
+    if (a >= 1e6) return calSignHTML(neg) + (a / 1e6).toFixed(1) + "M";
+    if (a >= 1e5) return calSignHTML(neg) + (a / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+    return fmtAmtPlainHTML(n)
+}
+
+/* 百分比：fmtCalPct/fmtCalPct2 已自带负号，这里统一换成定宽符号
+   （无号时返回纯文本，不套 span，避免徒增行内盒） */
+function calPctHTML(txt) {
+    if (typeof txt !== "string") return txt;
+    if (txt.charAt(0) === "+") return calSignHTML(false) + txt.slice(1);
+    if (txt.charAt(0) === "-") return calSignHTML(true) + txt.slice(1);
+    return txt
+}
+
 function fmtAmtK(n) {
     const a = Math.abs(n || 0);
     if (a >= 1e6) {
@@ -6385,23 +6368,15 @@ function fmtAmtK(n) {
     return fmtAmtPlain(n)
 }
 
+/* 日历百分比统一两位小数：日格子、月/年汇总、年卡、日视图药丸共用同一口径，
+   不再按数值大小切换精度（原先 >100% 取整、≥10% 一位，同一日历里混用三种精度，
+   纵向对比时反而难读）。调用方负责补 "+" 号，负号由 toFixed 自带 */
 function fmtCalPct(ratio) {
-    const pct = (ratio || 0) * 100;
-    const a = Math.abs(pct);
-    let s;
-    if (a > 100) s = Math.round(pct).toString();
-    else if (a >= 10) s = pct.toFixed(1);
-    else s = pct.toFixed(2);
-    return s + "%"
+    return ((ratio || 0) * 100).toFixed(2) + "%"
 }
 
 function fmtCalPct2(ratio) {
-    const pct = (ratio || 0) * 100;
-    const a = Math.abs(pct);
-    let s;
-    if (a > 100) s = Math.round(pct).toString();
-    else s = pct.toFixed(2);
-    return s + "%"
+    return ((ratio || 0) * 100).toFixed(2) + "%"
 }
 
 function fmtUSD(n) {
@@ -8576,7 +8551,6 @@ function drawAllocation() {
     var box = document.getElementById("allocChart");
     if (!box) return;
     var fx = effFx();
-    var isMobile = window.innerWidth <= 560;
     var vb = "16 16 328 328";
     var items = [];
     allocLegItems = [];
@@ -8677,7 +8651,6 @@ function drawAllocation() {
     var ang = 0,
         sectors = "",
         topSvg = "",
-        leaders = [],
         leaderSvg = "";
     items.forEach(function(it, idx) {
         var pct = it.val / total;
@@ -9611,7 +9584,6 @@ function buildDetailSeries(opts) {
         const dayRet = cur.dayRet;
         const dayRetTxt = dayRet == null || !isFinite(dayRet) ? "—" : (dayRet >= 0 ? "+" : "") + (dayRet * 100).toFixed(2) + "%";
         const dayRetCls = dayRet == null ? "" : dayRet >= 0 ? "up" : "down";
-        const fundMatched = !!cur.fundTargetMatched;
         const kv = (l, v) => '<div class="kv"><span class="l">' + l + "</span>" + (v || '<span class="sub2">—</span>') + "</div>";
         const pnlHtml = v => '<span class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "+" : "") + fmt0(v) + "</span>";
         ps.innerHTML = '<div class="card"><div class="k">' + mdLabel(cur.dayTime) + '</div>' + '<div class="vr"><span class="v ' + dayPnlClass + '">' + (dayPnl >= 0 ? "+" : "") + fmt0(dayPnl) + '</span><span class="pct ' + dayRetCls + '">' + dayRetTxt + "</div>" + "</div>" + '<div class="card"><div class="k">浮动</div>' + '<div class="vr"><span class="v ' + pnlClass + '">' + (cur.pnl >= 0 ? "+" : "") + fmt0(cur.pnl) + '</span><span class="pct ' + floatRetCls + '">' + floatRetTxt + "</div></div>" + '<div class="card"><div class="k">总计</div>' + '<div class="vr"><span class="v ' + totalPnlClass + '">' + (totalPnl >= 0 ? "+" : "") + fmt0(totalPnl) + '</span><span class="pct ' + totalRetCls + '">' + totalRetTxt + "</div>" + "</div>"
@@ -10197,8 +10169,6 @@ function renderTables() {
                     predCls = predPct >= 0 ? "up" : "down"
                 }
             }
-            var predMainTxt = predPnl == null ? "—" : fmt0(predPnl);
-            var predSubTxt = predPct == null ? "—" : predPct.toFixed(2) + "%";
             var realizedTxt = fst.realizedPnl !== 0 ? (fst.realizedPnl >= 0 ? "+" : "") + fmt0(fst.realizedPnl) : "—";
             var realizedCls = fst.realizedPnl > 0 ? "up" : fst.realizedPnl < 0 ? "down" : "";
             return '<tr class="us-row-toggle" data-fund-row="' + f.id + '">' + '<td><div class="cell-main">' + itemIconHtml(f.icon) + '<span class="nm-text" style="font-size:' + nmFs(f.name) + 'px">' + esc(f.name || "") + '</span></div><div class="cell-sub"><span class="tag">' + esc(f.code || "") + '</span> <span class="time-bar ' + (f._ok === true ? "tb-live" : "tb-stale") + '" title="净值日期">' + esc(ymdShort(f._dayTime) || "—") + "</span> &gt;</div></td>" + '<td><div class="cell-main">' + (mv != null ? fmt0(mv) : "—") + '</div></td>' + '<td class="' + pnlCls + '"><div class="cell-main">' + pnlTxt + '</div><div class="cell-sub ' + pctCls + '">' + pctTxt + "</div></td>" + '<td class="' + dayPnlCls + '"><div class="cell-main">' + dayPnlTxt + '</div><div class="cell-sub ' + dayRetCls + '">' + dayRetTxt + "</div></td>" + '<td class="ops-wrap"><div class="ops-cell"><button class="btn-quote" data-quote="fund" data-qcode="' + esc(f.code || "") + '" data-qname="' + esc(f.name || "") + '">行情</button>' + '<span class="ops-stack"><button class="sm" data-edit="fund" data-id="' + f.id + '">编辑</button>' + '<button class="sm danger" data-del="fund" data-id="' + f.id + '">删</button></span></div></td>' + '</tr>' + '<tr class="us-trade-detail hidden" id="fund-detail-' + f.id + '"><td colspan="5"><div class="trade-inner">' + '<div class="trade-stats"><span><b>持有</b> ' + holdSh.toFixed(2) + " 份</span><span><b>均价</b> ¥" + Number(fst.avgCost || 0).toFixed(2) + '</span><span><b>总交易</b> ' + (f.trades || []).length + " 笔</span></div>" + '<div class="trade-actions"><button class="sm primary" data-fund-trade-buy="' + f.id + '">+ 买入</button><button class="sm" data-fund-trade-sell="' + f.id + '">- 卖出</button></div>' + renderFundTradeTable(f) + "</div></td></tr>"
@@ -10231,11 +10201,7 @@ function renderTables() {
             var dayPnlCls = u._dayPnl == null ? "" : u._dayPnl >= 0 ? "up" : "down";
             var realizedTxt = st.realizedPnl !== 0 ? (st.realizedPnl >= 0 ? "+" : "") + fmt0(st.realizedPnl * fx) : "—";
             var realizedCls = st.realizedPnl > 0 ? "up" : st.realizedPnl < 0 ? "down" : "";
-            var usPredTxt = u._dayPredictUs == null ? "—" : fmt0(u._dayPredictUs);
-            var usPredPctTxt = u._dayPredictUsPct == null ? "—" : u._dayPredictUsPct.toFixed(2) + "%";
-            var usPredCls = u._dayPredictUs == null ? "" : u._dayPredictUs >= 0 ? "up" : "down";
             var usAlpPriceTxt = u._alpacaPrice == null ? "—" : u._alpacaPrice.toFixed(2);
-            var usSrcTxt = u._dayPredictSource === "bybit" ? "Bybit·预测" : usAlpPriceTxt;
             var _optMode = isOptionSymbol(u.symbol) ? optionAlpacaMode(u) : null;
             var _isIbkr = _optMode === "ibkr";
             return `<tr class="us-row-toggle" data-us-row="${u.id}">\n        <td><div class="cell-main">${itemIconHtml(u.icon)}<span class="nm-text" style="font-size:${nmFs(uName)}px">${esc(uName)}</span></div><div class="cell-sub"><span class="tag">${esc((uSym||'').split(' ')[0])}</span> ${uo?`<span class="time-bar ${u._daySrc === 'IB' || _isIbkr ? 'tb-option' : 'tb-live'}" title="${esc(u._daySrc === 'IB' ? ('盈透 markPrice' + (u._markDate ? ' · 快照日 ' + u._markDate : '')) : 'Alpaca 行情')}">${esc(u._daySrc || (_isIbkr ? (ymdShort(u._markDate) || '—') : '—'))}</span>`:`<span class="time-bar ${u._ok===true?"tb-live":"tb-stale"}" title="数据源：QT=腾讯 / ALP=Alpaca / IB=盈透">${esc(u._daySrc || ymdShort(u._dayTime) || "—")}</span>`} &gt;</div></td>\n        <td><div class="cell-main">${fmt0(mv)}</div><div class="cell-sub">${holdSh}${uo?" 张":" 股"}</div></td>\n        <td class="${pnlCls}"><div class="cell-main">${pnlTxt}</div><div class="cell-sub ${pctCls}">${pctTxt}</div></td>\n        <td class="${dayPnlCls}"><div class="cell-main">${dayPnlTxt}</div><div class="cell-sub ${dayRetCls}">${dayRetTxt}</div></td>\n        <td><div class="cell-main">${usd?fmtUSD(usd):"—"}</div><div class="cell-sub">${st.avgCost>0?fmtUSD(st.avgCost):"—"}</div></td>\n        <td><button class="btn-quote" data-quote="us" data-qcode="${esc(uo?uo.root:u.symbol||"")}" data-qname="${esc(uo?uo.root:u.name||"")}">行情</button>\n            <button class="sm" data-edit="us" data-id="${u.id}">编辑</button>\n            <button class="sm danger" data-del="us" data-id="${u.id}">删</button></td></tr>\n        <tr class="us-trade-detail hidden" id="trade-detail-${u.id}"><td colspan="6"><div class="trade-inner">\n          <div class="trade-stats"><span><b>持有</b> ${holdSh}${uo?" 张":" 股"}</span><span><b>均价</b> ${st.avgCost>0?fmtUSD(st.avgCost):"—"}</span><span><b>总交易</b> ${(u.trades||[]).length} 笔</span></div>\n          <div class="trade-actions"><button class="sm primary" data-trade-buy="${u.id}">+ 买入</button><button class="sm" data-trade-sell="${u.id}">- 卖出</button></div>\n          ${renderTradeTable(u)}\n        </div></td></tr>`
@@ -11127,15 +11093,6 @@ function drawChartInternal() {
         }
     };
 
-    function roundRect(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.arcTo(x + w, y, x + w, y + h, r);
-        ctx.arcTo(x + w, y + h, x, y + h, r);
-        ctx.arcTo(x, y + h, x, y, r);
-        ctx.arcTo(x, y, x + w, y, r);
-        ctx.closePath()
-    }
     chart = new Chart(cv.getContext("2d"), {
         type: "line",
         data: {
@@ -11258,7 +11215,11 @@ function drawChartInternal() {
             const r = cv.getBoundingClientRect();
             setCross(snapIndex(e.clientX - r.left));
         });
-        cv.addEventListener("mouseleave", () => { _dragging = false; setCross(null); });
+        cv.addEventListener("mouseleave", () => {
+            _dragging = false;
+            // 回到默认位置（最新一天），而非清空——保持明细条常驻
+            setCross(cv._defaultCrossIdx != null ? cv._defaultCrossIdx : null);
+        });
         cv.addEventListener("mousedown", e => { _dragging = true; setCross(snapIndex(e.clientX - cv.getBoundingClientRect().left)); });
         cv.addEventListener("mouseup", () => { _dragging = false; });
         // touch: press+drag to slide crosshair
@@ -11278,6 +11239,20 @@ function drawChartInternal() {
         cv.addEventListener("touchend", () => { _dragging = false; });
         cv.addEventListener("touchcancel", () => { _dragging = false; });
     }
+    // 默认十字线：定位到最后一个实际数据点（最新一天）。每次 drawChart 都会重建图表对象，
+    // 故这里在每次绘制末尾重新计算并应用，使图例下方明细条常驻显示最新一天（无需悬停）。
+    // 说明：labels 末尾可能追加「预测」点，故按总资产数据取最后一个非 null 值定位。
+    (function initDefaultCross() {
+        var cvEl = $("chart");
+        if (!cvEl || !chart) return;
+        var tot = chart.data.datasets[0] ? chart.data.datasets[0].data : [];
+        var idx = null;
+        for (var i = tot.length - 1; i >= 0; i--) { if (tot[i] != null) { idx = i; break; } }
+        if (idx == null) return;
+        cvEl._defaultCrossIdx = idx;   // 供 mouseleave 恢复
+        chart.$cross = { index: idx };
+        chart.draw();
+    })();
     // 图例下方统计条：当前可见周期内 总资产涨跌额 / TWR 涨跌幅 / QQQ 涨跌幅
     (function () {
         var boxEl = document.getElementById("chartStats");
@@ -11502,7 +11477,9 @@ function buildDayCell(dayObj, maxAbs, useAmt, isToday) {
         vEl.textContent = "—";
         vEl.style.opacity = ".45"
     } else {
-        vEl.textContent = useAmt ? fmtAmtK(val) : fmtCalPct(val)
+        vEl.innerHTML = useAmt ? fmtAmtKHTML(val) : calPctHTML(fmtCalPct(val));
+        /* 百分比文本比金额长（两位小数后 +123.45% 共 8 字符），需要单独一档字号 */
+        if (!useAmt) vEl.classList.add("is-pct")
     }
     d.appendChild(vEl);
     const pctTxt = dayObj.chgPct == null ? "—" : (dayObj.chgPct >= 0 ? "+" : "") + (dayObj.chgPct * 100).toFixed(2) + "%";
@@ -11572,9 +11549,9 @@ function renderCalDay(box, useAmt, todayStr) {
         const _v = document.createElement("div");
         _v.className = "cal-summary-val " + (_mChg >= 0 ? "up" : "down");
         if (useAmt) {
-            _v.textContent = fmtAmtPlain(_mChg)
+            _v.innerHTML = fmtAmtPlainHTML(_mChg)
         } else {
-            _v.textContent = _mPct != null ? (_mPct >= 0 ? "+" : "") + fmtCalPct2(_mPct) : "—"
+            _v.innerHTML = _mPct != null ? calPctHTML((_mPct >= 0 ? "+" : "") + fmtCalPct2(_mPct)) : "—"
         }
         const _lab = document.createElement("div");
         _lab.className = "cal-summary-label";
@@ -11674,7 +11651,7 @@ function renderCalMonth(box, useAmt) {
             vEl.textContent = "—";
             vEl.style.opacity = ".6"
         } else {
-            vEl.textContent = useAmt ? fmtAmtPlain(o.chg) : fmtCalPct2(o.chgPct)
+            vEl.innerHTML = useAmt ? fmtAmtPlainHTML(o.chg) : calPctHTML(fmtCalPct2(o.chgPct))
         }
         card.appendChild(vEl);
         card.title = o.m + "月\n总资产变化：" + ((o.chg >= 0 ? "+" : "") + fmt0(o.chg)) + (o.chgPct != null ? " (" + (o.chgPct >= 0 ? "+" : "") + (o.chgPct * 100).toFixed(2) + "%)" : "");
@@ -11728,9 +11705,9 @@ function renderCalMonth(box, useAmt) {
         const _v = document.createElement("div");
         _v.className = "cal-summary-val " + (_yChg >= 0 ? "up" : "down");
         if (useAmt) {
-            _v.textContent = fmtAmtPlain(_yChg)
+            _v.innerHTML = fmtAmtPlainHTML(_yChg)
         } else {
-            _v.textContent = _yPct != null ? (_yPct >= 0 ? "+" : "") + fmtCalPct2(_yPct) : "—"
+            _v.innerHTML = _yPct != null ? calPctHTML((_yPct >= 0 ? "+" : "") + fmtCalPct2(_yPct)) : "—"
         }
         const _lab = document.createElement("div");
         _lab.className = "cal-summary-label";
@@ -11796,7 +11773,7 @@ function renderCalYear(box, useAmt) {
     pillLabel.textContent = "投资以来";
     const pillVal = document.createElement("div");
     pillVal.className = "cal-total-val";
-    pillVal.textContent = useAmt ? fmtAmtPlain(totalPnl) : fmtCalPct2(totalRetAll);
+    pillVal.innerHTML = useAmt ? fmtAmtPlainHTML(totalPnl) : calPctHTML(fmtCalPct2(totalRetAll));
     pill.appendChild(pillLabel);
     pill.appendChild(pillVal);
     box.appendChild(pill);
@@ -11830,7 +11807,7 @@ function renderCalYear(box, useAmt) {
         const vEl = document.createElement("div");
         vEl.className = "cal-yval";
         vEl.style.color = yChg >= 0 ? getCssVar("--up") : getCssVar("--down");
-        vEl.textContent = useAmt ? fmtAmtPlain(yChg) : fmtCalPct2(yPct);
+        vEl.innerHTML = useAmt ? fmtAmtPlainHTML(yChg) : calPctHTML(fmtCalPct2(yPct));
         card.appendChild(vEl);
         card.title = y + "年\n起始资产：" + fmt0(startAsset) + "\n年末资产：" + fmt0(endAsset) + "\n年度收益：" + (yChg >= 0 ? "+" : "") + fmt0(yChg) + (yPct != null ? " (" + (yPct >= 0 ? "+" : "") + (yPct * 100).toFixed(2) + "%)" : "");
         // 点击某年：更新锚定年并切到月视图（显示该年）
@@ -12660,8 +12637,7 @@ function statusPill(mode, name, hasData) {
 function paintStatusTags() {
     const wrap = document.getElementById("statusTags");
     if (!wrap) return;
-    const totalF = funds.length,
-        totalU = us.length;
+    const totalF = funds.length;
     const f = statusPill(fMode, "基金", totalF > 0);
     let sess;
     if (isUsRegularSession()) {
@@ -14563,7 +14539,6 @@ setAutoUsState(true);
 /* ============ 市场页面（Bybit HK + 腾讯收盘价基准） ============ */
 var MARKET_STORAGE_KEY = "pa_market_symbols";
 var MARKET_API_BASE = "https://api.bybitgeorgia.ge/v5/market";
-var _marketTimer = null;
 var _marketSymbols = [];
 
 /* Bybit instruments-info 的 symbolType 缓存：该值只用于区分股票/币且几乎不变，
@@ -15141,6 +15116,13 @@ function initUnifiedInteractions() {
 function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
     // 暴露给预测覆盖层：那里要把美股行改回腾讯(QT)现价与涨跌幅（跨脚本块拿不到本作用域变量）
     window._mktTencentMap = tencentMap || null;
+    // 缓存本轮渲染入参：添加/删除自选后先拿它即时重渲染（新行价格暂画 --），不等行情往返
+    window._mktLastRender = {
+        data: data || null,
+        tencentMap: tencentMap || null,
+        alpacaMap: alpacaMap || null,
+        alpacaPriceMap: alpacaPriceMap || null
+    };
     var loadingEl = document.getElementById("marketLoading");
     var errEl = document.getElementById("marketError");
     if (loadingEl) loadingEl.style.display = "none";
@@ -15292,7 +15274,6 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
         var srcLabelMap = { bybit: "BYB", tencent: "QT", alpaca: "ALP", ibkr: "IB" };
         // 期权持仓：市场列表显示其正股（价格+涨跌幅），市值取美股持仓口径，盈亏读取美股持仓当日盈亏额
         if (g.isOption) {
-            var _optParsed = parseOptionSymbol(g.optionSyms[0]);
             var _optRoot = g.root;
             name = _optRoot;
             // 期权正股：盘中 腾讯→Alpaca→Bybit；盘外 Bybit→Alpaca（腾讯兜底已移除，盘外只留 BYB/ALP）；都没有则画杠
@@ -15490,7 +15471,12 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
 function removeMarketSymbol(sym) {
     var arr = getMarketSymbols().filter(function(s) { return s !== sym; });
     saveMarketSymbols(arr);
-    fetchMarketData();
+    // 即时反馈：先用上一轮行情重渲染，让被删的行马上消失，再强制重拉
+    var _lr = window._mktLastRender;
+    if (_lr) {
+        try { renderMarketList(_lr.data, _lr.tencentMap, _lr.alpacaMap, _lr.alpacaPriceMap); } catch (e) {}
+    }
+    fetchMarketData(true); // 主动删除：绕过 20s 去重，立即重渲染
 }
 
 function addMarketSymbol(sym) {
@@ -15642,21 +15628,39 @@ function initMarketManage() {
             renderManageList();
         } else if (btn.getAttribute("data-act") === "del") {
             // 直接删除（非隐藏）：自选从本机移除；持仓从数组移除，需同步 GitHub 才在 Pages 生效
+            // 注意：行的 key 是「Bybit 代码 + USDT」（如 AMDSTOCKUSDT / GOOGLUSDT），而自选里存的是
+            // 用户录入的原始代码（AMD / GOOG / 02513）。必须按 bybitCodeOf 归一后再比对，否则
+            // 映射过的代码匹配不上 → 点删除静默 return（无任何提示），表现为「有时候删不掉」。
             var _plain = String(k || "").replace(/USDT$/i, "").toUpperCase();
             var _isFund = !!row.getAttribute("data-fund-code");
-            var _isSelf = getMarketSymbols().indexOf(_plain) >= 0;
+            var _selfSyms = getMarketSymbols().filter(function(s) { return bybitCodeOf(s).toUpperCase() === _plain; });
+            var _isSelf = _selfSyms.length > 0;
+            var _matchHolding = function(x) {
+                var s = String((x && x.symbol) || "").toUpperCase();
+                if (bybitCodeOf(s).toUpperCase() === _plain) return true;
+                // 期权持仓：面板里按正股合并成一行（key 是正股代码），需按正股 root 比对
+                if (typeof isOptionSymbol === "function" && isOptionSymbol(s)) {
+                    var op = (typeof parseOptionSymbol === "function") ? parseOptionSymbol(s) : null;
+                    if (op && op.root && bybitCodeOf(op.root).toUpperCase() === _plain) return true;
+                }
+                return false;
+            };
             var _isHolding = false;
             if (_isFund) _isHolding = (funds || []).some(function(x) { return String(x.code || "").toUpperCase() === _plain; });
-            else _isHolding = (us || []).some(function(x) { return String(bybitCodeOf(x.symbol || "")).toUpperCase() === _plain; });
-            if (!_isSelf && !_isHolding) { renderManageList(); renderUnifiedList(); return; }
+            else _isHolding = (us || []).some(_matchHolding);
+            if (!_isSelf && !_isHolding) {
+                // 不再静默返回：明确告知，避免「点了没反应也不知道为什么」
+                alert("未能定位该项（" + _plain + "），未做任何删除。\n可先刷新行情后重试。");
+                renderManageList(); renderUnifiedList(); return;
+            }
             var _label = _isHolding ? (_isFund ? "基金持仓" : "美股持仓") : "自选监控";
             if (!confirm("确定删除该项（" + _label + "）？\n· 自选：仅从本机移除，刷新不再恢复。\n· 持仓：删除后请点设置里的『同步到 GitHub』，才会写回仓库并在线上 Pages 生效。")) {
                 renderManageList(); renderUnifiedList(); return;
             }
-            if (_isSelf) removeMarketSymbol(_plain);
+            if (_isSelf) _selfSyms.forEach(function(s) { removeMarketSymbol(s); });
             if (_isHolding) {
                 if (_isFund) funds = (funds || []).filter(function(x) { return String(x.code || "").toUpperCase() !== _plain; });
-                else us = (us || []).filter(function(x) { return String(bybitCodeOf(x.symbol || "")).toUpperCase() !== _plain; });
+                else us = (us || []).filter(function(x) { return !_matchHolding(x); });
             }
             save();
             renderTables();
@@ -15684,7 +15688,6 @@ function initMarketManage() {
 }
 
 // 渲染基金持仓下拉（前十大），点开显示季报持仓；美股持仓按市场逻辑显示实时价与盈亏率
-var _mktLabel = { us: "美股", hk: "港股", jp: "日股" };
 function renderFundHoldings() {
     var fs = (typeof funds !== "undefined" && funds) ? funds : [];
     if (!fs.length) {
@@ -16388,14 +16391,22 @@ function marketStockUseBybit() {
 // 与手动刷新又会无条件调一次，原本整轮 Bybit 扫描(~1.8s/只)会双跑。这里进行中调用合并共享，
 // 一轮跑完 20s 内的重复触发直接跳过（2 分钟自动刷新不受影响）。
 var _fmdInflight = null, _fmdLastTs = 0;
-function fetchMarketData() {
-    if (_fmdInflight) return _fmdInflight;
-    if (Date.now() - _fmdLastTs < 20000) return;
+// force=true：用户主动操作（添加/删除自选）时绕过两道闸门，立即重拉并重渲染，
+// 避免刚刷完行情(<20s)内添加被静默吞掉、要等 2 分钟定时刷新才「突然出现」。
+// 自动刷新/切页仍走去重，避免 Bybit 逐只扫描双跑。
+var _fmdSeq = 0;
+function fetchMarketData(force) {
+    if (!force) {
+        if (_fmdInflight) return _fmdInflight;
+        if (Date.now() - _fmdLastTs < 20000) return;
+    }
+    var seq = ++_fmdSeq;
     _fmdInflight = Promise.resolve().then(function() {
         return fetchMarketDataRaw();
     }).catch(function() {}).then(function() {
         _fmdLastTs = Date.now();
-        _fmdInflight = null;
+        // 仅当自己是最新一轮时才清空占用：force 并发时避免旧轮结束误清新一轮
+        if (_fmdSeq === seq) _fmdInflight = null;
     });
     return _fmdInflight;
 }
@@ -16622,9 +16633,6 @@ function fetchMarketDataRaw() {
 }
 window.fetchMarketData = fetchMarketData; // [修复] 暴露为全局：1 分钟自动刷新 refreshAuto(全局) 需调用它
 
-// 市场页面显示时自动加载
-var _marketLoaded = false;
-
 // 绑定添加按钮和输入框
 setTimeout(function() {
     var addBtn = document.getElementById("marketAddBtn");
@@ -16634,7 +16642,12 @@ setTimeout(function() {
         var val = addInput ? addInput.value : "";
         if (addMarketSymbol(val)) {
             if (addInput) addInput.value = "";
-            fetchMarketData();
+            // 即时反馈：先用上一轮行情把新行画出来（价格暂为 --），再强制重拉真实行情
+            var _lr = window._mktLastRender;
+            if (_lr) {
+                try { renderMarketList(_lr.data, _lr.tencentMap, _lr.alpacaMap, _lr.alpacaPriceMap); } catch (e) {}
+            }
+            fetchMarketData(true);
         } else if (val.trim()) {
             alert("该代码已存在或无效: " + val.trim());
         }
@@ -17413,7 +17426,6 @@ document.querySelectorAll("#allocChart image[data-b64]").forEach(function(im) {
     const m = {}; _tzFmt.formatToParts(new Date(ts)).forEach(p => m[p.type] = p.value);
     return { date: m.month + '/' + m.day, time: m.hour + ':' + m.minute, minute: parseInt(m.minute, 10) };
   }
-  function fmtAxis(ts){ const f = tzParts(ts); return { date: f.date, time: f.time }; }
   function fmtFull(ts){ return new Date(ts).toLocaleString('sv-SE',{timeZone:TZ}).replace('T',' '); } // 2026-09-13 11:30:00
   function col(up){ return up ? UP_C() : DOWN_C(); }
   // 全量 EMA（基于 bars 收盘价，seed=首根收盘），便于可见窗口左缘连续
