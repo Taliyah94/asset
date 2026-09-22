@@ -2156,7 +2156,7 @@ tbody tr:hover {
     }
 
     #pnlSummary.cards .k {
-        font-size: 11px;
+        font-size: 12px;
     }
 
     #pnlSummary.cards .vr {
@@ -2224,14 +2224,42 @@ tbody tr:hover {
         padding: 10px 14px;
     }
 
-    #cards .cash-card .k {
+    /* 标签不收缩（占多少是多少），金额占满剩余宽度且单行不换行，
+       保证房产与现金金额同为 18px、不对齐错位 */
+    #cards .cash-card .k,
+    #cards .property-card .k {
+        flex: 0 0 auto;
         margin: 0;
     }
 
     #cards .cash-card .mv,
     #cards .property-card .mv {
+        flex: 1 1 auto;
+        min-width: 0;
         font-size: 18px;
         margin-top: 0;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 房产右箭头脱离文档流：相对标签定位、不占用房产格宽度；
+       卡片展开(open)时顺时针旋转 90° 指向下方 */
+    #cards .property-card .k {
+        position: relative;
+    }
+
+    #cards .property-card .prop-arrow {
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        margin-left: 4px;
+    }
+
+    #cards .property-card.open .prop-arrow {
+        transform: translateY(-50%) rotate(90deg);
     }
 
     #cards .metric {
@@ -2391,6 +2419,23 @@ tbody tr:hover {
     text-align: left;
     white-space: nowrap;
 }
+
+/* 现金明细：盈透应计利息作为普通收入交易（可编辑/删除/计入总额），用弱化备注区分手工收支 */
+.us-trade-detail .trade-table td .muted-note {
+    color: #9aa3b2;
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+/* 现金：操作列抽离为「操作」按钮切换（与基金/美股主表一致：默认隐藏操作列，操作视图保留名称列、仅隐藏金额列） */
+#pane-cash[data-ops="off"] thead th:nth-child(3),
+#pane-cash[data-ops="off"] tbody tr:not(.us-trade-detail) td:nth-child(3) { display: none; }
+#pane-cash[data-ops="on"] thead th:nth-child(2),
+#pane-cash[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(2) { display: none; }
+#pane-cash[data-ops="on"] thead th:nth-child(3),
+#pane-cash[data-ops="on"] tbody tr:not(.us-trade-detail) td:nth-child(3) { text-align: center; }
+
+/* 现金明细日期使用紧凑格式（ymdCompact），日期列自然收窄，避免窄屏横向溢出（与基金/美股交易明细一致） */
 
 /* 交易明细「数量」列：买入标绿、卖出标红，跟随设置页「涨绿跌红/涨红跌绿」切换 */
 .us-trade-detail .trade-table td.qty-buy { color: var(--up); }
@@ -5193,7 +5238,9 @@ background: #ffffff;
                 <div data-page-node-id="Bpi6dHWgmnL9Gmsb2OeqcM" class="card">
                     <div data-page-node-id="XxjYNhsR1YhaWcSguCBIVx" class="k"><span data-page-node-id="3pPdryBHBgEg7PXZPXjieE" class="dot" style="background:#0ea5e9"></span><!--pnid:vdPYdqwZ4ZFFzbY1aDpC7s-->纳斯达克100 FP</div>
                     <div data-page-node-id="uwSENrn5UMrz6mFmuJJVn7" class="v" id="nxDynPE" style="color:rgb(91, 102, 120)"><!--pnid:fxY1v6bJfshjih5PYAYghX-->22.8</div>
+                    <div class="kv"><span class="tag" id="nxDynPEtag" style="background:rgb(238, 241, 246); color:rgb(91, 102, 120)">公平</span></div>
                     <div data-page-node-id="3IxyKPA3VYLXFnxgdil9BS" class="nxd" id="nxDynPEdate"><!--pnid:K8hwGsKa6LmYfP0gpD6s5f-->截至 2026-08-14</div>
+                    <button class="nx-detail-btn" data-target="gboxFP" type="button">详情 ▾</button>
                 </div>
             </div>
 
@@ -5270,6 +5317,23 @@ background: #ffffff;
                     <div data-page-node-id="v5bF1ivnauw5YQq6ADBPCz" class="gphd" id="gVXN_date"><!--pnid:z44YwVyedzHafrbufvWsfx-->截至 2026-08-13</div>
                     <div data-page-node-id="w1uwXDuaNJ8lbWK96aovLA" class="gleg" id="gVXN_leg"><span data-page-node-id="1w8EYvE7FV6AFbUR47SURK" style="color:#1a9e54"><i data-page-node-id="vTNNruqTGJ8lIeb7FNeqtB" style="background:#1a9e54"></i><!--pnid:1oE10NZPJsnYGJ6cFoLyJz-->平静</span><span data-page-node-id="4bYWC4DiG999DUxhWwbJ0D" style="color:#0d9488"><i data-page-node-id="FUpvNtJKMZocpfdpYQTfTg" style="background:#0d9488"></i><!--pnid:f4JkQOYfk3NY9m6wx3pOuU-->正常</span><span data-page-node-id="VLfTBrDQ77073H1IaknIgw" style="color:#b45309"><i data-page-node-id="5wJuHtNYMEvLL6F6jKdVtw" style="background:#b45309"></i><!--pnid:fCWlvFvrc5fR1oyTXwA6ux-->紧张</span><span data-page-node-id="LZunwvHVPgD0HZmpsIhyFc" style="color:#d24545"><i data-page-node-id="thzkvjrcTwqsXvVE5ZvzpJ" style="background:#d24545"></i><!--pnid:SGLNr9MUTb07ffBzXAz6zq-->恐慌</span></div>
                 </div>
+            <div class="gbox" id="gboxFP">
+                <svg class="gauge-svg" id="gFP" role="img" viewBox="-6 -2 212 188" aria-label="纳斯达克100 FP 仪表盘"></svg>
+                <div class="gph">纳斯达克100 FP</div>
+                <div class="gphd" id="gFP_date">截至 2026-08-14</div>
+                <div class="gleg" id="gFP_leg"></div>
+                <div class="gwp" id="gFP_wp">
+                    <div class="gwp-h">滚动10年估值 · worldperatio</div>
+                    <div class="gwp-grid">
+                        <div class="gwp-it"><span>μ 均值</span><b id="gFP_mu">27.3</b></div>
+                        <div class="gwp-it"><span>σ 标准差</span><b id="gFP_sigma">4.05</b></div>
+                        <div class="gwp-it"><span>1σ 区间</span><b id="gFP_s1">[23.27, 31.36]</b></div>
+                        <div class="gwp-it"><span>2σ 区间</span><b id="gFP_s2">[19.22, 35.40]</b></div>
+                    </div>
+                    <div class="gwp-cur">当前 FP <b id="gFP_cur">22.8</b> → <span id="gFP_cat" style="color:rgb(91,102,120)">低估</span></div>
+                    <div class="gwp-dt" id="gFP_wp_date">数据截至 2026-08-07</div>
+                </div>
+            </div>
             </div>
         </section>
     </section><!--pnid:d0hkSlIToV5idIChFUyKaR--><!-- 设置页面 -->
@@ -5657,17 +5721,20 @@ background: #ffffff;
                                                 </div>
                                             </section>
 
-                                            <section data-page-node-id="akTEem92rn32LQlBpA7DwG" class="tabpane" id="pane-cash" style="display:none">
+                                            <section data-page-node-id="akTEem92rn32LQlBpA7DwG" class="tabpane" id="pane-cash" data-ops="off" style="display:none">
                                                 <div data-page-node-id="ATUlu4WoiQbh2o0tsxoOaQ" class="pane-head">
                                                     <strong data-page-node-id="MDOcaPhpx14Zmagmecx0yx" style="font-size:14px"><!--pnid:f8GSrPCkmwjJzHcqy68Fcy-->现金记录（人民币/美元）</strong>
-                                                    <button data-page-node-id="0KmCzG8Srii8XeJaWpC8u2" class="primary sm" data-add="cash"><!--pnid:zQTSqu2oW7hT3cquSmLWms-->+ 添加记录</button>
+                                                    <span data-page-node-id="cashPhActions" class="ph-actions">
+                                                        <button data-page-node-id="cashOpsToggle" class="primary sm btn-ops-toggle" data-ops-toggle="cash"><!--pnid:zQTSqu2oW7hT3cquSmLWms-->操作</button>
+                                                        <button data-page-node-id="0KmCzG8Srii8XeJaWpC8u2" class="primary sm" data-add="cash"><!--pnid:zQTSqu2oW7hT3cquSmLWms-->+ 添加记录</button>
+                                                    </span>
                                                 </div>
                                                 <table data-page-node-id="M5LasALweknZeEWjuSRGuk">
                                                     <thead data-page-node-id="deoIMoZZmuLPqNxXeyT6Gb">
                                                         <tr data-page-node-id="qPo5eWOA0siRMShh7hxAPF">
                                                             <th data-page-node-id="WRLa9IoRgHk3zz1gf7Sqjx" class="sortable" data-sort="date"><!--pnid:m6nIsaRk7qK8MZNUrQ8O4m-->项目<span data-page-node-id="d0Gkusvyan6Iphd494DlVM" class="sort-ind"><!--pnid:sDrR6k3c8cw7my8To1PSeS-->⇅</span></th>
                                                             <th data-page-node-id="iNlBNM4C2KWMFeZ7y2jh2C" class="sortable sorted" data-sort="amt"><!--pnid:dvkvTbGzsl09FsmMhrVgkE-->金额<span data-page-node-id="o3ycZyGjNZ6jeqeuA6iP3K" class="sort-ind"><!--pnid:MTUSJoqaZ6ZNWlHmgMSryX-->▼</span></th>
-                                                            <th data-page-node-id="PFy0oixGNPetMNGbpAVouk"></th>
+                                                            <th data-page-node-id="PFy0oixGNPetMNGbpAVouk">操作</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody data-page-node-id="flsbSUor3NdVMSZdw15T4Q" id="tbCash"></tbody>
@@ -10155,19 +10222,8 @@ function renderTables() {
             var amtCls = amt >= 0 ? "" : "down";
             var amtMain = isUsd ? fmtUSD(amt) : fmt0(amt);
             var amtSub = isUsd ? "≈" + fmt0(cny) : "";
-            // 应计利息四舍五入显示为整数，改名「含利息」，与「≈人民币」合并到同一行（含利息在前）
-            var amtAccrued = "";
-            var amtAccruedCls = "";
-            if (c.accruedInterest) {
-                var _ai = Math.round(Number(c.accruedInterest) || 0);
-                amtAccrued = "含利息" + (_ai >= 0 ? "+" : "-") + Math.abs(_ai);
-                amtAccruedCls = _ai < 0 ? "down" : "";
-            }
-            var _subParts = [];
-            if (amtAccrued) _subParts.push('<span class="' + amtAccruedCls + '">' + amtAccrued + "</span>");
-            if (amtSub) _subParts.push('<span>' + amtSub + "</span>");
             var amtHtml = '<div class="cell-main">' + amtMain + "</div>"
-                + (_subParts.length ? '<div class="cell-sub">' + _subParts.join(" ") + "</div>" : "");
+                + (amtSub ? '<div class="cell-sub">' + amtSub + "</div>" : "");
             var txs = c.transactions || [];
             var totalIn = 0,
                 totalOut = 0;
@@ -10175,7 +10231,7 @@ function renderTables() {
                 if (t.type === "in") totalIn += Number(t.amount) || 0;
                 else totalOut += Number(t.amount) || 0
             });
-            return '<tr class="us-row-toggle" data-cash-row="' + c.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(c.icon) + "<span>" + esc(c.note || c.id) + '</span></div></td>' + '<td class="' + amtCls + '">' + amtHtml + "</td>" + '<td><button class="sm" data-edit="cash" data-id="' + c.id + '">编辑</button>' + '<button class="sm danger" data-del="cash" data-id="' + c.id + '">删</button></td></tr>' + '<tr class="us-trade-detail hidden" id="cash-detail-' + c.id + '"><td colspan="3"><div class="trade-inner">' + '<div class="trade-stats cash-stats"><span><b>收</b> ' + (isUsd ? fmtUSD(totalIn) : fmt0(totalIn)) + "</span><span><b>支</b> " + (isUsd ? fmtUSD(totalOut) : fmt0(totalOut)) + "</span><span><b>净</b> " + (isUsd ? fmtUSD(amt >= 0 ? amt : -amt) : fmt0(amt >= 0 ? amt : -amt)) + "</span><span><b>笔数</b> " + txs.length + "</span></div>" + '<div class="trade-actions"><button class="sm primary" data-cash-trade-in="' + c.id + '">+ 收入</button><button class="sm danger" data-cash-trade-out="' + c.id + '">- 支出</button></div>' + renderCashTradeTable(c) + "</div></td></tr>"
+            return '<tr class="us-row-toggle" data-cash-row="' + c.id + '">' + '<td><div class="cell-main" style="display:flex;align-items:center;gap:8px;">' + itemIconHtml(c.icon) + "<span>" + esc(c.note || c.id) + '</span></div></td>' + '<td class="' + amtCls + '">' + amtHtml + "</td>" + '<td><button class="sm" data-edit="cash" data-id="' + c.id + '">编辑</button>' + '<button class="sm danger" data-del="cash" data-id="' + c.id + '">删</button></td></tr>' + '<tr class="us-trade-detail hidden" id="cash-detail-' + c.id + '"><td colspan="3"><div class="trade-inner">' + '<div class="trade-stats cash-stats"><span><b>收</b> ' + (isUsd ? fmtUSD(totalIn) : fmt0(totalIn)) + "</span><span><b>支</b> " + (isUsd ? fmtUSD(totalOut) : fmt0(totalOut)) + "</span><span><b>净</b> " + (isUsd ? fmtUSD(amt >= 0 ? amt : -amt) : fmt0(amt >= 0 ? amt : -amt)) + "</span><span>" + txs.length + "<b>笔</b></span></div>" + '<div class="trade-actions"><button class="sm primary" data-cash-trade-in="' + c.id + '">+ 收入</button><button class="sm danger" data-cash-trade-out="' + c.id + '">- 支出</button></div>' + renderCashTradeTable(c) + "</div></td></tr>"
         }).join("")
     }
     renderPending();
@@ -10490,8 +10546,6 @@ function calcCashAmount(c) {
         var a = Number(t.amount) || 0;
         total += t.type === "in" ? a : -a
     });
-    // 盈透应计利息（来自 IBKR 每日快照 interestAccruals）并入现金
-    total += Number(c.accruedInterest) || 0;
     return total
 }
 
@@ -10526,7 +10580,8 @@ function renderCashTradeTable(c) {
     txs.forEach(function(x) {
         var t = x.t, i = x.oi;
         var typeTag = t.type === "in" ? '<span class="tag ok">收入</span>' : '<span class="tag err">支出</span>';
-        html += "<tr><td>" + esc(t.date || "") + "</td><td>" + typeTag + "</td><td>" + (c.currency === "usd" ? fmtUSD(Number(t.amount) || 0) : fmt0(Number(t.amount) || 0)) + "</td>" + '<td><button class="btn-trade-sm" data-cash-trade-edit="' + c.id + '" data-cash-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-cash-trade-del="' + c.id + '" data-cash-trade-idx="' + i + '">删</button></td></tr>'
+        var noteHtml = t.note ? '<span class="muted-note">' + esc(t.note) + '</span>' : '';
+        html += "<tr><td>" + esc(ymdCompact(t.date) || "") + "</td><td>" + typeTag + "</td><td>" + (c.currency === "usd" ? fmtUSD(Number(t.amount) || 0) : fmt0(Number(t.amount) || 0)) + noteHtml + "</td>" + '<td><button class="btn-trade-sm" data-cash-trade-edit="' + c.id + '" data-cash-trade-idx="' + i + '">编辑</button> ' + '<button class="btn-trade-sm danger" data-cash-trade-del="' + c.id + '" data-cash-trade-idx="' + i + '">删</button></td></tr>'
     });
     html += "</tbody></table>";
     return html
@@ -12179,8 +12234,18 @@ async function syncCashFromJson() {
                 amount: amt
             })
         }
-        item.accruedInterest = Number(j.ibkrAccruedInterest) || 0;
+        // 盈透应计利息：作为普通收入交易并入余额（可编辑/删除/计入总额）
+        var ai = Number(j.ibkrAccruedInterest) || 0;
+        item.accruedInterest = ai;
         item.accruedDate = date;
+        if (ai > 0) {
+            item.transactions.push({
+                date: date,
+                type: "in",
+                amount: +ai.toFixed(2),
+                note: "应计利息"
+            });
+        }
         item.amount = calcCashAmount(item);
         save();
         renderTables();
@@ -13545,7 +13610,7 @@ document.body.addEventListener("click", function(e) {
     var opsToggle = e.target.closest("[data-ops-toggle]");
     if (opsToggle) {
         var otype = opsToggle.dataset.opsToggle;
-        var pane = document.getElementById(otype === "fund" ? "pane-fund" : "pane-us");
+        var pane = document.getElementById(otype === "fund" ? "pane-fund" : otype === "us" ? "pane-us" : "pane-cash");
         if (!pane) return;
         var on = pane.getAttribute("data-ops") === "on";
         pane.setAttribute("data-ops", on ? "off" : "on");
@@ -13941,6 +14006,7 @@ var GAUGE_CFGS = {
         lo: 0,
         hi: 50,
         dec: 1,
+        bounds: true,
         zones: [
             [0, 15, '#1a9e54'],
             [15, 20, '#0d9488'],
@@ -13948,6 +14014,21 @@ var GAUGE_CFGS = {
             [30, 50, '#d24545']
         ],
         leg: ['calm', 'normal', 'mid', 'high']
+    },
+    FP: {
+        svg: 'gFP',
+        lo: 15.16,
+        hi: 39.46,
+        dec: 1,
+        bounds: true,
+        zones: [
+            [15.16, 19.22, '#0a8a4a'],
+            [19.22, 23.27, '#1a9e54'],
+            [23.27, 31.36, '#64748b'],
+            [31.36, 35.40, '#b45309'],
+            [35.40, 39.46, '#d24545']
+        ],
+        leg: ['cheap', 'under', 'fair', 'over', 'exp']
     }
 };
 var G_START = 135,
@@ -14002,10 +14083,10 @@ function buildGauge(c) {
             if (i === 0) return;
             var f = gFracR(c, z[0]);
             var p = gPt(G_R + G_SW / 2 + 12, G_START + G_SWEEP * f);
-            s += '<text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 3).toFixed(1) + '" text-anchor="middle" font-size="9" fill="#5b6678">' + z[0].toFixed(2) + '</text>';
+            s += '<text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 3).toFixed(1) + '" text-anchor="middle" font-size="9" fill="#5b6678">' + (function(v){ var t = v.toFixed(2); return t.slice(-3) === '.00' ? t.slice(0, -3) : t; })(z[0]) + '</text>';
         });
         // 50% 中心刻度：标注 worldperatio 滚动10年 μ 均值（仅 PE 表）
-        if (c.svg === 'gPE' && typeof wpMU === 'number') {
+        if ((c.svg === 'gPE' || c.svg === 'gFP') && typeof wpMU === 'number') {
             var muAng = G_START + G_SWEEP * 0.5;
             var mt0 = gPt(G_R - G_SW / 2, muAng),
                 mt1 = gPt(G_R + G_SW / 2, muAng);
@@ -14089,6 +14170,8 @@ function render(d) {
     }
     apply(pe, 'nxPEtag', zonePE(d.pe));
     apply(vxnEl, 'nxVXNtag', zoneVXN(d.vxn));
+    var fpVal = (d.dynpe != null) ? d.dynpe : d.pe;
+    apply(dynpe, 'nxDynPEtag', zonePE(fpVal));
     setDateText('nxPEdate', d.peAsOf);
     setDateText('nxVXNdate', d.vxnAsOf);
     setDateText('nxDynPEdate', d.peAsOf);
@@ -14096,6 +14179,7 @@ function render(d) {
     setDateText('gVXN_date', d.vxnAsOf);
     setGauge(GAUGE_CFGS.PE, d.pe, zonePE(d.pe));
     setGauge(GAUGE_CFGS.VXN, d.vxn, zoneVXN(d.vxn));
+    setGauge(GAUGE_CFGS.FP, fpVal, zonePE(fpVal));
     var peTag = TAG[zonePE(d.pe)] || TAG.neutral;
     var muEl = $('gPE_mu');
     if (muEl) muEl.textContent = wpMU.toFixed(1);
@@ -14108,6 +14192,27 @@ function render(d) {
     }
     var wpDt = $('gPE_wp_date');
     if (wpDt) wpDt.textContent = '数据截至 ' + wpAsOf;
+
+    // 纳斯达克100 FP（前瞻 PE）按同一套 100PE 滚动10年估值评级
+    var fpTag = TAG[zonePE(fpVal)] || TAG.neutral;
+    var fpMu = $('gFP_mu');
+    if (fpMu) fpMu.textContent = wpMU.toFixed(1);
+    var fpSig = $('gFP_sigma');
+    if (fpSig) fpSig.textContent = wpSigma.toFixed(2);
+    var fpS1 = $('gFP_s1');
+    if (fpS1) fpS1.textContent = '[' + GAUGE_CFGS.PE.zones[2][0].toFixed(2) + ', ' + GAUGE_CFGS.PE.zones[2][1].toFixed(2) + ']';
+    var fpS2 = $('gFP_s2');
+    if (fpS2) fpS2.textContent = '[' + GAUGE_CFGS.PE.zones[1][0].toFixed(2) + ', ' + GAUGE_CFGS.PE.zones[4][0].toFixed(2) + ']';
+    var fpCur = $('gFP_cur');
+    if (fpCur) fpCur.textContent = (fpVal != null) ? Number(fpVal).toFixed(1) : '—';
+    var fpCat = $('gFP_cat');
+    if (fpCat) {
+        fpCat.textContent = fpTag.t;
+        fpCat.style.color = fpTag.fg;
+    }
+    var fpWpDt = $('gFP_wp_date');
+    if (fpWpDt) fpWpDt.textContent = '数据截至 ' + wpAsOf;
+    setDateText('gFP_date', d.peAsOf);
 }
 
 var data = load();
