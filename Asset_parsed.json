@@ -4,7 +4,7 @@
     "accountName": "XIAOMEI REN",
     "currency": "USD",
     "openDate": "2026-02-06",
-    "lastTradeDate": "2026-09-21"
+    "lastTradeDate": "2026-09-22"
   },
   "totalNetValueDaily": [
     {
@@ -654,6 +654,10 @@
     {
       "date": "2026-09-21",
       "value": 33385.18648392
+    },
+    {
+      "date": "2026-09-22",
+      "value": 33394.53958042
     }
   ],
   "cashDaily": [
@@ -1327,6 +1331,11 @@
       "date": "2026-09-21",
       "value": 33619.42648392,
       "accrued": 8.76
+    },
+    {
+      "date": "2026-09-22",
+      "value": 34074.27958042,
+      "accrued": 8.76
     }
   ],
   "ibkrAccruedInterest": 8.76,
@@ -1336,10 +1345,20 @@
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.833096197,
-      "markPrice": 0.81,
-      "positionValue": -243.0,
+      "markPrice": 0.36,
+      "positionValue": -108.0,
       "costBasisMoney": -549.928859,
-      "unrealizedPnl": 306.928859
+      "unrealizedPnl": 441.928859
+    },
+    {
+      "symbol": "ORCL  260925P00147000",
+      "side": "Short",
+      "position": -3.0,
+      "costBasisPrice": 1.505602993,
+      "markPrice": 1.935,
+      "positionValue": -580.5,
+      "costBasisMoney": -451.680898,
+      "unrealizedPnl": -128.819102
     }
   ],
   "electronicFundTransfers": [
@@ -1439,6 +1458,39 @@
     }
   ],
   "trades": [
+    {
+      "date": "2026-09-22",
+      "symbol": "ORCL",
+      "underlying": "ORCL",
+      "cat": "STK",
+      "buySell": "BUY",
+      "quantity": 100.0,
+      "price": 149.08,
+      "realized": 0.0,
+      "tradeId": "10256081891"
+    },
+    {
+      "date": "2026-09-22",
+      "symbol": "ORCL",
+      "underlying": "ORCL",
+      "cat": "STK",
+      "buySell": "SELL",
+      "quantity": -100.0,
+      "price": 149.12,
+      "realized": 3.17,
+      "tradeId": "10256622582"
+    },
+    {
+      "date": "2026-09-22",
+      "symbol": "ORCL  260925P00147000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -3.0,
+      "price": 1.51,
+      "realized": 0.0,
+      "tradeId": "10257906074"
+    },
     {
       "date": "2026-09-21",
       "symbol": "TQQQ",
@@ -2595,7 +2647,7 @@
       "tradeId": "10108243083"
     }
   ],
-  "lastSync": "2026-09-22",
+  "lastSync": "2026-09-23",
   "seed": {
     "pa_funds": [
       {
