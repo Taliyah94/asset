@@ -9321,9 +9321,7 @@ function buildSeries(opts) {
             var earliest = getEarliestTradeDate(f);
             if (earliest == null || ts < earliest) return;
             var fst2 = getFundTradeStatsAt(f, ts);
-            var list = f._list;
-            var nav = null;
-            if (list && list.length) nav = valOnOrBefore(list, ts, "nav");
+            var nav = fundNavAt(f, ts, fst2);
             if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
             if (nav != null) {
                 fv += fst2.holdShares * nav;
@@ -11303,6 +11301,35 @@ function drawChartInternal() {
     })();
 }
 
+// 买入确认期估值：最近一笔买卖之后、官方净值序列尚未出现晚于该笔的条目时
+// （QDII 确认延迟/序列缺当日），valOnOrBefore 取到的仍是买入当时点的旧净值，
+// 此时改用录入的买入均价（成本口径），与「投资以来」卡片口径一致
+function fundNavAt(f, ts, fst2) {
+    var list = f._list;
+    if (!list || !list.length) {
+        // 无官方净值序列（如 016532/016533 这类仅手动录入的基金、东财兜底拉取失败时）：
+        // 未设置手动净值则按录入买入均价估值，避免手动录入的持仓被计为 0
+        if ((f.manualNav == null || f.manualNav === "") && fst2 && fst2.avgCost > 0) return fst2.avgCost;
+        return null;
+    }
+    var lastDeal = null;
+    (f.trades || []).forEach(function(t) {
+        if (t.type !== "buy" && t.type !== "sell") return;
+        var d = parseDate(t.date);
+        if (d != null && d <= ts && (lastDeal == null || d > lastDeal)) lastDeal = d
+    });
+    if (lastDeal == null || !(fst2.avgCost > 0)) return valOnOrBefore(list, ts, "nav");
+    var nextNav = null;
+    for (var i = 0; i < list.length; i++) {
+        if (list[i].t > lastDeal) {
+            nextNav = list[i].t;
+            break
+        }
+    }
+    if (nextNav != null && ts >= nextNav) return valOnOrBefore(list, ts, "nav");
+    return fst2.avgCost
+}
+
 function assetAt(ts) {
     const fx = effFx();
     let fv = 0;
@@ -11310,9 +11337,7 @@ function assetAt(ts) {
         var earliest = getEarliestTradeDate(f);
         if (earliest == null || ts < earliest) return;
         var fst2 = getFundTradeStatsAt(f, ts);
-        var list = f._list;
-        var nav = null;
-        if (list && list.length) nav = valOnOrBefore(list, ts, "nav");
+        var nav = fundNavAt(f, ts, fst2);
         if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
         if (nav != null) fv += fst2.holdShares * nav
     });
