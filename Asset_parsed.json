@@ -658,6 +658,10 @@
     {
       "date": "2026-09-22",
       "value": 33394.53958042
+    },
+    {
+      "date": "2026-09-23",
+      "value": 32791.64958042
     }
   ],
   "cashDaily": [
@@ -1336,29 +1340,34 @@
       "date": "2026-09-22",
       "value": 34074.27958042,
       "accrued": 8.76
+    },
+    {
+      "date": "2026-09-23",
+      "value": 34074.27958042,
+      "accrued": 10.22
     }
   ],
-  "ibkrAccruedInterest": 8.76,
+  "ibkrAccruedInterest": 10.22,
   "holdings": [
     {
       "symbol": "NVDA  260925P00220000",
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.833096197,
-      "markPrice": 0.36,
-      "positionValue": -108.0,
+      "markPrice": 0.535,
+      "positionValue": -160.5,
       "costBasisMoney": -549.928859,
-      "unrealizedPnl": 441.928859
+      "unrealizedPnl": 389.428859
     },
     {
       "symbol": "ORCL  260925P00147000",
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.505602993,
-      "markPrice": 1.935,
-      "positionValue": -580.5,
+      "markPrice": 3.7745,
+      "positionValue": -1132.35,
       "costBasisMoney": -451.680898,
-      "unrealizedPnl": -128.819102
+      "unrealizedPnl": -680.669102
     }
   ],
   "electronicFundTransfers": [
@@ -2647,7 +2656,7 @@
       "tradeId": "10108243083"
     }
   ],
-  "lastSync": "2026-09-23",
+  "lastSync": "2026-09-24",
   "seed": {
     "pa_funds": [
       {
