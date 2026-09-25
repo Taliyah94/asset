@@ -662,6 +662,10 @@
     {
       "date": "2026-09-23",
       "value": 32791.64958042
+    },
+    {
+      "date": "2026-09-24",
+      "value": 31712.81958042
     }
   ],
   "cashDaily": [
@@ -1345,6 +1349,11 @@
       "date": "2026-09-23",
       "value": 34074.27958042,
       "accrued": 10.22
+    },
+    {
+      "date": "2026-09-24",
+      "value": 34074.27958042,
+      "accrued": 10.22
     }
   ],
   "ibkrAccruedInterest": 10.22,
@@ -1354,20 +1363,20 @@
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.833096197,
-      "markPrice": 0.535,
-      "positionValue": -160.5,
+      "markPrice": 0.31,
+      "positionValue": -93.0,
       "costBasisMoney": -549.928859,
-      "unrealizedPnl": 389.428859
+      "unrealizedPnl": 456.928859
     },
     {
       "symbol": "ORCL  260925P00147000",
       "side": "Short",
       "position": -3.0,
       "costBasisPrice": 1.505602993,
-      "markPrice": 3.7745,
-      "positionValue": -1132.35,
+      "markPrice": 7.5956,
+      "positionValue": -2278.68,
       "costBasisMoney": -451.680898,
-      "unrealizedPnl": -680.669102
+      "unrealizedPnl": -1826.999102
     }
   ],
   "electronicFundTransfers": [
@@ -2621,42 +2630,9 @@
       "price": 1.77,
       "realized": 0,
       "tradeId": "10115915034"
-    },
-    {
-      "date": "2026-08-24",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 50,
-      "price": 69.43,
-      "realized": 0,
-      "tradeId": "10106910402"
-    },
-    {
-      "date": "2026-08-24",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 50,
-      "price": 69.43,
-      "realized": 0,
-      "tradeId": "10106910403"
-    },
-    {
-      "date": "2026-08-24",
-      "symbol": "ORCL  260828P00138000",
-      "underlying": "ORCL",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -2,
-      "price": 2.27,
-      "realized": 0,
-      "tradeId": "10108243083"
     }
   ],
-  "lastSync": "2026-09-24",
+  "lastSync": "2026-09-25",
   "seed": {
     "pa_funds": [
       {
