@@ -14953,8 +14953,14 @@ function fitMarketNames() {
         el.style.fontSize = fs + "px";
         // 单行测量：临时 nowrap，内容宽 > 可用宽则缩字号
         el.style.whiteSpace = "nowrap";
+        // 同 fitNumCells：预留 2px 安全边，抵消 iOS 实际渲染与排版测量的 1~2px 偏差，
+        // 临界宽度的名称宁多缩 0.5px 也不被 ellipsis 截断。
+        // 测量用 Range 取文本实宽：scrollWidth 最小等于盒宽，判不了临界状态
+        var SAFE = 2;
+        var rng = document.createRange();
+        rng.selectNodeContents(el);
         var avail = el.clientWidth;
-        while (el.scrollWidth > avail + 0.5 && fs > MIN_FS) {
+        while (rng.getBoundingClientRect().width > avail - SAFE && fs > MIN_FS) {
             fs = Math.max(MIN_FS, fs - 0.5);
             el.style.fontSize = fs + "px";
         }
@@ -14968,6 +14974,9 @@ function fitMarketNames() {
 每步改完 fontSize 后强制一次 reflow（读 offsetHeight），避免 WebKit/Chromium
 不立即同步重排导致 scrollWidth 仍是旧值、while 循环直接误判结束。
 缩到下限仍放不下时改为允许换行（限 2 行），保证数字可读而不是粗暴截断。
+判定阈值预留 SAFE=2px 安全边，抵消 iOS 实际渲染与排版测量的 1~2px 级偏差，
+临界宽度的内容（如 -392.89% 副行百分比）宁可多缩 1px 也不被 ellipsis 截断；
+溢出判定用 Range 取文本实宽（scrollWidth 最小等于盒宽，判不出临界状态）。
 挂载在统一列表渲染(renderUnifiedList)、详情表格渲染(renderTables)与挂单渲染(renderPending)末尾，
 同步与异步刷新均会触发。*/
 function fitNumCells() {
@@ -14989,15 +14998,34 @@ Array.prototype.slice.call(document.querySelectorAll(sel)).forEach(function(el) 
     // 用列(td)宽而非 cell div 宽：cell 设了 nowrap，内容超长时 div 的 clientWidth 会被撑成内容宽，
     // 导致 scrollWidth≈clientWidth、永远"不溢出"而不触发缩小；td 在 fixed 布局下宽度固定，更准确
     // 注意：el 本身是 td 时（如 .pending-tbl td.cls-date），parentElement 是 tr（整行宽），必须取 td 自身宽度
-    var avail = (el.tagName === "TD") ? el.clientWidth : ((el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : el.clientWidth);
+    // td.clientWidth 含左右 padding（美股/基金表各 5px），必须扣除——否则内容宽落在
+    // (可用宽, 含padding宽) 区间时误判"放得下"，字号不缩、被 ellipsis 截断（手机五位数 ¥-17,730 即此场景）
+    var tdEl = (el.tagName === "TD") ? el : el.parentElement;
+    var avail;
+    if (tdEl && (tdEl.tagName === "TD" || tdEl.tagName === "TH")) {
+        var _tds = getComputedStyle(tdEl);
+        avail = tdEl.clientWidth - (parseFloat(_tds.paddingLeft) || 0) - (parseFloat(_tds.paddingRight) || 0);
+    } else {
+        avail = el.clientWidth;
+    }
+    // 文本实宽：scrollWidth 最小也等于元素盒宽（内容没超盒时只报盒宽），
+    // 区分不出"距可用宽还差 1px"和"差 20px"，做不了安全边判定；
+    // 改用 Range 取文本自身的排版宽度（浮点精度），临界状态才可判
+    var rng = document.createRange();
+    rng.selectNodeContents(el);
+    function textW() { void el.offsetHeight; return rng.getBoundingClientRect().width; }
+    // 安全边：iOS(WebKit) 实际渲染与排版测量存在 1~2px 级偏差（宽度取整、字重/
+    // 字距/字体合成差异），临界宽度的内容（如 -392.89% 这类副行百分比）会被
+    // 误判"放得下"而保持原字号、随后被 ellipsis 截断，故要求文本宽 ≤ avail−SAFE
+    // 才算放下：临界内容宁可多缩 1px 也不截断
+    var SAFE = 2;
     var iter = 0;
-    while (el.scrollWidth > avail + 0.5 && fs > MIN_FS && iter++ < 24) {
+    while (textW() > avail - SAFE && fs > MIN_FS && iter++ < 24) {
         fs = Math.max(MIN_FS, fs - STEP);
         el.style.fontSize = fs + "px";
-        void el.offsetHeight; // 每步都强制 reflow
     }
     // 缩到下限仍单行放不下 → 允许换行（CSS 限 2 行），不再继续截断 ellipsis
-    if (fs <= MIN_FS && el.scrollWidth > avail + 0.5) {
+    if (fs <= MIN_FS && textW() > avail - SAFE) {
         el.style.whiteSpace = "normal";
     }
 });
