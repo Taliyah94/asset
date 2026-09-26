@@ -4556,7 +4556,9 @@ background: #ffffff;
                 <button data-page-node-id="5ziu7RNpVHPQYm1cbyw3UN" class="active" data-cal="day"><!--pnid:nU1jo9ZfqPHQQcmtFYBXir-->日</button>
                 <button data-page-node-id="HFBW3OZkGVcvk6lP8BW4Cn" class data-cal="month"><!--pnid:3nAuBgI2aIElSlQAybJLe1-->月</button>
                 <button data-page-node-id="8hgcFeMlIOLo3DepctDERd" class data-cal="year"><!--pnid:4mu3SMSyjnP0Yc12eu689n-->年</button>
-                <span data-page-node-id="UPZFNCy84iIKTOTk1OOuAZ" class="cal-sep"></span>
+                                <button data-page-node-id="calNetBtn" data-cashmode="net" class="active" title="净值口径（含现金）">净值</button>
+                <button data-page-node-id="calInvestBtn" data-cashmode="invest" title="投资口径（不含现金）">投资</button>
+<span data-page-node-id="UPZFNCy84iIKTOTk1OOuAZ" class="cal-sep"></span>
                 <button data-page-node-id="Jfvnnv7ou52arub0lxU8XU" class data-metric="amt" title="按涨跌额显示（¥）"><!--pnid:WlSwcDYG9v9NWrYgaUOGjL-->¥</button>
                 <button data-page-node-id="EQ1JwF22YHBphm4RToAwM3" class="active" data-metric="pct" title="按涨跌幅显示（%）"><!--pnid:e9K1y1WnDIvkuTVqQV2D1l-->%</button>
             </div>
@@ -6111,10 +6113,6 @@ const FIXED_US_TRADES = {
         save()
     } catch (e) {}
 })();
-const DEFAULT_ICON = {
-    img: __B[5],
-    n: "HSBC"
-};
 var US_BRAND_DEF = {
     TQQQ: {
         n: "ProShares",
@@ -6149,13 +6147,25 @@ function usDefaultIcon(sym) {
     }
 }(function initDefaultIcons() {
     try {
-        if (localStorage.getItem("pa_iconinit")) return;
+        var changed = false;
         [funds, us, cash].forEach(function(arr) {
             (arr || []).forEach(function(x) {
-                if (!x.icon) x.icon = arr === us ? usDefaultIcon(x.symbol) : DEFAULT_ICON
+                if (arr === us) {
+                    // 美股品牌图标（微软/英伟达/甲骨文/TQQQ）由 syncUsFromJson 在 __B / ICONS
+                    // 就绪后通过 usIconForSym 解析。解析期 __B 尚未加载，此处不能赋值，否则会写入
+                    // {img:undefined} 的残缺图标并阻塞后续正确解析。这里只清理残缺图标。
+                    if (x.icon && !x.icon.img && !x.icon.c && !x.icon.i) {
+                        x.icon = null; changed = true;
+                    }
+                } else {
+                    // 清空默认 HSBC / 无意义图标，改为显示占位
+                    if (!x.icon || (x.icon && !x.icon.img && !x.icon.n && !x.icon.c && !x.icon.s) || (x.icon.n === "HSBC" && x.icon.img === __B[5])) {
+                        x.icon = null; changed = true;
+                    }
+                }
             })
         });
-        save();
+        if (changed) save();
         localStorage.setItem("pa_iconinit", "1")
     } catch (e) {}
 })();
@@ -6247,6 +6257,7 @@ let fxRows = null;
 let viewMode = "curve";
 let calRangeMode = "day";
 let calMetric = "pct";
+let calCashMode = "net";   // 日历口径：net=净值(含现金) / invest=投资(不含现金)
 // 日/月/年 三视图共享的锚定日期 {y, m, d}；null 表示今天。
 // 点在某个视图的格子/卡片只更新对应分量，切换视图时目标视图据此定位并高亮。
 let calSel = null;
@@ -9428,7 +9439,7 @@ function deutscheBankIcon() {
         cat: "western"
     };
     var img = e && e.img;
-    if (!img) return DEFAULT_ICON;
+    if (!img) return null;
     return {
         n: "Deutsche Bank",
         img: img,
@@ -11355,25 +11366,210 @@ function assetAt(ts) {
     return fv + uv + cv
 }
 
+function portfolioAt(ts) {
+    // 不含现金的持仓市值（基金 + 美股/期权），用于日历「投资」口径
+    const fx = effFx();
+    let fv = 0;
+    funds.forEach(function(f) {
+        var earliest = getEarliestTradeDate(f);
+        if (earliest == null || ts < earliest) return;
+        var fst2 = getFundTradeStatsAt(f, ts);
+        var nav = fundNavAt(f, ts, fst2);
+        if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
+        if (nav != null) fv += fst2.holdShares * nav
+    });
+    const fr = fxAtDate(ymd(ts));
+    const fxCash = fr ? fr.cash : 0;
+    const lastFx = lastFxRowDate();
+    let uv;
+    if (lastFx != null && ts > parseDate(lastFx)) {
+        uv = usMarketValueFromList(fx)
+    } else {
+        const fxNet = fr ? fr.net : 0;
+        uv = (fxNet - fxCash) * fx + fixedTqqqValueAt(ts, fx)
+    }
+    return fv + uv
+}
+
+function calAssetAt(ts) {
+    // 日历口径分发：invest=不含现金的持仓市值；net=含现金的总净资产
+    return calCashMode === "invest" ? portfolioAt(ts) : assetAt(ts)
+}
+
+function investFlowOn(ts) {
+    // 当日净投入（基金+美股交易明细，折 CNY）：买入=流入(+)，卖出/分红=流出(−)。
+    // 分红流出 → 当日盈亏 = 市值变化 + 分红，与资产卡把分红计入已实现的口径一致
+    const fx = effFx();
+    let flow = 0;
+    funds.forEach(function(f) {
+        (f.trades || []).forEach(function(t) {
+            var d = parseDate(t.date);
+            if (d == null || d !== ts) return;
+            if (t.type === "buy") flow += (Number(t.shares) || 0) * (Number(t.price) || 0);
+            else if (t.type === "sell") flow -= (Number(t.shares) || 0) * (Number(t.price) || 0);
+            else if (t.type === "dividend") flow -= (Number(t.amount) || 0)
+        })
+    });
+    us.forEach(function(u) {
+        (u.trades || []).forEach(function(t) {
+            var d = parseDate(t.date);
+            if (d == null || d !== ts) return;
+            var mult = usUnitMult(u);
+            if (t.type === "buy") flow += (Number(t.shares) || 0) * mult * (Number(t.price) || 0) * fx;
+            else if (t.type === "sell") flow -= (Number(t.shares) || 0) * mult * (Number(t.price) || 0) * fx;
+            else if (t.type === "dividend") flow -= (Number(t.amount) || 0) * fx
+        })
+    });
+    return flow
+}
+
+function investMvAt(ts) {
+    // 投资池市值（不含任何现金）：基金按当时净值(_list/fundNavAt)、美股/期权按历史收盘价(_hist)。
+    // 不用资金记录(net-cash)口径——其现金列含操作性跳动，会造成市值伪震荡。
+    // 无历史价的持仓（如期权的 _hist 为空）用现价平推，只影响该持仓的日内波动、不影响端点盈亏。
+    const fx = effFx();
+    let fv = 0;
+    funds.forEach(function(f) {
+        var earliest = getEarliestTradeDate(f);
+        if (earliest == null || ts < earliest) return;
+        var fst2 = getFundTradeStatsAt(f, ts);
+        var nav = fundNavAt(f, ts, fst2);
+        if (nav == null && f.manualNav != null && f.manualNav !== "") nav = Number(f.manualNav);
+        if (nav != null) fv += fst2.holdShares * nav
+    });
+    let uv = 0;
+    us.forEach(function(u) {
+        var earliest = getEarliestTradeDate(u);
+        if (earliest == null || ts < earliest) return;
+        var st = getTradeStatsAt(u, ts);
+        if (st.holdShares <= 0) return;
+        var mult = usUnitMult(u);
+        var hist = u._hist || [];
+        var px = hist.length ? valOnOrBefore(hist, ts, "price") : null;
+        if (px == null || !(px > 0)) px = (u.price != null && u.price > 0) ? Number(u.price) : 0;
+        uv += st.holdShares * mult * px * fx
+    });
+    return fv + uv
+}
+
+let _invSeries = null,
+    _invSeriesSig = null;
+function investSeriesSig() {
+    // 交易条数变化或跨分钟（实时价变动）时重建序列
+    let s = Math.floor(Date.now() / 60000) + "|" + todayTs();
+    funds.forEach(function(f) { s += "|" + (f.trades || []).length });
+    us.forEach(function(u) { s += "|" + (u.trades || []).length });
+    return s
+}
+function investSeries() {
+    // 全期日度序列（自最早建仓日至今日）：市值/净投入/当日盈亏/当日收益率/累计盈亏/累计TWR
+    // 当日盈亏 = 市值变化 − 当日净投入；当日收益率(TWR分日) = 当日盈亏 / 前日市值
+    const sig = investSeriesSig();
+    if (_invSeries && _invSeriesSig === sig) return _invSeries;
+    const today = todayTs();
+    let minT = null;
+    funds.forEach(function(f) { var e = getEarliestTradeDate(f); if (e != null && (minT == null || e < minT)) minT = e });
+    us.forEach(function(u) { var e = getEarliestTradeDate(u); if (e != null && (minT == null || e < minT)) minT = e });
+    if (minT == null) minT = today;
+    const out = [];
+    let prevMv = 0, cum = 0, twr = 1;
+    for (let t = minT; t <= today; t += 864e5) {
+        const mv = investMvAt(t);
+        const flow = investFlowOn(t);
+        const pnl = mv - prevMv - flow;
+        const ret = prevMv > 0 ? pnl / prevMv : null;
+        cum += pnl;
+        if (ret != null) twr *= (1 + ret);
+        out.push({ ts: t, mv: mv, flow: flow, pnl: pnl, ret: ret, cumPnl: cum, twr: twr - 1 });
+        prevMv = mv
+    }
+    // 终点锚定资产卡「总计·投资盈利」：流水口径（交易流水基准、不含现金）与资产卡口径
+    // （含盈透现金、以「投资金额」为基准）存在固定口径差。把差值并入序列首日（建仓首日）：
+    // 首日当日盈亏出现一次断层（用户已接受），之后每日 pnl/ret 不变，全部日月汇总闭合到资产卡。
+    // ret（当日收益率/TWR）保持原始值——首日 prevMv≈0，若把断层计入收益率会爆表失真。
+    if (out.length) {
+        try {
+            const _shift = calCardInvestTotal() - out[out.length - 1].cumPnl;
+            if (_shift) {
+                out[0].pnl += _shift;
+                out.forEach(function(r) { r.cumPnl += _shift })
+            }
+        } catch (e) {}
+    }
+    _invSeriesSig = sig;
+    _invSeries = out;
+    return out
+}
+function investRowAt(ts) {
+    const s = investSeries();
+    if (!s.length) return null;
+    const i = Math.round((ts - s[0].ts) / 864e5);
+    return i >= 0 && i < s.length ? s[i] : null
+}
+function investTwrBetween(startTs, endTs) {
+    // (startTs, endTs] 区间 TWR：链接各日收益率，追加本金/取现不计入收益
+    const s = investSeries();
+    if (!s.length) return null;
+    let twr = 1, has = false;
+    for (let i = 0; i < s.length; i++) {
+        if (s[i].ts <= startTs) continue;
+        if (s[i].ts > endTs) break;
+        if (s[i].ret != null) { twr *= (1 + s[i].ret); has = true }
+    }
+    return has ? twr - 1 : null
+}
+function investCumPnlBetween(startTs, endTs) {
+    // (startTs, endTs] 区间盈亏额 = 累计盈亏差（望远镜和）
+    const a = investRowAt(startTs), b = investRowAt(endTs);
+    return (b ? b.cumPnl : 0) - (a ? a.cumPnl : 0)
+}
+function calCardInvestTotal() {
+    // 资产页「总计·投资盈利」口径：基金(市值−成本+已实现) + 美股(市值+盈透现金−投资金额)。
+    // 盈透现金来自 Asset_parsed.json cashDaily 自动同步（syncCashFromJson），非手工记账。
+    // 日历「投资」模式的「自始以来」药丸/年度卡用此口径锚定终点（与资产卡逐字节一致）；
+    // 月视图月卡/日涨跌维持流水口径（TWR 逐日盈亏），两者差 = 盈透现金+基准差的固定口径差。
+    const cur = computeCurrent();
+    const fx = effFx();
+    const yc = yitouCashItem();
+    const yt = yc ? (Number(yc.amount) || 0) * (yc.currency === "usd" ? fx : 1) : 0;
+    return (cur.fundVal - cur.fundCost + cur.fundTotalRealizedPnl) + (cur.usVal + yt - cur.usTotalBuyCost)
+}
+
 function getMonthDays(y, m) {
     const first = Date.UTC(y, m - 1, 1),
         last = Date.UTC(y, m, 0);
     const today = todayTs();
     const end = Math.min(last, today);
+    const isInv = calCashMode === "invest";
     const days = [];
     for (let t = first; t <= end; t += 864e5) {
+        let total;
+        if (isInv) {
+            // 投资：total = 自始累计投资盈亏
+            const r = investRowAt(t);
+            total = r ? r.cumPnl : 0
+        } else total = calAssetAt(t);
         days.push({
             ts: t,
             label: ymd(t),
-            total: assetAt(t)
+            total: total
         })
     }
-    const prevDayTotal = assetAt(first - 864e5);
+    let prevDayTotal;
+    if (isInv) {
+        const rp = investRowAt(first - 864e5);
+        prevDayTotal = rp ? rp.cumPnl : 0
+    } else prevDayTotal = calAssetAt(first - 864e5);
     for (let i = 0; i < days.length; i++) {
         const prev = i === 0 ? prevDayTotal : days[i - 1].total;
         const cur = days[i].total;
         days[i].prev = prev;
-        if (prev > 0) {
+        if (isInv) {
+            // 投资：chg = 当日投资盈亏；chgPct = 当日收益率（TWR 分日）
+            days[i].chg = cur - prev;
+            const r = investRowAt(days[i].ts);
+            days[i].chgPct = r && r.ret != null ? r.ret : null
+        } else if (prev > 0) {
             days[i].chg = cur - prev;
             days[i].chgPct = (cur - prev) / prev
         }
@@ -11509,7 +11705,8 @@ function buildDayCell(dayObj, maxAbs, useAmt, isToday) {
     d.appendChild(vEl);
     const pctTxt = dayObj.chgPct == null ? "—" : (dayObj.chgPct >= 0 ? "+" : "") + (dayObj.chgPct * 100).toFixed(2) + "%";
     const chgTxt = dayObj.chg == null ? "" : (dayObj.chg >= 0 ? "+" : "") + fmt0(dayObj.chg);
-    d.title = dayObj.label + "\n总资产：" + fmt0(dayObj.total) + "\n日涨跌：" + pctTxt + (dayObj.chg != null ? "（" + chgTxt + "）" : "");
+    const _isInvCell = (typeof calCashMode !== "undefined" && calCashMode === "invest");
+    d.title = dayObj.label + "\n" + (_isInvCell ? "累计投资盈亏：" : "总资产：") + fmt0(dayObj.total) + "\n日涨跌：" + pctTxt + (dayObj.chg != null ? "（" + chgTxt + "）" : "");
     return d
 }
 
@@ -11565,10 +11762,11 @@ function renderCalDay(box, useAmt, todayStr) {
     /* 顶部月度盈亏汇总 */
     if (days.length >= 2) {
         // 月度盈亏基准：优先上月末收盘；首月无历史则退化为当月首日（首个有值日）
-        const _base = calPeriodBase(days);
+        const _isInvD = calCashMode === "invest";
+        const _base = _isInvD ? days[0].prev : calPeriodBase(days);
         const _l = days[days.length - 1].total;
         const _mChg = _l - _base;
-        const _mPct = _base > 0 ? _mChg / _base : null;
+        const _mPct = _isInvD ? investTwrBetween(days[0].ts - 864e5, days[days.length - 1].ts) : (_base > 0 ? _mChg / _base : null);
         const _sum = document.createElement("div");
         _sum.className = "cal-summary";
         const _v = document.createElement("div");
@@ -11580,7 +11778,7 @@ function renderCalDay(box, useAmt, todayStr) {
         }
         const _lab = document.createElement("div");
         _lab.className = "cal-summary-label";
-        _lab.textContent = m + "月 月度盈亏";
+        _lab.textContent = m + "月 " + (calCashMode === "invest" ? "投资盈亏" : "月度盈亏");
         _sum.appendChild(_v);
         _sum.appendChild(_lab);
         box.appendChild(_sum)
@@ -11634,10 +11832,16 @@ function renderCalMonth(box, useAmt) {
             mChgPct = null;
         if (days.length >= 2) {
             // 月度盈亏基准：优先上月末收盘；首月无历史则退化为当月首日（首个有值日）
-            const _base = calPeriodBase(days);
-            const lastTotal = days[days.length - 1].total;
-            mChg = lastTotal - _base;
-            if (_base > 0) mChgPct = mChg / _base
+            if (calCashMode === "invest") {
+                // 投资：当月盈亏 = 累计盈亏差（= Σ当日盈亏）；收益率 = 当月 TWR
+                mChg = days[days.length - 1].total - days[0].prev;
+                mChgPct = investTwrBetween(days[0].ts - 864e5, days[days.length - 1].ts)
+            } else {
+                const _base = calPeriodBase(days);
+                const lastTotal = days[days.length - 1].total;
+                mChg = lastTotal - _base;
+                if (_base > 0) mChgPct = mChg / _base
+            }
         }
         arr.push({
             m: m,
@@ -11679,7 +11883,7 @@ function renderCalMonth(box, useAmt) {
             vEl.innerHTML = useAmt ? fmtAmtPlainHTML(o.chg) : calPctHTML(fmtCalPct2(o.chgPct))
         }
         card.appendChild(vEl);
-        card.title = o.m + "月\n总资产变化：" + ((o.chg >= 0 ? "+" : "") + fmt0(o.chg)) + (o.chgPct != null ? " (" + (o.chgPct >= 0 ? "+" : "") + (o.chgPct * 100).toFixed(2) + "%)" : "");
+        card.title = o.m + "月\n" + (calCashMode === "invest" ? "投资盈亏：" : "总资产变化：") + ((o.chg >= 0 ? "+" : "") + fmt0(o.chg)) + (o.chgPct != null ? " (" + (o.chgPct >= 0 ? "+" : "") + (o.chgPct * 100).toFixed(2) + "%)" : "");
         cards.appendChild(card)
     });
     /* 顶部年份导航（左右箭头切年，与日视图箭头一致） */
@@ -11711,20 +11915,26 @@ function renderCalMonth(box, useAmt) {
     box.appendChild(nav);
     /* 顶部年度盈亏汇总 */
     if (arr.length >= 1) {
-        const _firstMD = getMonthDays(y, 1);
         let _yChg = 0;
         arr.forEach(function(o) { _yChg += (o.chg || 0) });
-        // 年度基准：优先上年末（12-31）收盘；首年无历史则退化为当年首个有值日
-        let _yStart = (_firstMD.length && _firstMD[0].prev != null && _firstMD[0].prev > 0) ? _firstMD[0].prev : 0;
-        if (_yStart <= 0) {
-            for (let _m = 1; _m <= 12 && _yStart <= 0; _m++) {
-                const _md = getMonthDays(y, _m);
-                for (let _i = 0; _i < _md.length; _i++) {
-                    if (_md[_i].total > 0) { _yStart = _md[_i].total; break }
+        let _yPct;
+        if (calCashMode === "invest") {
+            // 投资：年度收益率 = 当年 TWR（链接每日收益率，追加本金不计收益）
+            _yPct = investTwrBetween(Date.UTC(y, 0, 1) - 864e5, Math.min(Date.UTC(y + 1, 0, 1) - 1, todayTs()))
+        } else {
+            const _firstMD = getMonthDays(y, 1);
+            // 年度基准：优先上年末（12-31）收盘；首年无历史则退化为当年首个有值日
+            let _yStart = (_firstMD.length && _firstMD[0].prev != null && _firstMD[0].prev > 0) ? _firstMD[0].prev : 0;
+            if (_yStart <= 0) {
+                for (let _m = 1; _m <= 12 && _yStart <= 0; _m++) {
+                    const _md = getMonthDays(y, _m);
+                    for (let _i = 0; _i < _md.length; _i++) {
+                        if (_md[_i].total > 0) { _yStart = _md[_i].total; break }
+                    }
                 }
             }
+            _yPct = _yStart > 0 ? _yChg / _yStart : null
         }
-        const _yPct = _yStart > 0 ? _yChg / _yStart : null;
         const _sum = document.createElement("div");
         _sum.className = "cal-summary";
         const _v = document.createElement("div");
@@ -11736,7 +11946,7 @@ function renderCalMonth(box, useAmt) {
         }
         const _lab = document.createElement("div");
         _lab.className = "cal-summary-label";
-        _lab.textContent = y + "年 年度盈亏";
+        _lab.textContent = y + "年 " + (calCashMode === "invest" ? "投资盈亏" : "年度盈亏");
         _sum.appendChild(_v);
         _sum.appendChild(_lab);
         box.appendChild(_sum)
@@ -11782,20 +11992,35 @@ function renderCalYear(box, useAmt) {
     }
     if (calYearPage < 0 || calYearPage > totalPages - 1) calYearPage = totalPages - 1;
     const pageYears = years.slice(calYearPage * YEAR_PAGE, calYearPage * YEAR_PAGE + YEAR_PAGE);
-    const cur = computeCurrent();
-    const fxNowTop = effFx();
-    const ycTop = yitouCashItem();
-    const yitouCashCNYTop = ycTop ? (Number(ycTop.amount) || 0) * (ycTop.currency === "usd" ? fxNowTop : 1) : 0;
-    const fundTotalGain = cur.fundVal - cur.fundCost + cur.fundTotalRealizedPnl;
-    const usTotalGainTop = cur.usVal + yitouCashCNYTop - cur.usTotalBuyCost;
-    const totalPnl = fundTotalGain + usTotalGainTop;
-    const totalInvest = cur.fundTotalBuyCost + cur.usTotalBuyCost;
-    const totalRetAll = totalInvest > 0 ? totalPnl / totalInvest : 0;
+    // 自始以来：口径随「净值(含现金)/投资(不含现金)」切换，与年卡片一致
+    const todayTsTop = todayTs();
+    let totalPnl, totalRetAll;
+    if (calCashMode === "invest") {
+        // 投资：盈亏额 = 资产卡口径（含盈透现金、以「投资金额」为基准，见 calCardInvestTotal），
+        // 与资产页「总计·投资盈利」逐字节一致；收益率 = 全程 TWR（追加本金不计收益）。
+        totalPnl = calCardInvestTotal();
+        const _s = investSeries();
+        const _twrAll = _s.length ? investTwrBetween(_s[0].ts - 864e5, todayTsTop) : null;
+        totalRetAll = _twrAll != null ? _twrAll : 0;
+    } else {
+        let startTsTop = (minTs != null && minTs <= todayTsTop) ? minTs : todayTsTop - 365 * 864e5;
+        let startAssetTop = calAssetAt(startTsTop);
+        // 期初资产为 0 时顺延到首个有值日，避免收益率为 0 / 异常
+        if (!(startAssetTop > 0)) {
+            for (let _d = startTsTop; _d <= todayTsTop; _d += 864e5) {
+                const _a = calAssetAt(_d);
+                if (_a > 0) { startTsTop = _d; startAssetTop = _a; break }
+            }
+        }
+        const endAssetTop = calAssetAt(todayTsTop);
+        totalPnl = endAssetTop - startAssetTop;
+        totalRetAll = startAssetTop > 0 ? totalPnl / startAssetTop : 0;
+    }
     const pill = document.createElement("div");
     pill.className = "cal-total-pill" + (totalPnl < 0 ? " neg" : "");
     const pillLabel = document.createElement("div");
     pillLabel.className = "cal-total-label";
-    pillLabel.textContent = "投资以来";
+    pillLabel.textContent = "自始以来·" + (calCashMode === "invest" ? "投资" : "净值");
     const pillVal = document.createElement("div");
     pillVal.className = "cal-total-val";
     pillVal.innerHTML = useAmt ? fmtAmtPlainHTML(totalPnl) : calPctHTML(fmtCalPct2(totalRetAll));
@@ -11809,20 +12034,31 @@ function renderCalYear(box, useAmt) {
         const yStart = Date.UTC(y, 0, 1),
             yEnd = Date.UTC(y + 1, 0, 1) - 1;
         const yEndReal = Math.min(yEnd, today);
-        const endAsset = assetAt(yEndReal);
-        let startTs = yStart,
-            startAsset = assetAt(yStart);
-        if (startAsset <= 0) {
-            for (let d = yStart; d <= yEndReal; d += 864e5) {
-                if (assetAt(d) > 0) {
-                    startTs = d;
-                    break
+        let startAsset, endAsset, yChg, yPct;
+        if (calCashMode === "invest") {
+            // 投资：年度盈亏 = 资产卡口径锚定（终点=资产卡，减去年初前的锚定累计）；收益率 = 期内 TWR
+            const _prevRow = investRowAt(yStart - 864e5);
+            yChg = calCardInvestTotal() - (_prevRow ? _prevRow.cumPnl : 0);
+            const _yt = investTwrBetween(yStart - 864e5, yEndReal);
+            yPct = _yt != null ? _yt : 0;
+            startAsset = null;
+            endAsset = null
+        } else {
+            endAsset = calAssetAt(yEndReal);
+            let startTs = yStart;
+            startAsset = calAssetAt(yStart);
+            if (startAsset <= 0) {
+                for (let d = yStart; d <= yEndReal; d += 864e5) {
+                    if (calAssetAt(d) > 0) {
+                        startTs = d;
+                        break
+                    }
                 }
+                startAsset = calAssetAt(startTs)
             }
-            startAsset = assetAt(startTs)
+            yChg = endAsset - startAsset;
+            yPct = startAsset > 0 ? yChg / startAsset : 0
         }
-        const yChg = endAsset - startAsset;
-        const yPct = startAsset > 0 ? yChg / startAsset : 0;
         const card = document.createElement("div");
         card.className = "cal-ycard" + (yChg < 0 ? " neg" : "") + (y === calSel.y ? " sel" : "");
         const name = document.createElement("div");
@@ -11834,7 +12070,7 @@ function renderCalYear(box, useAmt) {
         vEl.style.color = yChg >= 0 ? getCssVar("--up") : getCssVar("--down");
         vEl.innerHTML = useAmt ? fmtAmtPlainHTML(yChg) : calPctHTML(fmtCalPct2(yPct));
         card.appendChild(vEl);
-        card.title = y + "年\n起始资产：" + fmt0(startAsset) + "\n年末资产：" + fmt0(endAsset) + "\n年度收益：" + (yChg >= 0 ? "+" : "") + fmt0(yChg) + (yPct != null ? " (" + (yPct >= 0 ? "+" : "") + (yPct * 100).toFixed(2) + "%)" : "");
+        card.title = y + "年\n" + (calCashMode === "invest" ? "投资盈亏：" : "起始资产：" + fmt0(startAsset) + "\n年末资产：" + fmt0(endAsset) + "\n年度收益：") + (yChg >= 0 ? "+" : "") + fmt0(yChg) + (yPct != null ? " (" + (yPct >= 0 ? "+" : "") + (yPct * 100).toFixed(2) + "%)" : "");
         // 点击某年：更新锚定年并切到月视图（显示该年）
         card.onclick = function() {
             calSel.y = y;
@@ -12140,23 +12376,15 @@ function loadFxDetailData() {
 
 function usIconForSym(sym) {
     if (isOptionSymbol(sym)) return deutscheBankIcon();
-    var tbl = {
-        TQQQ: "ProShares",
-        MSFT: "Microsoft 微软",
-        NVDA: "NVIDIA 英伟达",
-        ORCL: "Oracle 甲骨文"
-    };
-    var nm = tbl[String(sym || "").toUpperCase()] || "Interactive Brokers";
-    var e = typeof ICONS !== "undefined" && ICONS.find(function(x) {
-        return x.n === nm
-    });
-    return e ? {
-        n: e.n,
-        img: e.img,
-        c: e.c,
-        i: e.i,
-        cat: e.cat
-    } : DEFAULT_ICON
+    var key = String(sym || "").toUpperCase();
+    // 品牌股图标按索引直接取全局 __B（运行时 Asset_parsed.json 已加载 icons），
+    // 不再依赖 ICONS（位于 IIFE 作用域，此全局函数无法访问，会导致始终返回 null）。
+    var B_IDX = { TQQQ: 3, MSFT: 2, NVDA: 4, ORCL: 38 };
+    var NM = { TQQQ: "ProShares", MSFT: "Microsoft 微软", NVDA: "NVIDIA 英伟达", ORCL: "Oracle 甲骨文" };
+    if (!(key in B_IDX)) return null;
+    var img = (typeof __B !== "undefined") ? __B[B_IDX[key]] : null;
+    if (!img) return null;
+    return { n: NM[key], img: img, cat: "western" };
 }
 async function syncUsFromJson() {
     try {
@@ -12189,7 +12417,12 @@ async function syncUsFromJson() {
                 });
                 if (h.markPrice != null && !isNaN(Number(h.markPrice))) item.price = Number(h.markPrice);
                 if (isOptionSymbol(sym)) item.icon = deutscheBankIcon();
-                else if (!item.icon) item.icon = usIconForSym(sym)
+                else {
+                    // 品牌股（MSFT/NVDA/ORCL/TQQQ）始终采用 JSON 图标库的官方图标，
+                    // 覆盖解析期可能残留的残缺/旧图标；非品牌股仅在无图标时补全。
+                    var _brand = usIconForSym(sym);
+                    if (_brand) item.icon = _brand;
+                }
             }
             item._markDate = h.date && typeof h.date === "string" ? h.date : lastDaily;
             item._ibkrMarkDate = item._markDate;
@@ -12254,7 +12487,7 @@ async function syncCashFromJson() {
                 note: "盈透证券",
                 transactions: [],
                 amount: 0,
-                icon: DEFAULT_ICON
+                icon: null
             };
             cash.push(item)
         }
@@ -12886,7 +13119,7 @@ function saveModal() {
                 id: uid(),
                 _ok: undefined,
                 trades: [],
-                icon: DEFAULT_ICON
+                icon: null
             })
         }
     } else if (kind === "us") {
@@ -12908,7 +13141,7 @@ function saveModal() {
                 _hist: [],
                 id: uid(),
                 trades: [],
-                icon: DEFAULT_ICON
+                icon: usIconForSym($("m_symbol").value.trim().toUpperCase())
             })
         }
     } else {
@@ -12925,7 +13158,7 @@ function saveModal() {
                 id: uid(),
                 transactions: [],
                 amount: 0,
-                icon: DEFAULT_ICON
+                icon: null
             })
         }
     }
@@ -13456,6 +13689,11 @@ $("calRangeBtns").addEventListener("click", e => {
         document.querySelectorAll("#calRangeBtns [data-metric]").forEach(x => x.classList.remove("active"));
         b.classList.add("active");
         calMetric = b.dataset.metric;
+        drawCalendar()
+    } else if (b.dataset.cashmode) {
+        document.querySelectorAll("#calRangeBtns [data-cashmode]").forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        calCashMode = b.dataset.cashmode;
         drawCalendar()
     }
 });
