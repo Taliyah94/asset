@@ -4,7 +4,7 @@
     "accountName": "XIAOMEI REN",
     "currency": "USD",
     "openDate": "2026-02-06",
-    "lastTradeDate": "2026-09-22"
+    "lastTradeDate": "2026-09-25"
   },
   "totalNetValueDaily": [
     {
@@ -666,6 +666,10 @@
     {
       "date": "2026-09-24",
       "value": 31712.81958042
+    },
+    {
+      "date": "2026-09-25",
+      "value": 31145.47565282
     }
   ],
   "cashDaily": [
@@ -1354,29 +1358,34 @@
       "date": "2026-09-24",
       "value": 34074.27958042,
       "accrued": 10.22
-    }
-  ],
-  "ibkrAccruedInterest": 10.22,
-  "holdings": [
-    {
-      "symbol": "NVDA  260925P00220000",
-      "side": "Short",
-      "position": -3.0,
-      "costBasisPrice": 1.833096197,
-      "markPrice": 0.31,
-      "positionValue": -93.0,
-      "costBasisMoney": -549.928859,
-      "unrealizedPnl": 456.928859
     },
     {
-      "symbol": "ORCL  260925P00147000",
+      "date": "2026-09-25",
+      "value": -9633.20434718,
+      "accrued": 11.68
+    }
+  ],
+  "ibkrAccruedInterest": 11.68,
+  "holdings": [
+    {
+      "symbol": "ORCL",
+      "side": "Long",
+      "position": 300.0,
+      "costBasisPrice": 145.494397007,
+      "markPrice": 137.1,
+      "positionValue": 41130.0,
+      "costBasisMoney": 43648.319102,
+      "unrealizedPnl": -2518.319102
+    },
+    {
+      "symbol": "ORCL  261002C00145000",
       "side": "Short",
       "position": -3.0,
-      "costBasisPrice": 1.505602993,
-      "markPrice": 7.5956,
-      "positionValue": -2278.68,
-      "costBasisMoney": -451.680898,
-      "unrealizedPnl": -1826.999102
+      "costBasisPrice": 1.30838691,
+      "markPrice": 1.21,
+      "positionValue": -363.0,
+      "costBasisMoney": -392.516073,
+      "unrealizedPnl": 29.516073
     }
   ],
   "electronicFundTransfers": [
@@ -1476,6 +1485,61 @@
     }
   ],
   "trades": [
+    {
+      "date": "2026-09-25",
+      "symbol": "ORCL",
+      "underlying": "ORCL",
+      "cat": "STK",
+      "buySell": "BUY",
+      "quantity": 300.0,
+      "price": 147.0,
+      "realized": 0.0,
+      "tradeId": "10285383214"
+    },
+    {
+      "date": "2026-09-25",
+      "symbol": "NVDA  260925P00220000",
+      "underlying": "NVDA",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 3.0,
+      "price": 0.0,
+      "realized": 549.93,
+      "tradeId": "10285546061"
+    },
+    {
+      "date": "2026-09-25",
+      "symbol": "ORCL  260925P00147000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 3.0,
+      "price": 0.0,
+      "realized": 0.0,
+      "tradeId": "10285383213"
+    },
+    {
+      "date": "2026-09-25",
+      "symbol": "ORCL  261002C00145000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -1.0,
+      "price": 1.32,
+      "realized": 0.0,
+      "tradeId": "10283741906"
+    },
+    {
+      "date": "2026-09-25",
+      "symbol": "ORCL  261002C00145000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "SELL",
+      "quantity": -2.0,
+      "price": 1.32,
+      "realized": 0.0,
+      "tradeId": "10283741930"
+    },
     {
       "date": "2026-09-22",
       "symbol": "ORCL",
@@ -2597,42 +2661,9 @@
       "price": 72.76,
       "realized": 331.94,
       "tradeId": "10126500158"
-    },
-    {
-      "date": "2026-08-25",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "SELL",
-      "quantity": -100,
-      "price": 71.035,
-      "realized": -570.72,
-      "tradeId": "10115694960"
-    },
-    {
-      "date": "2026-08-25",
-      "symbol": "TQQQ",
-      "underlying": "TQQQ",
-      "cat": "STK",
-      "buySell": "BUY",
-      "quantity": 100,
-      "price": 70.228,
-      "realized": 0,
-      "tradeId": "10116170616"
-    },
-    {
-      "date": "2026-08-25",
-      "symbol": "ORCL  260828P00141000",
-      "underlying": "ORCL",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1,
-      "price": 1.77,
-      "realized": 0,
-      "tradeId": "10115915034"
     }
   ],
-  "lastSync": "2026-09-25",
+  "lastSync": "2026-09-26",
   "seed": {
     "pa_funds": [
       {
