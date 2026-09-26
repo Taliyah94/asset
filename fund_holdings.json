@@ -4995,6 +4995,10 @@
     {
       "d": "2026-09-24",
       "c": 741.1
+    },
+    {
+      "d": "2026-09-25",
+      "c": 744.5
     }
   ],
   "_property": {
@@ -5004,10 +5008,12 @@
       "city": "青岛"
     },
     "live_fetched": {
-      "soufun": true,
+      "soufun": false,
       "lianjia": false
     },
-    "stale_sources": [],
+    "stale_sources": [
+      "soufun"
+    ],
     "deals": [
       {
         "date": "2026-08-09",
