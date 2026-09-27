@@ -5412,7 +5412,7 @@ background: #ffffff;
                 </div>
                 <div data-page-node-id="CvNlWWLBomoKVwF2muHfDH" class="setting-row" id="usInvestSetRow" style="cursor:default">
                     <div data-page-node-id="udJtUHgmiK79C9CfMU0Gm0" class="label"><!--pnid:It1DuAucLvEwenlgRl9R5w-->美股总投入</div>
-                    <div data-page-node-id="WIRW6OOqPLarlOMS2PzELG" class="value" id="usInvestVal"><!--pnid:ES4t59chNoGusklo4vLfRP-->¥167,600.00</div>
+                    <div data-page-node-id="WIRW6OOqPLarlOMS2PzELG" class="value" id="usInvestVal"><!--pnid:ES4t59chNoGusklo4vLfRP-->¥167,599.89</div>
                 </div>
                 <div data-page-node-id="IaPPL06VY0gla58p9BkmGT" class="setting-row">
                     <div data-page-node-id="g0qNKif6gAoC3YQlx1uH5l" class="label"><!--pnid:CWwNYzDFRoQdzlVWL2DvZF-->投资组合成本</div>
@@ -11396,9 +11396,20 @@ function calAssetAt(ts) {
     return calCashMode === "invest" ? portfolioAt(ts) : assetAt(ts)
 }
 
+function forexCnhOn(ts) {
+    // 当日入金流水（外汇换汇 CNH，折 CNY），来自 Asset_parsed.json forexTrades。
+    // 与资产卡「总投资金额」基准同源（usInvestAutoVal=sumForexCnh），用于把入金计入投资池净投入。
+    var m = window._forexCnhByDate;
+    if (!m) return 0;
+    return m[ymd(ts)] || 0
+}
+
 function investFlowOn(ts) {
-    // 当日净投入（基金+美股交易明细，折 CNY）：买入=流入(+)，卖出/分红=流出(−)。
-    // 分红流出 → 当日盈亏 = 市值变化 + 分红，与资产卡把分红计入已实现的口径一致
+    // 当日净投入（仅基金交易明细 + 外汇入金，折 CNY）：基金买入=流入(+)，卖出/分红=流出(−)。
+    // 为什么不计美股(TQQQ)买卖/分红：资产卡把美股投资基准固定为「总投资金额」usInvest(=sumForexCnh≈167599.89，usInvestAutoVal 优先于手动值)，
+    // 美股持仓市值(TQQQ)与剩余盈透现金一并计入投资池，因此「现金↔股票」只是户内再配置（市值守恒），
+    // 不构成外部净流入；分红则通过盈透现金上升计入市值。只有外部入金（外汇换汇 CNH）才是真正的净流入。
+    // 这样可让入金日当日盈亏≈0（现金增加与投入增加相互抵消），消除 2 月起点断层，且序列终点与资产卡逐字节一致。
     const fx = effFx();
     let flow = 0;
     funds.forEach(function(f) {
@@ -11410,21 +11421,21 @@ function investFlowOn(ts) {
             else if (t.type === "dividend") flow -= (Number(t.amount) || 0)
         })
     });
-    us.forEach(function(u) {
-        (u.trades || []).forEach(function(t) {
-            var d = parseDate(t.date);
-            if (d == null || d !== ts) return;
-            var mult = usUnitMult(u);
-            if (t.type === "buy") flow += (Number(t.shares) || 0) * mult * (Number(t.price) || 0) * fx;
-            else if (t.type === "sell") flow -= (Number(t.shares) || 0) * mult * (Number(t.price) || 0) * fx;
-            else if (t.type === "dividend") flow -= (Number(t.amount) || 0) * fx
-        })
-    });
+    // 入金（外汇换汇 CNH）作为正投入并入当日净投入
+    flow += forexCnhOn(ts);
     return flow
 }
 
+function ibkrCashAt(ts) {
+    // 盈透(IBKR)现金余额（折 CNY），来自 Asset_parsed.json cashDaily 的每日序列（fxAtDate 取≤ts 的最近一日）。
+    // 日历「投资」口径把盈透现金算进投资池（用户要求「要算盈透」），但不计现金宝等其它现金账户。
+    const fr = fxAtDate(ymd(ts));
+    return fr ? (fr.cash || 0) * effFx() : 0
+}
+
 function investMvAt(ts) {
-    // 投资池市值（不含任何现金）：基金按当时净值(_list/fundNavAt)、美股/期权按历史收盘价(_hist)。
+    // 投资池市值（含盈透现金、不含其它现金）：基金按当时净值(_list/fundNavAt)、美股/期权按历史收盘价(_hist)，
+    // 再加盈透证券现金余额(ibkrCashAt)。不计入现金宝等其它现金账户——用户要求「不算现金（当然要算盈透）」。
     // 不用资金记录(net-cash)口径——其现金列含操作性跳动，会造成市值伪震荡。
     // 无历史价的持仓（如期权的 _hist 为空）用现价平推，只影响该持仓的日内波动、不影响端点盈亏。
     const fx = effFx();
@@ -11449,7 +11460,7 @@ function investMvAt(ts) {
         if (px == null || !(px > 0)) px = (u.price != null && u.price > 0) ? Number(u.price) : 0;
         uv += st.holdShares * mult * px * fx
     });
-    return fv + uv
+    return fv + uv + ibkrCashAt(ts)
 }
 
 let _invSeries = null,
@@ -11463,7 +11474,12 @@ function investSeriesSig() {
 }
 function investSeries() {
     // 全期日度序列（自最早建仓日至今日）：市值/净投入/当日盈亏/当日收益率/累计盈亏/累计TWR
-    // 当日盈亏 = 市值变化 − 当日净投入；当日收益率(TWR分日) = 当日盈亏 / 前日市值
+    // 投资池市值 = 基金市值 + 美股/期权市值 + 盈透现金（计入盈透、不计其它现金，见 investMvAt）；
+    // 净投入 = 基金买卖分红流水 + 外汇入金流水（见 investFlowOn）。注意：美股(TQQQ)买卖/分红不计入净投入——
+    // 资产卡把美股基准固定为总投资金额 usInvest，美股持仓市值与剩余盈透现金一并计入投资池，
+    // 「现金↔股票」只是户内再配置（市值守恒），只有外部入金才是真净流入，故入金日当日盈亏≈0。
+    // 当日盈亏 = 市值变化 − 当日净投入；当日收益率(TWR分日) = 当日盈亏 / 前日市值(投资池)。
+    // 序列自建仓首日从 0 平滑累积，终点与资产卡「总计·投资盈利」完全一致（usInvestAutoVal=sumForexCnh 与序列用的 forexCnhByDate 同源，无口径差），日月年视图同源闭合。
     const sig = investSeriesSig();
     if (_invSeries && _invSeriesSig === sig) return _invSeries;
     const today = todayTs();
@@ -11483,19 +11499,9 @@ function investSeries() {
         out.push({ ts: t, mv: mv, flow: flow, pnl: pnl, ret: ret, cumPnl: cum, twr: twr - 1 });
         prevMv = mv
     }
-    // 终点锚定资产卡「总计·投资盈利」：流水口径（交易流水基准、不含现金）与资产卡口径
-    // （含盈透现金、以「投资金额」为基准）存在固定口径差。把差值并入序列首日（建仓首日）：
-    // 首日当日盈亏出现一次断层（用户已接受），之后每日 pnl/ret 不变，全部日月汇总闭合到资产卡。
-    // ret（当日收益率/TWR）保持原始值——首日 prevMv≈0，若把断层计入收益率会爆表失真。
-    if (out.length) {
-        try {
-            const _shift = calCardInvestTotal() - out[out.length - 1].cumPnl;
-            if (_shift) {
-                out[0].pnl += _shift;
-                out.forEach(function(r) { r.cumPnl += _shift })
-            }
-        } catch (e) {}
-    }
+    // 新口径：投资池市值已含盈透现金(investMvAt)、净投入已含入金流水(investFlowOn)，
+    // 序列自建仓首日从 0 平滑累积，终点与资产卡「总计·投资盈利」(calCardInvestTotal)逐字节一致——
+    // 不再需要把口径差整块堆到首日（那正是 2 月起点断层的根因）。
     _invSeriesSig = sig;
     _invSeries = out;
     return out
@@ -11526,8 +11532,8 @@ function investCumPnlBetween(startTs, endTs) {
 function calCardInvestTotal() {
     // 资产页「总计·投资盈利」口径：基金(市值−成本+已实现) + 美股(市值+盈透现金−投资金额)。
     // 盈透现金来自 Asset_parsed.json cashDaily 自动同步（syncCashFromJson），非手工记账。
-    // 日历「投资」模式的「自始以来」药丸/年度卡用此口径锚定终点（与资产卡逐字节一致）；
-    // 月视图月卡/日涨跌维持流水口径（TWR 逐日盈亏），两者差 = 盈透现金+基准差的固定口径差。
+    // 日历「投资」序列(investSeries)经修正后终点与此函数完全一致（usInvestAutoVal=sumForexCnh 已优先于种子默认，两端同源，无口径差），
+    // 因此「自始以来」药丸/年度卡直接取 investRowAt(today).cumPnl 即可；月视图月卡/日涨跌维持流水口径(TWR 逐日盈亏)。
     const cur = computeCurrent();
     const fx = effFx();
     const yc = yitouCashItem();
@@ -17047,6 +17053,14 @@ function sumForexCnh(j) {
                 if (/manual/i.test(String(e.description || ""))) _fl[e.date] = (_fl[e.date] || 0) + (Number(e.usd) || 0)
             });
             window._twrFlowUsd = _fl;
+            // 逐日入金流水（CNY，= 外汇换汇 cnh 求和）：与 calCardInvestTotal 的「总投资金额」基准同源
+            // （usInvestAutoVal=sumForexCnh），供日历「投资」口径把入金计入净投入、消除建仓日早于入金记账的断层。
+            var _fc = {};
+            (j.forexTrades || []).forEach(function(e) {
+                if (!e || !e.date) return;
+                _fc[e.date] = (_fc[e.date] || 0) + (Number(e.cnh) || 0)
+            });
+            window._forexCnhByDate = _fc;
         } catch (e2) {}
         var cur = computeCurrent();
         renderHero(cur);
