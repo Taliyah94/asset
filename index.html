@@ -11434,10 +11434,11 @@ function ibkrCashAt(ts) {
 }
 
 function investMvAt(ts) {
-    // 投资池市值（含盈透现金、不含其它现金）：基金按当时净值(_list/fundNavAt)、美股/期权按历史收盘价(_hist)，
-    // 再加盈透证券现金余额(ibkrCashAt)。不计入现金宝等其它现金账户——用户要求「不算现金（当然要算盈透）」。
-    // 不用资金记录(net-cash)口径——其现金列含操作性跳动，会造成市值伪震荡。
-    // 无历史价的持仓（如期权的 _hist 为空）用现价平推，只影响该持仓的日内波动、不影响端点盈亏。
+    // 投资池市值（含盈透现金、不含其它现金）：
+    //   基金按当时净值(fundNavAt)；美股/期权取 IBKR json 每日账户净值 totalNetValueDaily（USD→CNY）。
+    // IBKR 净值本就含「ORCL + 期权 + 现金」——净值已含现金，不再减现金再加现金（此前提过 cash 算了两边）。
+    //   TQQQ 55 股不在 IBKR 持仓口径内（IBKR 持仓仅 ORCL+期权），单独用其历史净值(_hist)补回，避免被整体换净值时丢掉。
+    //   不计入现金宝等其它现金账户——用户要求「不算现金（当然要算盈透）」，盈透现金已含在 IBKR 净值 net 内。
     const fx = effFx();
     let fv = 0;
     funds.forEach(function(f) {
@@ -11449,7 +11450,13 @@ function investMvAt(ts) {
         if (nav != null) fv += fst2.holdShares * nav
     });
     let uv = 0;
+    // IBKR 完整账户净值（含 ORCL/期权/现金）：净值已含现金，直接用 net，不再减现金再加现金。
+    // fxAtDate 取 ≤ts 的最近一日；账户开通前(net 无数据) uv=0，仅基金计入。
+    var fr = (typeof fxAtDate === "function") ? fxAtDate(ymd(ts)) : null;
+    if (fr) uv = fr.net * fx;
+    // TQQQ 55 股：不在 IBKR 净值口径内，用其历史净值(_hist)补回（与资产卡美股段一致，走 _hist 而非 IBKR 聚合）。
     us.forEach(function(u) {
+        if (String(u.symbol || "").toUpperCase() !== "TQQQ") return;
         var earliest = getEarliestTradeDate(u);
         if (earliest == null || ts < earliest) return;
         var st = getTradeStatsAt(u, ts);
@@ -11460,7 +11467,7 @@ function investMvAt(ts) {
         if (px == null || !(px > 0)) px = (u.price != null && u.price > 0) ? Number(u.price) : 0;
         uv += st.holdShares * mult * px * fx
     });
-    return fv + uv + ibkrCashAt(ts)
+    return fv + uv
 }
 
 let _invSeries = null,
@@ -11499,9 +11506,10 @@ function investSeries() {
         out.push({ ts: t, mv: mv, flow: flow, pnl: pnl, ret: ret, cumPnl: cum, twr: twr - 1 });
         prevMv = mv
     }
-    // 新口径：投资池市值已含盈透现金(investMvAt)、净投入已含入金流水(investFlowOn)，
-    // 序列自建仓首日从 0 平滑累积，终点与资产卡「总计·投资盈利」(calCardInvestTotal)逐字节一致——
-    // 不再需要把口径差整块堆到首日（那正是 2 月起点断层的根因）。
+    // 新口径：投资池市值 = 基金(fundNavAt) + 美股/期权(IBKR 每日净值 net，已含现金/ORCL/期权) + TQQQ 55 股(历史净值 _hist)，
+    // 净投入仅含基金买卖分红 + 外汇入金（美股买卖/分红不计流水，因现金↔股票属户内再配置、市值守恒）。
+    // 序列自建仓首日从 0 平滑累积，终点累计盈亏 = 投资池「期末市值 − 期初市值 − 累计净投入」，
+    // 与资产卡实时价口径(calCardInvestTotal)存在 IBKR 官方标记价 vs 实时价的差额（日历自成一套，不再锚定资产卡）。
     _invSeriesSig = sig;
     _invSeries = out;
     return out
@@ -12002,10 +12010,12 @@ function renderCalYear(box, useAmt) {
     const todayTsTop = todayTs();
     let totalPnl, totalRetAll;
     if (calCashMode === "invest") {
-        // 投资：盈亏额 = 资产卡口径（含盈透现金、以「投资金额」为基准，见 calCardInvestTotal），
-        // 与资产页「总计·投资盈利」逐字节一致；收益率 = 全程 TWR（追加本金不计收益）。
-        totalPnl = calCardInvestTotal();
+        // 投资：盈亏额 = 投资序列终点累计盈亏（IBKR 每日净值口径），与日/月格子同源，
+        // 不再锚定资产卡实时价口径(calCardInvestTotal)，避免日历内出现两套总投资盈利。
+        // 收益率 = 全程 TWR（追加本金不计收益）。
         const _s = investSeries();
+        const _lastRow = _s.length ? _s[_s.length - 1] : null;
+        totalPnl = _lastRow ? _lastRow.cumPnl : 0;
         const _twrAll = _s.length ? investTwrBetween(_s[0].ts - 864e5, todayTsTop) : null;
         totalRetAll = _twrAll != null ? _twrAll : 0;
     } else {
@@ -12042,9 +12052,11 @@ function renderCalYear(box, useAmt) {
         const yEndReal = Math.min(yEnd, today);
         let startAsset, endAsset, yChg, yPct;
         if (calCashMode === "invest") {
-            // 投资：年度盈亏 = 资产卡口径锚定（终点=资产卡，减去年初前的锚定累计）；收益率 = 期内 TWR
+            // 投资：年度盈亏 = 投资序列「期末累计 − 年初前累计」（IBKR 每日净值口径），
+            // 与日/月格子同源；不再用 calCardInvestTotal（实时价口径）锚定，避免与日/月累计不一致。
             const _prevRow = investRowAt(yStart - 864e5);
-            yChg = calCardInvestTotal() - (_prevRow ? _prevRow.cumPnl : 0);
+            const _lastRow = investRowAt(todayTsTop);
+            yChg = (_lastRow ? _lastRow.cumPnl : 0) - (_prevRow ? _prevRow.cumPnl : 0);
             const _yt = investTwrBetween(yStart - 864e5, yEndReal);
             yPct = _yt != null ? _yt : 0;
             startAsset = null;
@@ -15192,7 +15204,13 @@ function fitMarketNames() {
     if (!listEl) return;
     var MIN_FS = 10;
     Array.prototype.slice.call(listEl.querySelectorAll(".un-name-txt")).forEach(function(el) {
-        var base = parseFloat(el.style.fontSize) || 14;
+        // 跳过未布局/隐藏元素（clientWidth=0）：此时测不出真实可用宽，会误判溢出并直接缩到最小字号，
+        // 且因读取已缩小的内联字号而永远无法恢复。待元素可见(切到市场页)时再由后续渲染重新测量。
+        if (el.clientWidth === 0) return;
+        // 基准字号取渲染时写入的 data-fs（原始目标字号），而非上一次已缩小的内联值，
+        // 避免二次渲染越缩越小（对齐 fitNumCells 的「先清空内联字号再测」思路）。
+        var base = parseFloat(el.getAttribute("data-fs"));
+        if (isNaN(base)) base = parseFloat(el.style.fontSize) || 14;
         var fs = base;
         el.style.fontSize = fs + "px";
         // 单行测量：临时 nowrap，内容宽 > 可用宽则缩字号
@@ -15734,7 +15752,7 @@ function renderMarketList(data, tencentMap, alpacaMap, alpacaPriceMap) {
             + '<div class="u-name">'
                 + _icHtml
                 + '<div class="un-text">'
-                    + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _nfs + 'px">' + name + '</span></div>'
+                    + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _nfs + 'px" data-fs="' + _nfs + '">' + name + '</span></div>'
                     + '<div class="un-sym' + (_isMultiOpt ? " un-sym-multi" : "") + '">' + _symHtml
                         + ' <span class="market-src ' + srcCls + '">' + srcLabel + '</span>'
                         + (_isTqqq ? '<span class="tqqq-caret" title="查看 TQQQ K 线"><span class="u-caret">▶</span></span>' : "")
@@ -16116,7 +16134,7 @@ function renderFundHoldings() {
                 + '<div class="u-name">'
                     + (f.icon ? window.itemIconHtml(f.icon) : "")
                     + '<div class="un-text">'
-                        + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _fnfs + 'px" title="' + esc(name) + '">' + esc(_dispName) + '</span>'
+                        + '<div class="un-main"><span class="un-name-txt" style="font-size:' + _fnfs + 'px" data-fs="' + _fnfs + '" title="' + esc(name) + '">' + esc(_dispName) + '</span>'
                             + '</div>'
                         + '<div class="un-sym">' + code
                             + ' <span class="market-src ' + _fundSrcCls + '">' + _fundSrcLabel + '</span>' + caret
