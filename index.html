@@ -9320,9 +9320,11 @@ function buildSeries(opts) {
             addFlow(ymd(d), t.type === "sell" ? -amt : amt)
         })
     });
-    const flowUsd = window._twrFlowUsd || {};
-    Object.keys(flowUsd).forEach(function(d) {
-        addFlow(d, flowUsd[d] * fx)
+    // 入金现金流统一为资产卡口径：只取 forexTrades.cnh（人民币），与日历 investFlowOn / 资产卡「总投资金额」同源；
+    // 不再用 window._twrFlowUsd（EFT+manual usd×fx），避免两套入金记录日期/金额/币种不一致导致 TWR 与日历对不上。
+    const fcnh = window._forexCnhByDate || {};
+    Object.keys(fcnh).forEach(function(d) {
+        addFlow(d, fcnh[d])
     });
     let prevV = null,
         cumTwr = 1;
@@ -9351,6 +9353,7 @@ function buildSeries(opts) {
             ibkrNetCNY = usMarketValueFromList(fx) + ytCNY // Asset_parsed.json 未加载完时的兜底
         }
         // 逐日 TWR：r_t = (V_t − CF_t) / V_{t−1}，累计 = Π(1+r) − 1
+        // CF(已在 flowCNY 内) = 基金买卖流水 + 外汇入金(forexCnhByDate, cnh 人民币)，与日历 investFlowOn / 资产卡同源
         const V = fv + ibkrNetCNY;
         const cf = flowCNY[ymd(ts)] || 0;
         let r = 0;
