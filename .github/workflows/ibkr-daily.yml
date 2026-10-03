@@ -1,72 +1,96 @@
-name: IBKR 每日资产同步
+name: 同步 IBKR 资产快照（来自 futucopy）
+
+# 为什么存在这个 workflow
+# ------------------------------------------------------------------
+# 2026-10-03 起，本仓库不再自行向 IBKR 拉取 Flex 报表。
+#
+# 原因：asset 与 futucopy 两个仓库的 ibkr-daily 此前使用**同一个 IBKR
+# token + 同一个 queryId**，且 cron 完全相同（10 5 * * *）。IBKR Flex
+# 服务端一次只受理一个报表生成请求，两个仓库同时发请求时后到者会被拒：
+#
+#   [flex] SendRequest 失败: Statement could not be generated at this time.
+#   [warn] 拉取失败  →  退出码 0  →  界面显示绿色但实际没数据
+#
+# 同一仓库内的 concurrency group 保护不了跨仓库场景（并发组只在单仓库内
+# 生效），而脚本的 lastSync 去重标记也写在各自仓库的 JSON 里，A 仓库同步
+# 成功并不会阻止 B 仓库发请求。结果是两边互相饿死，asset 稳定落后一轮。
+#
+# 现在改为：futucopy 是 IBKR 数据的**唯一来源**，本仓库只负责把它的
+# Asset_parsed.json 拉过来提交，保证本仓库 Pages 有数据可用。
+# 若某天本仓库没同步成功，不会影响 futucopy 的正常拉取。
 
 on:
   schedule:
-    # 每天 UTC 05:10 跑一次（北京时间 13:10）
-    # cron 固定按 UTC 执行，无时区概念，不再绑定美东时区，无需随夏令时/冬令时切换。
-    - cron: "10 5 * * *"   # UTC 05:10 = 北京时间 13:10
+    # 比 futucopy 的 IBKR 拉取（UTC 05:10）晚 2 小时。
+    # 留足缓冲：等上游写完并 push，再取；两仓库不再同时打 IBKR。
+    - cron: "10 7 * * *"
   workflow_dispatch:
     inputs:
       force:
-        description: "强制重新同步（忽略今日已同步标记）"
+        description: "即使内容无变化也强制提交一次（用于排查）"
         type: boolean
         default: false
 
 permissions:
-  contents: write        # 允许把更新后的 Asset_parsed.json 提交回仓库
+  # write 隐含 read：既要把同步到的 JSON 提交回本仓库，也要读上游仓库。
+  # ⚠️ 不要拆成 contents: write / contents: read 两行 —— YAML 重复 key 会让
+  #   后者覆盖前者，写权限会被静默丢掉，导致最后一步 git push 失败。
+  contents: write
 
 concurrency:
-  group: ibkr-daily
+  group: sync-from-futucopy
   cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    # 单次轻量：每个阶段最多 2 次尝试（首次 + 退避 20s 重试 1 次），最坏约 1 分钟。
-    # 给 5 分钟余量，足以覆盖 IBKR 接口抖动与 Actions 自身调度延迟。
     timeout-minutes: 5
     steps:
-      - name: 检出仓库
+      - name: 检出本仓库
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 设置 Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: 运行 IBKR 1day 解析脚本
+      - name: 从 futucopy 拉取 Asset_parsed.json
         env:
-          IBKR_TOKEN: ${{ secrets.IBKR_TOKEN }}
-          IBKR_QUERY_ID_1DAY: ${{ secrets.IBKR_QUERY_ID_1DAY }}
-          JSON_PATH: ${{ github.workspace }}/Asset_parsed.json
-          FORCE_ARG: ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+          # 两个仓库都是 public，匿名 API 即可读取；带上 token 只是为了避开
+          # 未认证请求的限流（60 次/小时），不是必需。
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -o pipefail
-          OUT=$(python parse_ibkr_asset1day.py $FORCE_ARG 2>&1); RC=$?
-          echo "$OUT"
-          if [ $RC -ne 0 ]; then
-            echo "::error::脚本报错（退出码 $RC）"
-            exit $RC
-          fi
-          if echo "$OUT" | grep -q "\[ok\] 同步成功"; then
-            echo "✅ 本次已写入数据"
-          elif echo "$OUT" | grep -q "\[skip\] 今日"; then
-            echo "ℹ️ 今日已同步过，跳过（正常）"
-          elif echo "$OUT" | grep -q "\[warn\] 拉取失败"; then
-            echo "::warning::IBKR 报表未就绪，本次未写入（次日 05:10 UTC 再试）"
-          fi
+          set -euo pipefail
+          API="https://api.github.com/repos/Taliyah94/futucopy/contents/Asset_parsed.json?ref=main"
+          curl -fsSL -m 60 -H "Authorization: Bearer $GH_TOKEN" \
+               -H "Accept: application/vnd.github+json" \
+               -H "X-GitHub-Api-Version: 2022-11-28" \
+               "$API" -o upstream.json
 
-      - name: 提交并推送更新后的 JSON
+          # contents API 返回的是 base64 包装的 JSON，解开后才是真正的数据。
+          python3 - <<'PY'
+          import base64, json, sys
+          meta = json.load(open("upstream.json", encoding="utf-8"))
+          if "content" not in meta:
+              sys.exit("::error::上游返回异常，未拿到 content 字段：" + str(meta)[:200])
+          data = json.loads(base64.b64decode(meta["content"]).decode("utf-8"))
+          if not data.get("totalNetValueDaily"):
+              sys.exit("::error::上游 JSON 缺 totalNetValueDaily，疑似坏数据，不覆盖本仓库")
+          with open("Asset_parsed.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+          print("上游 lastSync =", data.get("lastSync"))
+          print("净值末日      =", data["totalNetValueDaily"][-1])
+          PY
+
+      - name: 提交结果（如有变化）
+        env:
+          FORCE: ${{ github.event.inputs.force == 'true' && '1' || '' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Asset_parsed.json
-          # 仅当 JSON 有变化才提交（避免无谓的空提交触发 Pages 重建）
-          if git diff --cached --quiet; then
+          if git diff --cached --quiet && [ -z "$FORCE" ]; then
             echo "Asset_parsed.json 无变化，跳过提交"
           else
-            git commit -m "chore: 每日同步 IBKR 资产快照 $(date +%Y-%m-%d)"
+            git commit -m "chore: 同步 futucopy 的 IBKR 资产快照 $(date +%Y-%m-%d)"
             git push
+            echo "已提交"
           fi
