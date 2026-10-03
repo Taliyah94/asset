@@ -686,6 +686,10 @@
     {
       "date": "2026-10-01",
       "value": 31409.43782302
+    },
+    {
+      "date": "2026-10-02",
+      "value": 32847.96782302
     }
   ],
   "cashDaily": [
@@ -1399,49 +1403,24 @@
       "date": "2026-10-01",
       "value": -9849.96217698,
       "accrued": 9.4
+    },
+    {
+      "date": "2026-10-02",
+      "value": -9849.96217698,
+      "accrued": 7.93
     }
   ],
-  "ibkrAccruedInterest": 9.4,
+  "ibkrAccruedInterest": 7.93,
   "holdings": [
     {
       "symbol": "ORCL",
       "side": "Long",
       "position": 300.0,
       "costBasisPrice": 145.494397007,
-      "markPrice": 138.07,
-      "positionValue": 41421.0,
+      "markPrice": 142.3,
+      "positionValue": 42690.0,
       "costBasisMoney": 43648.319102,
-      "unrealizedPnl": -2227.319102
-    },
-    {
-      "symbol": "ORCL  261002C00143000",
-      "side": "Short",
-      "position": -3.0,
-      "costBasisPrice": 0.62305132,
-      "markPrice": 0.32,
-      "positionValue": -96.0,
-      "costBasisMoney": -186.915396,
-      "unrealizedPnl": 90.915396
-    },
-    {
-      "symbol": "ORCL  261002C00145000",
-      "side": "Short",
-      "position": -3.0,
-      "costBasisPrice": 1.30838691,
-      "markPrice": 0.185,
-      "positionValue": -55.5,
-      "costBasisMoney": -392.516073,
-      "unrealizedPnl": 337.016073
-    },
-    {
-      "symbol": "ORCL  261002C00150000",
-      "side": "Short",
-      "position": -3.0,
-      "costBasisPrice": 1.79302722,
-      "markPrice": 0.065,
-      "positionValue": -19.5,
-      "costBasisMoney": -537.908166,
-      "unrealizedPnl": 518.408166
+      "unrealizedPnl": -958.319102
     }
   ],
   "electronicFundTransfers": [
@@ -1541,6 +1520,39 @@
     }
   ],
   "trades": [
+    {
+      "date": "2026-10-02",
+      "symbol": "ORCL  261002C00143000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 3.0,
+      "price": 0.0,
+      "realized": 186.92,
+      "tradeId": "10324322830"
+    },
+    {
+      "date": "2026-10-02",
+      "symbol": "ORCL  261002C00145000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 3.0,
+      "price": 0.0,
+      "realized": 392.52,
+      "tradeId": "10324336483"
+    },
+    {
+      "date": "2026-10-02",
+      "symbol": "ORCL  261002C00150000",
+      "underlying": "ORCL",
+      "cat": "OPT",
+      "buySell": "BUY",
+      "quantity": 3.0,
+      "price": 0.0,
+      "realized": 537.91,
+      "tradeId": "10324322589"
+    },
     {
       "date": "2026-09-29",
       "symbol": "ORCL  261002C00143000",
@@ -2464,53 +2476,9 @@
       "price": 0.38,
       "realized": 0.0,
       "tradeId": "10168923847"
-    },
-    {
-      "date": "2026-09-02",
-      "symbol": "TQQQ  260902C00070000",
-      "underlying": "TQQQ",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1.0,
-      "price": 0.07,
-      "realized": 0.0,
-      "tradeId": "10159412951"
-    },
-    {
-      "date": "2026-09-02",
-      "symbol": "TQQQ  260902C00070000",
-      "underlying": "TQQQ",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1.0,
-      "price": 0.19,
-      "realized": 0.0,
-      "tradeId": "10160410686"
-    },
-    {
-      "date": "2026-09-02",
-      "symbol": "TQQQ  260902C00070000",
-      "underlying": "TQQQ",
-      "cat": "OPT",
-      "buySell": "SELL",
-      "quantity": -1.0,
-      "price": 0.19,
-      "realized": 0.0,
-      "tradeId": "10160410815"
-    },
-    {
-      "date": "2026-09-02",
-      "symbol": "TQQQ  260902C00070000",
-      "underlying": "TQQQ",
-      "cat": "OPT",
-      "buySell": "BUY",
-      "quantity": 3.0,
-      "price": 0.0,
-      "realized": 42.56,
-      "tradeId": "10164058866"
     }
   ],
-  "lastSync": "2026-10-02",
+  "lastSync": "2026-10-03",
   "seed": {
     "pa_funds": [
       {
