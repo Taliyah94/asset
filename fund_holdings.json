@@ -5076,10 +5076,12 @@
       "city": "青岛"
     },
     "live_fetched": {
-      "soufun": true,
+      "soufun": false,
       "lianjia": false
     },
-    "stale_sources": [],
+    "stale_sources": [
+      "soufun"
+    ],
     "deals": [
       {
         "date": "2026-09-12",
