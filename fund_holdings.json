@@ -6942,12 +6942,10 @@
       "city": "青岛"
     },
     "live_fetched": {
-      "soufun": false,
+      "soufun": true,
       "lianjia": false
     },
-    "stale_sources": [
-      "soufun"
-    ],
+    "stale_sources": [],
     "deals": [
       {
         "date": "2026-09-12",
@@ -7202,6 +7200,6 @@
         "source": "房天下"
       }
     ],
-    "updated": "2026-10-09 18:53:08"
+    "updated": "2026-10-11 18:11:39"
   }
 }
